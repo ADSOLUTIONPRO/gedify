@@ -5,6 +5,7 @@ import { LockKeyhole, ShieldCheck } from "lucide-react";
 import { LoginForm } from "./login-form";
 import { BrandLogo } from "@/components/ui/brand-logo";
 import { readSession } from "@/lib/auth/session";
+import { hasAnyUser } from "@/lib/engine/users";
 
 export const metadata: Metadata = { title: "Connexion — Gedify" };
 
@@ -18,6 +19,11 @@ function safeNext(next: string | undefined): string {
 
 export default async function LoginPage({ searchParams }: { searchParams: SearchParams }) {
   const { next, reason } = await searchParams;
+
+  // Aucun compte encore créé → écran de première connexion (installation).
+  if (!(await hasAnyUser())) {
+    redirect("/installation");
+  }
 
   // Déjà connecté : pas de formulaire, on renvoie vers l'espace demandé (ou /).
   const session = await readSession();

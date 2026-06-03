@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 };
 
 /** Routes rendues sans AppShell (0 chrome : fond + contenu uniquement). */
-const BARE_ROUTES = ["/login"];
+const BARE_ROUTES = ["/login", "/installation"];
 
 export default async function RootLayout({
   children,

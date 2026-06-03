@@ -21,9 +21,11 @@ npm run dev        # http://localhost:3200
 - **Données & médias** : tout est persisté dans `apps-devices/nopp/.data/`
   (stores JSON sous `.data/engine/`, fichiers sous `.data/media/`). Surchargé via
   `DATA_DIR=/chemin/absolu`.
-- **Admin au 1ᵉʳ lancement** : créé automatiquement depuis `GEDIFY_ADMIN_USER` /
-  `GEDIFY_ADMIN_PASSWORD` (défaut `admin` / `admin`), ou via l'écran de mise en
-  place. Mode sans authentification : `GEDIFY_LOCAL_NO_AUTH=1`.
+- **Admin au 1ᵉʳ lancement** : aucun identifiant en variable d'env. Au premier
+  accès (store vide), l'app affiche l'écran **`/installation`** (première
+  connexion) pour créer le compte administrateur, persisté dans le store et
+  utilisable ensuite sur la page de connexion. Mode sans authentification (poste
+  local uniquement) : `GEDIFY_LOCAL_NO_AUTH=1`.
 
 ## Architecture du moteur (`src/lib/engine/`)
 

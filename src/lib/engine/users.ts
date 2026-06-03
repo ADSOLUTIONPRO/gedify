@@ -19,28 +19,36 @@ export type CreateUserInput = {
   is_staff?: boolean;
 };
 
-let bootstrapped = false;
-
-/** Crée l'admin initial (GEDIFY_ADMIN_USER / GEDIFY_ADMIN_PASSWORD) si aucun user. */
-export async function ensureBootstrapAdmin(): Promise<void> {
-  if (bootstrapped) return;
-  bootstrapped = true;
+/** Au moins un utilisateur enregistré ? Sinon → écran de 1ʳᵉ connexion (/installation). */
+export async function hasAnyUser(): Promise<boolean> {
   const users = await readStore<EngineUser[]>(STORE.users, []);
-  if (users.length > 0) return;
-  const username = process.env.GEDIFY_ADMIN_USER?.trim() || "admin";
-  const password = process.env.GEDIFY_ADMIN_PASSWORD || "admin";
-  await createUser({
-    username,
-    password,
-    email: process.env.GEDIFY_ADMIN_MAIL?.trim() ?? "",
+  return users.length > 0;
+}
+
+/**
+ * Crée le tout premier administrateur via le formulaire de première connexion.
+ * Refuse si un utilisateur existe déjà — empêche tout détournement de l'écran
+ * d'installation une fois l'application initialisée. Le compte est persisté
+ * dans le store (volume /app/.data) : aucun identifiant en variable d'env.
+ */
+export async function createFirstAdmin(input: {
+  username: string;
+  password: string;
+  email?: string;
+}): Promise<EngineUser> {
+  if (await hasAnyUser()) throw new Error("already_initialized");
+  const user = await createUser({
+    username: input.username,
+    password: input.password,
+    email: input.email ?? "",
     is_superuser: true,
     is_staff: true,
   });
-  console.log(`[engine] admin local initial créé : « ${username} » (modifiable dans Utilisateurs).`);
+  console.log(`[engine] administrateur initial créé : « ${user.username} ».`);
+  return user;
 }
 
 export async function listUsers(): Promise<EngineUser[]> {
-  await ensureBootstrapAdmin();
   return readStore<EngineUser[]>(STORE.users, []);
 }
 
@@ -92,7 +100,6 @@ export async function deleteUser(id: number): Promise<void> {
 
 /** Vérifie un couple identifiant / mot de passe contre le store local. */
 export async function verifyCredentials(username: string, password: string): Promise<boolean> {
-  await ensureBootstrapAdmin();
   const users = await readStore<EngineUser[]>(STORE.users, []);
   const u = users.find((x) => x.username.toLowerCase() === username.toLowerCase());
   if (!u || !u.is_active || !u.passwordHash) return false;

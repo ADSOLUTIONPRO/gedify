@@ -16,6 +16,9 @@ const AUTH_MESSAGE = "Vous devez vous connecter pour accéder à votre espace GE
  */
 const PUBLIC_PREFIXES = [
   "/login",
+  // Première connexion : création du compte admin avant toute session.
+  "/installation",
+  "/api/auth/setup",
   "/api/auth/login",
   "/api/auth/logout",
   "/api/auth/session",
