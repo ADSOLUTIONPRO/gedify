@@ -201,6 +201,12 @@ export const administrationDropdownNavigation: NavigationSection[] = [
         icon: Server,
         description: "Santé des services.",
       },
+      {
+        label: "Sauvegarde & migration",
+        href: "/administration/sauvegarde",
+        icon: DatabaseZap,
+        description: "Export / import .zip de toutes les données.",
+      },
     ],
   },
   {
