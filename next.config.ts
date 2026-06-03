@@ -4,8 +4,23 @@ const nextConfig: NextConfig = {
   output: "standalone",
   reactCompiler: true,
 
+  // Augmente la limite d’upload côté Next.js
+  experimental: {
+    proxyClientMaxBodySize: "200mb",
+
+    // Augmente la limite si tes uploads passent par des Server Actions
+    serverActions: {
+      bodySizeLimit: "200mb",
+    },
+  },
+
   // Moteur documentaire local : libs natives / lourdes laissées hors-bundle.
-  serverExternalPackages: ["sharp", "@napi-rs/canvas", "tesseract.js", "pdfjs-dist"],
+  serverExternalPackages: [
+    "sharp",
+    "@napi-rs/canvas",
+    "tesseract.js",
+    "pdfjs-dist",
+  ],
 
   async headers() {
     return [
@@ -13,13 +28,13 @@ const nextConfig: NextConfig = {
         source: "/(.*)",
         headers: [
           { key: "X-Content-Type-Options", value: "nosniff" },
-          // frame-ancestors préféré à X-Frame-Options (CSP remplace)
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=()",
+          },
           {
             key: "Content-Security-Policy",
-            // Autorise office.azserver.fr en iframe pour OnlyOffice (futur).
-            // Tailwind v4 injecte des styles inline → unsafe-inline requis.
             value: [
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
