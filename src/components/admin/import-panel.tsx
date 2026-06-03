@@ -41,16 +41,17 @@ export function ImportPanel() {
     setError(null);
     setSummary(null);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      fd.append("mode", mode);
-      if (mode === "replace") fd.append("confirm", REPLACE_CONFIRM);
+      // Upload brut (pas de multipart) : le zip part directement dans le corps,
+      // les options en query string. Évite le parseur multipart fragile sur gros fichiers.
+      const qs = new URLSearchParams({ mode });
+      if (mode === "replace") qs.set("confirm", REPLACE_CONFIRM);
 
-      const res = await fetch("/api/admin/import", {
+      const res = await fetch(`/api/admin/import?${qs.toString()}`, {
         method: "POST",
         credentials: "include",
         cache: "no-store",
-        body: fd,
+        headers: { "content-type": "application/zip" },
+        body: file,
       });
       const data = (await res.json()) as ImportSummary | { error?: string; details?: string };
       if (!res.ok || !("ok" in data)) {
