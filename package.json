@@ -9,6 +9,9 @@
     "start": "next start -p 3200",
     "lint": "eslint"
   },
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "dependencies": {
     "@napi-rs/canvas": "^0.1.65",
     "bcryptjs": "^2.4.3",
