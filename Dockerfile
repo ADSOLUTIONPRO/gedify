@@ -41,10 +41,15 @@ RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-# Assets OCR chargés PAR CHEMIN (non tracés par le build standalone) → copiés explicitement.
+# Paquets natifs / chargés PAR CHEMIN (non tracés par le build standalone) → copiés explicitement.
 COPY --from=builder --chown=nextjs:nodejs /app/tessdata ./tessdata
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/tesseract.js-core ./node_modules/tesseract.js-core
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@napi-rs ./node_modules/@napi-rs
+# Vignettes : sharp (binaire natif via @img/sharp-linuxmusl-*) + rendu 1ʳᵉ page PDF (pdfjs-dist).
+# Sans ces copies, makeThumbnail plante (même le placeholder passe par sharp) → aucune vignette.
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/sharp ./node_modules/sharp
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@img ./node_modules/@img
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/pdfjs-dist ./node_modules/pdfjs-dist
 
 # Répertoire de données persistant (point de montage du volume Coolify).
 RUN mkdir -p /app/.data && chown -R nextjs:nodejs /app/.data
