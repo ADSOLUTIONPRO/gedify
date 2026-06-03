@@ -1,0 +1,285 @@
+import type { LucideIcon } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  Archive,
+  Banknote,
+  Bell,
+  Brain,
+  Calendar,
+  CalendarClock,
+  CalendarDays,
+  CheckCircle2,
+  Clock,
+  Copy,
+  FileText,
+  FileType2,
+  FolderTree,
+  Gauge,
+  History,
+  Inbox,
+  LayoutDashboard,
+  LayoutGrid,
+  Link2,
+  ListChecks,
+  PenLine,
+  Receipt,
+  RefreshCw,
+  Repeat,
+  Send,
+  Settings,
+  Sliders,
+  Sparkles,
+  Star,
+  Tags,
+  Trash2,
+  Upload,
+  UserPlus,
+  Users,
+  Wallet,
+} from "lucide-react";
+import { getSpaceByHref } from "@/config/spaces";
+
+/* ── Types ─────────────────────────────────────────────────────────────── */
+
+export type SpaceMenuItem = { label: string; href: string; icon: LucideIcon };
+export type SpaceMenuAction = { label: string; href: string; icon: LucideIcon };
+
+export type SpaceMenu = {
+  /** id = id d'espace (`@/config/spaces`) ou "accueil". */
+  id: string;
+  title: string;
+  description?: string;
+  /** Couleur d'accent (hex). Défaut repris de l'espace. */
+  color?: string;
+  /** Bouton d'action rapide en tête de menu (optionnel). */
+  action?: SpaceMenuAction;
+  items: SpaceMenuItem[];
+};
+
+/* ── Ordre du rail d'applications ──────────────────────────────────────── */
+
+export const RAIL_PRIMARY = [
+  "documents",
+  "messagerie",
+  "finances",
+  "calendrier",
+  "contacts",
+  "rappels",
+] as const;
+
+export const RAIL_SECONDARY = ["office", "organiser", "actions"] as const;
+
+/* ── Menus par espace (allégés : uniquement l'essentiel) ───────────────── */
+
+export const SPACE_MENUS: Record<string, SpaceMenu> = {
+  accueil: {
+    id: "accueil",
+    title: "Accueil",
+    description: "Votre tableau de bord",
+    items: [
+      { label: "Tableau de bord", href: "/", icon: LayoutDashboard },
+      { label: "Activité récente", href: "/activite", icon: Activity },
+      { label: "Actions rapides", href: "/#actions-rapides", icon: Sparkles },
+      { label: "Personnalisation", href: "/#personnalisation", icon: Sliders },
+    ],
+  },
+
+  documents: {
+    id: "documents",
+    title: "Documents",
+    description: "Tous vos documents indexés",
+    action: { label: "Importer", href: "/import", icon: Upload },
+    items: [
+      { label: "Tous les documents", href: "/documents", icon: FileText },
+      { label: "Récents", href: "/documents?tri=recents", icon: Clock },
+      { label: "Favoris", href: "/documents?filtre=favoris", icon: Star },
+      { label: "À traiter", href: "/a-traiter", icon: Inbox },
+      { label: "Archives", href: "/documents?filtre=archives", icon: Archive },
+      { label: "Corbeille", href: "/corbeille", icon: Trash2 },
+      { label: "Signatures & paraphes", href: "/documents/signatures", icon: PenLine },
+      { label: "Types de documents", href: "/organiser/types", icon: FileType2 },
+      { label: "Tags", href: "/organiser/tags", icon: Tags },
+      { label: "Vues", href: "/organiser/vues", icon: LayoutGrid },
+    ],
+  },
+
+  messagerie: {
+    id: "messagerie",
+    title: "Messagerie",
+    description: "Emails & pièces jointes",
+    action: { label: "Nouveau message", href: "/messagerie", icon: PenLine },
+    items: [
+      { label: "Boîte de réception", href: "/messagerie/inbox", icon: Inbox },
+      { label: "Envoyés", href: "/messagerie/envoyes", icon: Send },
+      { label: "Brouillons", href: "/messagerie/brouillons", icon: PenLine },
+      { label: "Archives", href: "/messagerie/archives", icon: Archive },
+      { label: "Corbeille", href: "/messagerie?dossier=corbeille", icon: Trash2 },
+    ],
+  },
+
+  finances: {
+    id: "finances",
+    title: "Finances",
+    description: "Budget, revenus & échéances",
+    action: { label: "Ajouter un document", href: "/import", icon: Receipt },
+    items: [
+      { label: "Vue d'ensemble", href: "/finances", icon: Gauge },
+      { label: "À encaisser", href: "/finances?vue=a-encaisser", icon: Banknote },
+      { label: "Encaissements", href: "/finances/revenus", icon: Wallet },
+      { label: "Factures", href: "/finances/documents", icon: Receipt },
+    ],
+  },
+
+  ia: {
+    id: "ia",
+    title: "Analyse IA",
+    description: "Classement & extraction assistés",
+    action: { label: "Lancer une analyse", href: "/ia", icon: Sparkles },
+    items: [
+      { label: "Tableau de bord", href: "/ia", icon: Gauge },
+      { label: "Analyses", href: "/ia/documents", icon: FileText },
+      { label: "Historique", href: "/ia/historique", icon: History },
+      { label: "Erreurs", href: "/ia/erreurs", icon: AlertTriangle },
+    ],
+  },
+
+  calendrier: {
+    id: "calendrier",
+    title: "Calendrier",
+    description: "Agenda & échéances",
+    action: { label: "Nouvel événement", href: "/calendrier", icon: CalendarDays },
+    items: [
+      { label: "Agenda", href: "/calendrier", icon: Calendar },
+      { label: "Rendez-vous détectés", href: "/calendrier?vue=detectes", icon: CalendarClock },
+      { label: "Synchronisations", href: "/calendrier?vue=sync", icon: RefreshCw },
+      { label: "Paramètres agenda", href: "/calendrier?vue=parametres", icon: Settings },
+    ],
+  },
+
+  contacts: {
+    id: "contacts",
+    title: "Contacts",
+    description: "Correspondants & clients",
+    action: { label: "Nouveau contact", href: "/correspondants", icon: UserPlus },
+    items: [
+      { label: "Tous les contacts", href: "/correspondants", icon: Users },
+      { label: "Doublons", href: "/correspondants?vue=doublons", icon: Copy },
+      { label: "À relier", href: "/correspondants?vue=a-relier", icon: Link2 },
+      { label: "Groupes", href: "/groupes", icon: FolderTree },
+    ],
+  },
+
+  rappels: {
+    id: "rappels",
+    title: "Rappels",
+    description: "Échéances & alertes",
+    action: { label: "Nouveau rappel", href: "/rappels", icon: Bell },
+    items: [
+      { label: "Tous les rappels", href: "/rappels", icon: Bell },
+      { label: "À venir", href: "/rappels/a-venir", icon: Clock },
+      { label: "En retard", href: "/rappels/en-retard", icon: AlertTriangle },
+      { label: "Automatiques", href: "/rappels/recurrents", icon: Repeat },
+    ],
+  },
+
+  administration: {
+    id: "administration",
+    title: "Administration",
+    description: "Utilisateurs, connecteurs & sécurité",
+    action: { label: "Paramètres", href: "/parametres", icon: Settings },
+    items: [
+      { label: "Vue d'ensemble", href: "/administration", icon: Gauge },
+      { label: "Utilisateurs", href: "/utilisateurs", icon: Users },
+      { label: "Modèles IA appris", href: "/administration/modeles-ia", icon: Brain },
+      { label: "Paramètres", href: "/parametres", icon: Settings },
+      { label: "Statut système", href: "/statut", icon: Activity },
+    ],
+  },
+
+  office: {
+    id: "office",
+    title: "Office",
+    description: "Rédaction & modèles",
+    action: { label: "Nouveau document", href: "/redaction/nouveau", icon: PenLine },
+    items: [
+      { label: "Rédaction", href: "/redaction", icon: PenLine },
+      { label: "Modèles", href: "/redaction/modeles", icon: FileType2 },
+      { label: "Signatures", href: "/redaction/signatures", icon: FileText },
+    ],
+  },
+
+  organiser: {
+    id: "organiser",
+    title: "Organiser",
+    description: "Dossiers, projets & taxonomies",
+    items: [
+      { label: "Dossiers / Projets", href: "/organiser/dossiers", icon: FolderTree },
+    ],
+  },
+
+  actions: {
+    id: "actions",
+    title: "Actions",
+    description: "Tâches & suivi",
+    action: { label: "Nouvelle action", href: "/actions", icon: ListChecks },
+    items: [
+      { label: "Toutes les actions", href: "/actions", icon: ListChecks },
+      { label: "À faire", href: "/actions/a-faire", icon: Inbox },
+      { label: "En cours", href: "/actions/en-cours", icon: Clock },
+      { label: "Terminées", href: "/actions/terminees", icon: CheckCircle2 },
+    ],
+  },
+};
+
+/* ── Résolution de l'espace actif selon l'URL ──────────────────────────── */
+
+/**
+ * Routes orphelines (pas un préfixe d'espace dans `spaces`) rattachées
+ * manuellement à un espace pour que la 2ᵉ sidebar reste pertinente.
+ * Ordre = priorité (premier préfixe correspondant gagne).
+ */
+const ORPHAN_PREFIXES: [string, string][] = [
+  ["/a-traiter", "documents"],
+  ["/corbeille", "documents"],
+  ["/types", "documents"],
+  ["/tags", "documents"],
+  ["/import", "documents"],
+  ["/dossiers", "documents"],
+  ["/budget", "finances"],
+  ["/redaction", "office"],
+  ["/emails", "administration"],
+  ["/utilisateurs", "administration"],
+  ["/groupes", "contacts"],
+  ["/profil", "administration"],
+  ["/tokens", "administration"],
+  ["/parametres", "administration"],
+  ["/statut", "administration"],
+  ["/journaux", "administration"],
+  ["/stockage", "administration"],
+  ["/workflows", "administration"],
+  ["/champs-personnalises", "administration"],
+  ["/vues", "administration"],
+  ["/mise-en-place", "administration"],
+  ["/activite", "accueil"],
+  ["/recherche", "accueil"],
+  ["/dashboard", "accueil"],
+];
+
+/** Détermine l'id d'espace actif à partir d'un pathname. Toujours défini. */
+export function getActiveSpaceId(pathname: string): string {
+  if (pathname === "/") return "accueil";
+  // Taxonomies (types/tags/vues) rattachées à l'espace Documents bien qu'elles
+  // vivent sous /organiser/*.
+  if (/^\/organiser\/(types|tags|vues)(\/|$)/.test(pathname)) return "documents";
+  const space = getSpaceByHref(pathname);
+  if (space && SPACE_MENUS[space.id]) return space.id;
+  for (const [prefix, id] of ORPHAN_PREFIXES) {
+    if (pathname === prefix || pathname.startsWith(prefix + "/")) return id;
+  }
+  return "accueil";
+}
+
+export function getSpaceMenu(id: string): SpaceMenu {
+  return SPACE_MENUS[id] ?? SPACE_MENUS.accueil;
+}

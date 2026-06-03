@@ -1,0 +1,251 @@
+@import "tailwindcss";
+
+:root {
+  /* ── Fond & surfaces (système de surfaces chaudes, moins de bordures) ── */
+  --background: #F7F4EE;
+  --bg-page:    #F7F4EE;
+  --bg-app:     #F7F4EE;       /* fond global clair et chaud */
+  --bg-panel:   #F3EFE7;       /* panneaux / sidebar espace */
+  --bg-card:    #EEE7DC;       /* cartes soutenues */
+  --bg-card-soft: #F4F0E8;     /* cartes douces */
+  --bg-elevated: #FFFFFF;      /* cartes en relief */
+  --surface:    #FFFFFF;
+  --surface-muted: #F3EFE7;   /* sidebar espace */
+  --surface-rail:  #F1EADF;   /* rail applications */
+  --foreground: #1F2937;
+
+  /* ── Borders (discrètes : la délimitation passe d'abord par les surfaces) ── */
+  --border:      #E6DCCD;
+  --border-soft: #EFE7DA;
+  --border-strong: #D8C7B5;
+
+  /* ── Texte ── */
+  --text-main:  #1F2937;
+  --text-secondary: #5F6B7A;
+  --text-muted: #5F6B7A;
+  --text-hint:  #8B95A7;
+
+
+
+  /* ── Accent principal : rose (remplace l'ancien bleu, mêmes noms de tokens) ── */
+  --blue-700:   #D93E71;   /* active  */
+  --blue-600:   #F75C8D;   /* primary */
+  --blue-500:   #E84C7F;   /* hover   */
+  --blue-50:    #FDECF2;   /* soft    */
+  --accent:        #F75C8D;
+  --accent-hover:  #E84C7F;
+  --accent-active: #D93E71;
+  --accent-soft:   #FDECF2;
+
+  /* ── Marque Gedify : palette étendue ── */
+  --gedify-navy:        #14233C;   /* actions pro / neutres */
+  --gedify-navy-hover:  #0F1B31;
+  --gedify-pink:        #F75C8D;   /* CTA principal */
+  --gedify-pink-hover:  #E84C7F;
+  --gedify-pink-soft:   #FDECF2;
+  --gedify-purple:      #7C3AED;   /* IA */
+  --gedify-purple-dark: #5B21B6;
+  --gedify-purple-soft: #F2ECFF;
+  --gedify-green:       #16A34A;   /* validation */
+  --gedify-green-hover: #15803D;
+  --gedify-green-soft:  #EAF8EF;
+  --gedify-red:         #EF4444;   /* suppression */
+  --gedify-red-hover:   #DC2626;
+  --gedify-red-soft:    #FDECEC;
+  --gedify-orange:      #F59E0B;
+  --gedify-orange-soft: #FFF4E5;
+  --gedify-info:        #2563EB;
+  --gedify-info-soft:   #ECF3FF;
+
+  /* ── Rayons ── */
+  --radius-sm:   10px;
+  --radius-md:   14px;
+  --radius-lg:   18px;
+  --radius-xl:   22px;
+  --radius-pill: 999px;
+
+  /* ── Ombres douces ── */
+  --shadow-soft: 0 8px 24px rgba(20, 35, 60, 0.08);
+  --shadow-card: 0 4px 14px rgba(20, 35, 60, 0.06);
+
+  /* ── Palette espaces (accents sobres et lisibles) ── */
+  --space-documents:      #B0894F;   /* sable    */
+  --space-messagerie:     #F75C8D;   /* rose     */
+  --space-finances:       #B8924E;   /* doré doux*/
+  --space-ia:             #6E6780;   /* gris-violet */
+  --space-calendrier:     #7D8BA6;   /* ardoise  */
+  --space-contacts:       #BE8266;   /* beige rosé */
+  --space-rappels:        #D06A85;   /* rose atténué */
+  --space-administration: #7E8A9C;   /* gris bleuté */
+  --space-office:         #6E6FA0;   /* indigo doux */
+  --space-organiser:      #B68A4A;   /* ambre doux */
+  --space-actions:        #C07A4A;   /* orange doux */
+
+  /* ── Sémantique (discrète) ── */
+  --success:   #2E7D5B;
+  --warning:   #B5852A;
+  --danger:    #D9534F;
+  --violet:    #6E6780;
+  --orange:    #C07A4A;
+
+  /* ── Ombres (très légères, style flat) ── */
+  --shadow-xs:  0 1px 1px rgba(31,41,55,0.03);
+  --shadow-sm:  0 1px 2px rgba(31,41,55,0.04);
+  --shadow-md:  0 2px 6px rgba(31,41,55,0.05);
+  --shadow-lg:  0 6px 16px rgba(31,41,55,0.06);
+  --shadow-xl:  0 12px 28px rgba(31,41,55,0.07);
+
+  /* ── Legacy aliases (compat) ── */
+  --navy-950: #1F2937;
+  --navy-900: #F7F1E7;
+  --navy-800: #F0E9DD;
+  --navy-700: #E8DED1;
+  --card:     #FFFFFF;
+}
+.space-y-4.p-4 {
+background: #fef7fa;
+}
+
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html, body {
+  background: var(--bg-page);
+  color: var(--text-main);
+  font-family:
+    "Inter",
+    "SF Pro Text",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+  font-feature-settings: "ss01", "cv01", "cv02";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a, button, input, select, textarea {
+  letter-spacing: 0;
+}
+
+/* App macOS (Electron) : zone déplaçable de la barre de titre. Sans effet en navigateur. */
+.titlebar-drag-region { -webkit-app-region: drag; app-region: drag; }
+.titlebar-no-drag { -webkit-app-region: no-drag; app-region: no-drag; }
+button, a {
+  touch-action: manipulation;
+}
+
+/* ── Scrollbar fine et discrète ── */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(95,107,122,0.18);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(95,107,122,0.30);
+  background-clip: padding-box;
+}
+
+*:focus-visible {
+  outline: 2px solid rgba(247,92,141,0.45);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ── Utilitaires globaux ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: none;
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 18px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 700;
+  transition: background 0.15s;
+}
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-primary:active { background: var(--accent-active); }
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 16px;
+  background: #fff;
+  border: 1.5px solid #374151;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #374151;
+  transition: background 0.15s;
+}
+.btn-secondary:hover { background: var(--bg-page); }
+
+/* ════════════════════════════════════════════════════════════════
+   Système de surfaces Gedify — délimitation par le fond, pas la bordure
+   (classes opt-in : n'affectent que les composants qui les utilisent)
+   ════════════════════════════════════════════════════════════════ */
+.surface-card     { background: var(--bg-card);      border: none; border-radius: var(--radius-xl); box-shadow: var(--shadow-card); }
+.surface-soft     { background: var(--bg-card-soft);  border: none; border-radius: var(--radius-lg); }
+.surface-elevated { background: var(--bg-elevated);   border: none; border-radius: var(--radius-xl); box-shadow: var(--shadow-card); }
+.surface-panel    { background: var(--bg-panel);      border: none; border-radius: var(--radius-lg); }
+
+/* ── Boutons Gedify ── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  font-weight: 700; border: none; cursor: pointer; white-space: nowrap;
+  transition: background .15s, box-shadow .15s, filter .15s, opacity .15s;
+}
+.btn:disabled { opacity: .55; cursor: not-allowed; }
+.btn-pill { min-height: 48px; padding: 0 24px; border-radius: var(--radius-pill); font-weight: 800; font-size: 14px; }
+.btn-rect { min-height: 44px; padding: 0 18px; border-radius: var(--radius-md); font-weight: 700; font-size: 13px; }
+
+.btn-navy         { background: var(--gedify-navy);  color: #fff; }
+.btn-navy:hover   { background: var(--gedify-navy-hover); }
+.btn-pink         { background: var(--gedify-pink);  color: #fff; }
+.btn-pink:hover   { background: var(--gedify-pink-hover); }
+.btn-ia           { background: linear-gradient(135deg, #F75C8D 0%, #A855F7 54%, #7C3AED 100%); color: #fff; box-shadow: 0 6px 18px rgba(124,58,237,.22); }
+.btn-ia:hover     { filter: brightness(1.05); }
+.btn-success      { background: var(--gedify-green); color: #fff; }
+.btn-success:hover{ background: var(--gedify-green-hover); }
+.btn-success-soft { background: var(--gedify-green-soft); color: var(--gedify-green-hover); }
+.btn-danger       { background: var(--gedify-red);   color: #fff; }
+.btn-danger:hover { background: var(--gedify-red-hover); }
+.btn-danger-soft  { background: var(--gedify-red-soft); color: #B91C1C; }
+.btn-outline      { background: #fff; border: 1.5px solid var(--border-strong); color: var(--text-main); }
+.btn-outline:hover{ background: var(--bg-card-soft); }
+
+/* ── Badges ── */
+.badge       { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: var(--radius-pill); font-size: 11.5px; font-weight: 700; line-height: 1.6; }
+.badge-ok    { background: var(--gedify-green-soft);  color: #15803D; }
+.badge-ia    { background: var(--gedify-purple-soft); color: #7C3AED; }
+.badge-warn  { background: var(--gedify-orange-soft); color: #B45309; }
+.badge-error { background: var(--gedify-red-soft);    color: #B91C1C; }
+.badge-info  { background: var(--gedify-info-soft);   color: #2563EB; }
+
+/* ── Titres (opt-in) ── */
+.title-xl { font-size: clamp(28px, 4vw, 42px); color: var(--gedify-navy); font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
+.title-lg { font-size: 24px; color: var(--gedify-navy); font-weight: 800; letter-spacing: -.01em; }
+.title-md { font-size: 18px; color: var(--gedify-navy); font-weight: 700; }
