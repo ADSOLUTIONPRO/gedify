@@ -150,6 +150,14 @@ export async function consume(input: ConsumeInput): Promise<PaperlessTask> {
       list.map((d) => (d.id === id ? { ...d, index_status: "ready" } : d)),
     );
 
+    // Règles automatiques (workflows) — best-effort, n'interrompt jamais l'import.
+    try {
+      const { runWorkflowsForDocument } = await import("@/lib/automation/workflow-engine");
+      await runWorkflowsForDocument(id);
+    } catch {
+      /* moteur de règles indisponible → ignoré */
+    }
+
     const task = makeTask(taskId, input.filename, "SUCCESS", `Nouveau document #${id} : ${doc.title}`, id);
     await persistTask(task);
     return task;
