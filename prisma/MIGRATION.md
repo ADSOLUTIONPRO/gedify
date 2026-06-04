@@ -43,10 +43,11 @@ vérifiée, on garde `GEDIFY_STORAGE_MODE=json`.
 
 ## Où exécuter — DANS le conteneur Coolify (recommandé)
 
-Les scripts sont **compilés au build** en JS autonome (`dist-scripts/*.mjs`,
-ESM, sans `tsx` ni binaire natif) et embarqués dans l'image runtime avec le
-client Prisma et le schéma SQL. On peut donc tout faire directement sur le
-serveur, sans copier les données ailleurs :
+Les scripts sont **compilés et committés** dans `scripts/gedify-*.mjs` (ESM
+autonome, sans `tsx` ni binaire natif) et embarqués dans l'image runtime avec le
+client Prisma et le schéma SQL. Le `package.json` du conteneur est remplacé par
+le vrai (la sortie standalone de Next en livre un vide). On fait donc tout
+directement sur le serveur, sans copier les données ailleurs :
 
 ```bash
 # Sur le serveur :

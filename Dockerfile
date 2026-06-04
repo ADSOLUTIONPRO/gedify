@@ -68,19 +68,21 @@ RUN node -e "try{const{createCanvas}=require('@napi-rs/canvas');const c=createCa
 RUN mkdir -p /app/.data && chown -R nextjs:nodejs /app/.data
 
 # ── Outils de migration JSON → PostgreSQL (exécutables DANS le conteneur) ──────
-# Scripts compilés en ESM autonome (sans tsx ni binaire natif), schéma SQL
-# idempotent, et client Prisma 7 runtime (compilateur WASM). On élague les gros
-# paquets Prisma CLI/dev/studio inutiles à l'exécution des requêtes.
-COPY --from=builder --chown=nextjs:nodejs /app/dist-scripts ./dist-scripts
+# Scripts compilés (committés) scripts/gedify-*.mjs : ESM autonome, sans tsx.
+# On remplace le package.json (vide) de la sortie standalone Next par le VRAI
+# (avec les scripts gedify:*), et on embarque le schéma SQL + le client Prisma 7
+# runtime (compilateur WASM, pas de moteur natif), élagué des gros paquets CLI.
+COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
 RUN rm -rf node_modules/@prisma/engines node_modules/@prisma/dev \
            node_modules/@prisma/studio-core node_modules/@prisma/fetch-engine \
            node_modules/@prisma/get-platform
-# Auto-test : la chaîne de migration se charge réellement dans l'image finale
-# (dry-run = importe le client Prisma + pg, n'écrit rien en base).
-RUN node dist-scripts/gedify-migrate-json.mjs --dry-run >/dev/null 2>&1 \
+# Auto-tests : (1) les scripts gedify:* sont bien listés dans /app/package.json ;
+# (2) la chaîne de migration se charge dans l'image (dry-run, n'écrit rien en base).
+RUN node -e "const s=require('./package.json').scripts||{}; if(!s['gedify:migrate-json']){console.error('[build] scripts gedify absents du package.json');process.exit(1)} console.log('[build] scripts gedify présents')"
+RUN node scripts/gedify-migrate-json.mjs --dry-run >/dev/null 2>&1 \
  && echo "[build] migration toolchain OK (dry-run)" \
  || (echo "[build] migration toolchain KO" && exit 1)
 

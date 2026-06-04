@@ -22,7 +22,6 @@ README_DEPLOY.md
 Dockerfile
 .eslintcache
 src/generated
-dist-scripts
 .data
 data
 .ged-azserver
