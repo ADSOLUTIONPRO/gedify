@@ -16,6 +16,7 @@ import { listProjectFolders } from "@/lib/projects/project-store";
 import { pgStorageActive } from "@/lib/db/pg-store";
 import { jobStats } from "@/lib/jobs/job-store";
 import { duplicateStats } from "@/lib/documents/duplicate-detection";
+import { computeClassificationStats, type ClassificationStats } from "@/lib/admin/classification-stats";
 
 /* ────────────────────────────────────────────────────────────────────────
    Santé GED (Chantier 4) : état documentaire, stockage, base, services.
@@ -60,6 +61,7 @@ export type GedHealth = {
     engine: string | null;
     language: string | null;
   };
+  classification: ClassificationStats;
   generatedAt: string;
 };
 
@@ -218,6 +220,10 @@ export async function computeGedHealth(): Promise<GedHealth> {
     jobStats().catch(() => ({ pending: 0, processing: 0, failed: 0, total: 0, lastFinishedAt: null })),
   ]);
   const dups = await duplicateStats().catch(() => ({ groups: 0, exact: 0, probable: 0, documents: 0 }));
+  const classification = await computeClassificationStats().catch(() => ({
+    total: docs.length, withoutTag: 0, withoutType: 0, withoutCorrespondent: 0, withoutFolder: 0,
+    needsReview: 0, unusedTags: 0, unusedTypes: 0, emptyFolders: 0, correspondentDuplicates: 0,
+  }));
   // Inclure aussi l'ancienne arbo media/ dans la taille des originaux/miniatures.
   const legacyOriginals = await dirUsage(legacyMediaSubdir("originals"));
   const legacyThumbs = await dirUsage(legacyMediaSubdir("thumbnails"));
@@ -262,6 +268,7 @@ export async function computeGedHealth(): Promise<GedHealth> {
       engine: ocrEngine,
       language: ocrLanguage,
     },
+    classification,
     generatedAt: new Date().toISOString(),
   };
 }

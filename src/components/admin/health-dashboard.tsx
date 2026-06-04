@@ -9,9 +9,13 @@ import {
   Cpu,
   Database,
   DownloadCloud,
+  FileType2,
   FileWarning,
+  FolderTree,
   FolderX,
   HardDrive,
+  Tags,
+  Users,
   Image as ImageIcon,
   Loader2,
   RefreshCw,
@@ -51,6 +55,7 @@ type GedHealth = {
   lastBackup: { file: string; at: string } | null;
   pipeline: { pending: number; processing: number; failed: number; total: number; lastFinishedAt: string | null };
   ocr: { ready: number; processing: number; failed: number; withoutOcr: number; low: number; avgTextLength: number; engine: string | null; language: string | null };
+  classification: { total: number; withoutTag: number; withoutType: number; withoutCorrespondent: number; withoutFolder: number; needsReview: number; unusedTags: number; unusedTypes: number; emptyFolders: number; correspondentDuplicates: number };
   generatedAt: string;
 };
 
@@ -251,6 +256,30 @@ export function HealthDashboard() {
         </SectionCard>
       </div>
 
+      {/* Classement documentaire */}
+      <SectionCard icon={FolderTree} title="Classement documentaire" description="Tags, types, correspondants, dossiers — et documents à classer.">
+        <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <StatCard label="Sans tag" value={health!.classification.withoutTag} helper="documents" icon={Tags} tone={health!.classification.withoutTag ? "amber" : "emerald"} />
+          <StatCard label="Sans type" value={health!.classification.withoutType} helper="documents" icon={FileType2} tone={health!.classification.withoutType ? "amber" : "emerald"} />
+          <StatCard label="Sans correspondant" value={health!.classification.withoutCorrespondent} helper="documents" icon={Users} tone={health!.classification.withoutCorrespondent ? "amber" : "emerald"} />
+          <StatCard label="Sans dossier" value={health!.classification.withoutFolder} helper="non classés" icon={FolderX} tone={health!.classification.withoutFolder ? "slate" : "emerald"} />
+          <StatCard label="À vérifier" value={health!.classification.needsReview} helper="suggestions" icon={Brain} tone={health!.classification.needsReview ? "amber" : "emerald"} />
+        </div>
+        <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-[12px]" style={{ color: "var(--text-muted)" }}>
+          <span>Tags inutilisés : <strong>{health!.classification.unusedTags}</strong></span>
+          <span>Types inutilisés : <strong>{health!.classification.unusedTypes}</strong></span>
+          <span>Dossiers vides : <strong>{health!.classification.emptyFolders}</strong></span>
+          <span>Correspondants doublons : <strong>{health!.classification.correspondentDuplicates}</strong></span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <SanteLink href="/documents?etat=unclassified" label="Documents non classés" />
+          <SanteLink href="/documents?etat=ia_review" label="À vérifier" />
+          <SanteLink href="/recherche?no_correspondent=on" label="Sans correspondant" />
+          <SanteLink href="/tags" label="Gérer les tags" />
+          <SanteLink href="/correspondants" label="Correspondants" />
+        </div>
+      </SectionCard>
+
       {/* OCR et indexation */}
       <SectionCard icon={ScanText} title="OCR et indexation" description={`Moteur : ${health!.ocr.engine ?? "—"} · Langue : ${health!.ocr.language ?? "fra+eng"}`}>
         <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -394,6 +423,18 @@ function ActionButton({
       {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" strokeWidth={1.75} />}
       {label}
     </button>
+  );
+}
+
+function SanteLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link
+      href={href}
+      className="inline-flex h-9 items-center gap-1.5 rounded-xl border bg-white px-3 text-sm font-semibold transition hover:bg-slate-50"
+      style={{ borderColor: "var(--border)", color: "var(--text-main)" }}
+    >
+      {label}
+    </Link>
   );
 }
 
