@@ -18,9 +18,35 @@ export type PdfDoc = {
   destroy?(): Promise<void>;
 };
 
+let canvasMod: any = null;
+/**
+ * Charge @napi-rs/canvas et expose ses classes Path2D/DOMMatrix/… en GLOBALS.
+ *
+ * pdfjs v6 capture les classes globales `Path2D`/`DOMMatrix` au moment de SON
+ * import et ne dessine qu'avec elles. En Node ces globals n'existent pas, et
+ * @napi-rs/canvas ne reconnaît que SES propres classes. Sans cette exposition
+ * AVANT le premier import de pdfjs, le rendu échoue avec « Value is none of
+ * these types `String`, `Path` » → toutes les vignettes PDF retombent sur le
+ * placeholder. L'ordre (globals d'abord, pdfjs ensuite) est donc critique.
+ */
+async function canvasLib(): Promise<any> {
+  if (!canvasMod) {
+    canvasMod = await import("@napi-rs/canvas");
+    const g = globalThis as any;
+    g.Path2D ??= canvasMod.Path2D;
+    g.DOMMatrix ??= canvasMod.DOMMatrix;
+    g.ImageData ??= canvasMod.ImageData;
+    g.DOMPoint ??= canvasMod.DOMPoint;
+    g.DOMRect ??= canvasMod.DOMRect;
+  }
+  return canvasMod;
+}
+
 let pdfjsMod: any = null;
 async function pdfjs(): Promise<any> {
   if (!pdfjsMod) {
+    // Globals canvas posés AVANT l'import de pdfjs (ordre critique, cf. canvasLib).
+    await canvasLib();
     // Build « legacy » = compatible Node (pas d'API navigateur requise).
     pdfjsMod = await import("pdfjs-dist/legacy/build/pdf.mjs");
   }
@@ -75,7 +101,7 @@ export async function renderPdfPageToPng(
   opts: RenderOptions | number = {},
 ): Promise<Buffer | null> {
   try {
-    const { createCanvas } = await import("@napi-rs/canvas");
+    const { createCanvas } = await canvasLib();
     const page = await doc.getPage(pageNumber);
     const o: RenderOptions = typeof opts === "number" ? { scale: opts } : opts;
     let scale = o.scale ?? 2;
