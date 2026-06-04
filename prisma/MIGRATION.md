@@ -71,7 +71,19 @@ n'est pas changé — **le comportement actuel n'est pas modifié**.
 `tags`, `document_tags`, `document_types`, `correspondents`,
 `document_correspondents`, `budget_entries`, `budget_payments`, `mails`,
 `mail_attachments`, `mail_document_links`, `reminders`, `tasks`, `signatures`,
-`learned_templates`, `assistant_action_logs`, `activity_logs`, `settings`.
+`learned_templates`, `assistant_action_logs`, `activity_logs`, `settings`,
+`users`, `counters`, `document_title_overrides`.
 
-Chaque table conserve une colonne `raw` (JSON intégral d'origine) → **migration
-sans perte**, même pour les champs non encore mappés en colonnes.
+Chaque table conserve une colonne `raw`/`raw_payload`/`metadata` (JSON intégral
+d'origine) → **migration sans perte**, même pour les champs non encore mappés.
+
+Couverture ajoutée (avant migration réelle) : `users` (auth, IDs conservés,
+contraintes uniques username/email, passwordHash jamais loggé), `counters`
+(séquences d'ID — affichées dans le rapport), `ai/detected-infos.json` →
+`document_ai_suggestions`, `document-title-overrides.json` →
+`document_title_overrides`. `engine/tasks.json` reste **volontairement non
+migré** (tâches de traitement moteur, éphémères).
+
+Le rapport de migration liste les fichiers **non couverts** classés par
+importance (`critique` / `important` / `mineur` / `éphémère` / `ignoré` /
+`à examiner`), avec `dataLoss: false`.

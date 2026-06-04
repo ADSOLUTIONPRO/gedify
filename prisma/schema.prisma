@@ -92,13 +92,18 @@ model DocumentAiAnalysis {
 }
 
 model DocumentAiSuggestion {
-  id         String  @id
-  analysisId String? @map("analysis_id")
-  documentId Int?    @map("document_id")
-  kind       String?
-  value      String? @db.Text
-  applied    Boolean @default(false)
-  raw        Json?
+  id             String   @id
+  documentId     Int?     @map("document_id")
+  analysisId     String?  @map("analysis_id")
+  suggestionType String?  @map("suggestion_type")
+  fieldName      String?  @map("field_name")
+  suggestedValue String?  @map("suggested_value") @db.Text
+  confidence     String?
+  source         String?
+  applied        Boolean  @default(false)
+  rawPayload     Json?    @map("raw_payload")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
 
   @@index([documentId])
   @@index([analysisId])
@@ -353,6 +358,41 @@ model ActivityLog {
 
   @@index([documentId])
   @@map("activity_logs")
+}
+
+model User {
+  id           Int       @id
+  username     String    @unique
+  email        String?   @unique
+  passwordHash String?   @map("password_hash")
+  isSuperuser  Boolean   @default(false) @map("is_superuser")
+  isActive     Boolean   @default(true) @map("is_active")
+  metadata     Json?
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+
+  @@map("users")
+}
+
+model Counter {
+  name      String   @id
+  value     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("counters")
+}
+
+model DocumentTitleOverride {
+  documentId Int      @id @map("document_id")
+  title      String?
+  source     String?
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("document_title_overrides")
 }
 
 model Setting {
