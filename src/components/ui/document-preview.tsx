@@ -33,14 +33,16 @@ export function DocumentPreview({
 
   return (
     <div
-      className={`relative shrink-0 overflow-hidden rounded-xl border border-slate-200/80 bg-gradient-to-br from-slate-50 to-white shadow-sm ${preset.wrapper} ${className}`}
+      className={`relative shrink-0 overflow-hidden rounded-xl border border-slate-200/80 shadow-sm ${preset.wrapper} ${className}`}
+      style={{ background: "#f4f0e8" }}
     >
       <Image
         src={`/api/paperless/documents/${documentId}/thumb`}
         alt={altText}
         width={preset.img.width}
         height={preset.img.height}
-        className="h-full w-full object-cover object-top"
+        loading="lazy"
+        className="h-full w-full object-contain object-top"
         unoptimized
       />
 

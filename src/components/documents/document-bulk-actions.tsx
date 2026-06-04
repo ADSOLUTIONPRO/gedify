@@ -10,6 +10,7 @@ import {
   FileSearch,
   FolderInput,
   FolderPlus,
+  Image as ImageIcon,
   Mail,
   MoreHorizontal,
   ScanText,
@@ -27,6 +28,7 @@ type DocumentBulkActionsProps = {
   onArchive: () => void;
   onReanalyze: () => void;
   onRedoOcr: () => void;
+  onRegenerateThumbnail: () => void;
   onOpenFirst: () => void;
   onDelete: () => void;
   paperlessUrl: string | null;
@@ -51,6 +53,7 @@ export function DocumentBulkActions({
   onArchive,
   onReanalyze,
   onRedoOcr,
+  onRegenerateThumbnail,
   onOpenFirst,
   onDelete,
   paperlessUrl,
@@ -217,6 +220,16 @@ export function DocumentBulkActions({
               >
                 <ScanText className="h-4 w-4 shrink-0" strokeWidth={1.75} />
                 Relancer l&apos;OCR
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { onRegenerateThumbnail(); setMenuOpen(false); }}
+                className="flex w-full items-center gap-2.5 px-3 py-2 text-[13px] transition hover:bg-slate-50"
+                style={{ color: "var(--text-main)" }}
+              >
+                <ImageIcon className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+                Régénérer la miniature
               </button>
 
               <button

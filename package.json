@@ -16,6 +16,8 @@
     "gedify:storage:inspect": "node scripts/gedify-storage-inspect.mjs",
     "gedify:storage:doctor": "node scripts/gedify-storage-doctor.mjs",
     "gedify:previews:inspect": "node scripts/gedify-previews-doctor.mjs",
+    "gedify:previews:generate-missing": "node scripts/gedify-previews-doctor.mjs --generate-missing",
+    "gedify:previews:regenerate-all": "node scripts/gedify-previews-doctor.mjs --regenerate-all",
     "gedify:previews:cleanup-orphans": "node scripts/gedify-previews-doctor.mjs --clean",
     "gedify:pipeline:inspect": "node scripts/gedify-pipeline-doctor.mjs",
     "gedify:pipeline:retry-failed": "node scripts/gedify-pipeline-doctor.mjs --retry-failed",

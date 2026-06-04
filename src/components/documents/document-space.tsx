@@ -203,6 +203,17 @@ export function DocumentSpace({
     router.refresh();
   }
 
+  async function regenerateThumbnailSelection() {
+    const targets = selectedDocs.length > 0 ? selectedDocs : activeDoc ? [activeDoc] : [];
+    for (const doc of targets) {
+      await fetch(`/api/documents/${doc.id}/regenerate-thumbnail`, {
+        method: "POST",
+        credentials: "include",
+      }).catch(() => {});
+    }
+    router.refresh();
+  }
+
   async function deleteSelection() {
     setDeleting(true);
     const targets = selectedDocs.length > 0 ? selectedDocs : activeDoc ? [activeDoc] : [];
@@ -306,6 +317,7 @@ export function DocumentSpace({
             onArchive={() => primary && router.push(primary.detailHref)}
             onReanalyze={() => void reanalyzeSelection()}
             onRedoOcr={() => void redoOcrSelection()}
+            onRegenerateThumbnail={() => void regenerateThumbnailSelection()}
             onOpenFirst={() => primary && router.push(primary.detailHref)}
             onDelete={() => setConfirmDelete(true)}
             paperlessUrl={paperlessUrl}
