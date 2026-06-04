@@ -7,6 +7,7 @@ import {
   Filter,
   FolderInput,
   FolderPlus,
+  Cpu,
   ListChecks,
   Mail,
   Sparkles,
@@ -34,6 +35,7 @@ const ICONS: Record<ProposedActionType, LucideIcon> = {
   apply_filter: Filter,
   draft_mail: Mail,
   navigate: ArrowRight,
+  pipeline: Cpu,
 };
 
 export function AiAssistantActionCard({

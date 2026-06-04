@@ -71,6 +71,9 @@ export function permissionForAction(type: ProposedActionType): keyof AssistantPe
       return "canDraftMail";
     case "navigate":
       return "canReadDocuments";
+    case "pipeline":
+      // Retraitement (OCR/IA/miniatures/index) → modifie les documents.
+      return "canWriteDocuments";
   }
 }
 

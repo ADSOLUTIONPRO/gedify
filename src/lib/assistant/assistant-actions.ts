@@ -75,12 +75,32 @@ async function dispatch(a: ProposedAction): Promise<ExecuteResult> {
     case "create_reminder": return makeReminder(a);
     case "complete_task": return completeTask(a);
     case "create_folder": return makeFolder(a);
+    case "pipeline": return runPipelineProposed(a);
     case "apply_filter":
     case "draft_mail":
     case "navigate":
       // Actions côté client (filtre/navigation/compositeur mail) : pas d'exécution serveur.
       return { ok: false, message: "Action gérée côté client.", affected: 0 };
   }
+}
+
+/* ── Retraitement pipeline (OCR / IA / miniatures / index) ───────────────── */
+async function runPipelineProposed(a: ProposedAction): Promise<ExecuteResult> {
+  const { runPipelineAction, isPipelineAction } = await import("@/lib/jobs/pipeline-actions");
+  const action = String(a.params.action ?? "").trim();
+  if (!isPipelineAction(action)) {
+    return { ok: false, message: `Action pipeline inconnue : ${action || "—"}.`, affected: 0 };
+  }
+  const result = await runPipelineAction(action);
+  const n = result.queued ?? result.requeued ?? 0;
+  return {
+    ok: true,
+    message:
+      action === "retry-failed"
+        ? `${n} job(s) relancé(s).`
+        : `${n} document(s) mis en file de traitement (${action}).`,
+    affected: n,
+  };
 }
 
 /* ── Classement dans un dossier ──────────────────────────────────────────── */

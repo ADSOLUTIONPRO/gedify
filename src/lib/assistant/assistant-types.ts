@@ -75,7 +75,8 @@ export type ProposedActionType =
   | "create_folder"
   | "apply_filter"
   | "draft_mail"
-  | "navigate";
+  | "navigate"
+  | "pipeline";
 
 /** Référence légère d'un document (pour transparence / anti-hallucination). */
 export type DocumentRef = { id: number; title: string };

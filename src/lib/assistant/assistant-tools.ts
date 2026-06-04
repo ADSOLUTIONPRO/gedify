@@ -187,6 +187,26 @@ export const TOOL_SCHEMAS = [
     target: { type: "string", enum: ["document", "folder", "finances", "mails", "reminders", "documents"] },
     id: { type: "string", description: "Identifiant de l'élément (id document, id dossier…)." },
   }, ["target"]),
+  fn(
+    "propose_pipeline",
+    "Propose de relancer un traitement du pipeline documentaire en arrière-plan : OCR manquant, analyse IA des non classés, miniatures/aperçus manquants, réindexation, ou relance des jobs échoués. À confirmer.",
+    {
+      action: {
+        type: "string",
+        enum: [
+          "ocr-missing",
+          "ai-unclassified",
+          "thumbnails-missing",
+          "previews-missing",
+          "reindex-all",
+          "retry-failed",
+        ],
+        description:
+          "ocr-missing = OCR des documents sans texte ; ai-unclassified = IA sur les non classés ; thumbnails-missing / previews-missing = générer les vignettes/aperçus manquants ; reindex-all = réindexer ; retry-failed = relancer les jobs échoués.",
+      },
+    },
+    ["action"],
+  ),
 ] as const;
 
 function fn(name: string, description: string, properties: Record<string, unknown>, required: string[]) {
@@ -291,6 +311,8 @@ export async function runTool(
       });
     case "propose_navigate":
       return propose("navigate", rc, [], { target: String(args.target ?? "documents"), id: args.id != null ? String(args.id) : null });
+    case "propose_pipeline":
+      return propose("pipeline", rc, [], { action: String(args.action ?? "") });
 
     default:
       return { error: `Outil inconnu : ${name}` };
@@ -714,7 +736,20 @@ function labelFor(type: ProposedActionType, n: number, p: Record<string, unknown
     case "apply_filter": return "Filtrer les documents";
     case "draft_mail": return `Rédiger un mail : ${p.subject}`;
     case "navigate": return `Ouvrir ${p.target}`;
+    case "pipeline": return pipelineLabel(String(p.action ?? ""));
   }
+}
+
+const PIPELINE_LABELS: Record<string, string> = {
+  "ocr-missing": "Relancer l'OCR manquant",
+  "ai-unclassified": "Analyser les non classés (IA)",
+  "thumbnails-missing": "Générer les miniatures manquantes",
+  "previews-missing": "Générer les aperçus manquants",
+  "reindex-all": "Réindexer tous les documents",
+  "retry-failed": "Relancer les jobs échoués",
+};
+function pipelineLabel(action: string): string {
+  return PIPELINE_LABELS[action] ?? `Retraitement pipeline (${action})`;
 }
 
 function describeAction(type: ProposedActionType, n: number, p: Record<string, unknown>): string {
@@ -732,6 +767,7 @@ function describeAction(type: ProposedActionType, n: number, p: Record<string, u
     case "apply_filter": return "Appliquer le filtre dans l'espace Documents.";
     case "draft_mail": return `Préparer un brouillon de mail « ${p.subject} »${n > 0 ? ` avec ${n} pièce(s) jointe(s)` : ""}.`;
     case "navigate": return `Ouvrir ${p.target}${p.id ? ` ${p.id}` : ""}.`;
+    case "pipeline": return `${pipelineLabel(String(p.action ?? ""))} (traitement en arrière-plan).`;
   }
 }
 
