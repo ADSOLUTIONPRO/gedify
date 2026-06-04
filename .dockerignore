@@ -21,6 +21,7 @@ README_DEPLOY.md
 .dockerignore
 Dockerfile
 .eslintcache
+src/generated
 .data
 data
 .ged-azserver

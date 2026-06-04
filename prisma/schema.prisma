@@ -1,0 +1,363 @@
+// Schéma PostgreSQL de Gedify (intégration progressive, sans casser le JSON).
+// Chaque table a des colonnes « requêtables » + une colonne `raw Json` qui
+// conserve l'objet JSON d'origine INTÉGRAL → migration sans perte de données.
+// Prisma 7 : client TypeScript + driver adapter (pg), pas de moteur natif runtime.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/**
+ * ── Documents & taxonomies ────────────────────────────────────────────────
+ */
+
+model Document {
+  id               Int       @id
+  title            String?
+  content          String?   @db.Text
+  created          DateTime?
+  createdDate      String?   @map("created_date")
+  added            DateTime?
+  modified         DateTime?
+  correspondentId  Int?      @map("correspondent_id")
+  documentTypeId   Int?      @map("document_type_id")
+  storagePath      String?   @map("storage_path")
+  mimeType         String?   @map("mime_type")
+  checksum         String?
+  storedFilename   String?   @map("stored_filename")
+  originalFileName String?   @map("original_file_name")
+  pageCount        Int?      @map("page_count")
+  deleted          Boolean   @default(false)
+  deletedAt        DateTime? @map("deleted_at")
+  raw              Json?
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  @@index([correspondentId])
+  @@index([documentTypeId])
+  @@index([deleted])
+  @@index([checksum])
+  @@map("documents")
+}
+
+model DocumentFile {
+  id         String  @id
+  documentId Int     @map("document_id")
+  kind       String  @default("original") // original | thumbnail
+  filename   String?
+  mimeType   String? @map("mime_type")
+  sizeBytes  Int?    @map("size_bytes")
+  raw        Json?
+
+  @@index([documentId])
+  @@map("document_files")
+}
+
+model DocumentVersion {
+  id         String   @id
+  documentId Int      @map("document_id")
+  label      String?
+  raw        Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([documentId])
+  @@map("document_versions")
+}
+
+model DocumentOcr {
+  documentId Int     @id @map("document_id")
+  content    String? @db.Text
+  raw        Json?
+
+  @@map("document_ocr")
+}
+
+model DocumentAiAnalysis {
+  id         String    @id
+  documentId Int       @map("document_id")
+  summary    String?   @db.Text
+  confidence String?
+  source     String?
+  analyzedAt DateTime? @map("analyzed_at")
+  raw        Json?
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([documentId])
+  @@map("document_ai_analyses")
+}
+
+model DocumentAiSuggestion {
+  id         String  @id
+  analysisId String? @map("analysis_id")
+  documentId Int?    @map("document_id")
+  kind       String?
+  value      String? @db.Text
+  applied    Boolean @default(false)
+  raw        Json?
+
+  @@index([documentId])
+  @@index([analysisId])
+  @@map("document_ai_suggestions")
+}
+
+model Tag {
+  id        Int     @id
+  name      String?
+  slug      String?
+  color     String?
+  textColor String? @map("text_color")
+  raw       Json?
+
+  @@map("tags")
+}
+
+model DocumentTag {
+  documentId Int @map("document_id")
+  tagId      Int @map("tag_id")
+
+  @@id([documentId, tagId])
+  @@index([tagId])
+  @@map("document_tags")
+}
+
+model DocumentType {
+  id   Int     @id
+  name String?
+  slug String?
+  raw  Json?
+
+  @@map("document_types")
+}
+
+model Correspondent {
+  id   Int     @id
+  name String?
+  slug String?
+  raw  Json?
+
+  @@map("correspondents")
+}
+
+model DocumentCorrespondent {
+  documentId      Int     @map("document_id")
+  correspondentId Int     @map("correspondent_id")
+  role            String? // primary | secondary
+
+  @@id([documentId, correspondentId])
+  @@index([correspondentId])
+  @@map("document_correspondents")
+}
+
+/**
+ * ── Dossiers / projets ────────────────────────────────────────────────────
+ */
+
+model Folder {
+  id        String   @id
+  parentId  String?  @map("parent_id")
+  name      String?
+  slug      String?
+  color     String?
+  category  String?
+  status    String?
+  raw       Json?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@index([parentId])
+  @@map("folders")
+}
+
+model FolderDocument {
+  folderId   String @map("folder_id")
+  documentId Int    @map("document_id")
+
+  @@id([folderId, documentId])
+  @@index([documentId])
+  @@map("folder_documents")
+}
+
+/**
+ * ── Finances ──────────────────────────────────────────────────────────────
+ */
+
+model BudgetEntry {
+  id               String   @id
+  kind             String?
+  direction        String?
+  label            String?
+  amount           Float?
+  amountPaid       Float?   @map("amount_paid")
+  dueDate          String?  @map("due_date")
+  status           String?
+  categoryId       String?  @map("category_id")
+  categoryName     String?  @map("category_name")
+  sourceDocumentId Int?     @map("source_document_id")
+  raw              Json?
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([direction])
+  @@index([sourceDocumentId])
+  @@map("budget_entries")
+}
+
+model BudgetPayment {
+  id            String  @id
+  budgetEntryId String  @map("budget_entry_id")
+  amount        Float?
+  date          String?
+  account       String?
+  raw           Json?
+
+  @@index([budgetEntryId])
+  @@map("budget_payments")
+}
+
+/**
+ * ── Mails ─────────────────────────────────────────────────────────────────
+ */
+
+model Mail {
+  id             String    @id
+  accountId      String?   @map("account_id")
+  messageId      String?   @map("message_id")
+  threadId       String?   @map("thread_id")
+  fromAddr       String?   @map("from_addr")
+  toAddr         String?   @map("to_addr")
+  subject        String?
+  date           DateTime?
+  snippet        String?   @db.Text
+  body           String?   @db.Text
+  hasAttachments Boolean   @default(false) @map("has_attachments")
+  raw            Json?
+
+  @@index([accountId])
+  @@index([threadId])
+  @@map("mails")
+}
+
+model MailAttachment {
+  id       String  @id
+  mailId   String? @map("mail_id")
+  threadId String? @map("thread_id")
+  filename String?
+  mimeType String? @map("mime_type")
+  raw      Json?
+
+  @@index([mailId])
+  @@map("mail_attachments")
+}
+
+model MailDocumentLink {
+  id         String   @id
+  accountId  String?  @map("account_id")
+  mailId     String?  @map("mail_id")
+  threadId   String?  @map("thread_id")
+  documentId Int?     @map("document_id")
+  filename   String?
+  status     String?
+  kind       String? // attachment | ged-link
+  raw        Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([threadId])
+  @@index([documentId])
+  @@map("mail_document_links")
+}
+
+/**
+ * ── Rappels / tâches ──────────────────────────────────────────────────────
+ */
+
+model Reminder {
+  id              String    @id
+  title           String?
+  remindAt        DateTime? @map("remind_at")
+  status          String?
+  documentId      Int?      @map("document_id")
+  financialItemId String?   @map("financial_item_id")
+  raw             Json?
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  @@index([status])
+  @@index([documentId])
+  @@map("reminders")
+}
+
+model Task {
+  id        String   @id
+  title     String?
+  status    String?
+  priority  String?
+  dueDate   String?  @map("due_date")
+  raw       Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([status])
+  @@map("tasks")
+}
+
+/**
+ * ── Divers ────────────────────────────────────────────────────────────────
+ */
+
+model Signature {
+  id         String   @id
+  scope      String? // document | email | writer
+  documentId Int?     @map("document_id")
+  raw        Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([documentId])
+  @@map("signatures")
+}
+
+model LearnedTemplate {
+  id        String   @id
+  label     String?
+  raw       Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("learned_templates")
+}
+
+model AssistantActionLog {
+  id         String   @id @default(cuid())
+  type       String?
+  message    String?  @db.Text
+  documentId Int?     @map("document_id")
+  user       String?
+  raw        Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("assistant_action_logs")
+}
+
+model ActivityLog {
+  id         String   @id
+  level      String?
+  source     String?
+  message    String?  @db.Text
+  documentId Int?     @map("document_id")
+  projectId  String?  @map("project_id")
+  user       String?
+  raw        Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([documentId])
+  @@map("activity_logs")
+}
+
+model Setting {
+  key   String @id
+  value Json
+
+  @@map("settings")
+}

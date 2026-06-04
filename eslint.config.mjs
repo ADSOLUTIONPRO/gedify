@@ -27,6 +27,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Client Prisma généré — ne pas linter du code généré.
+    "src/generated/**",
     // App macOS isolée (Electron) — son propre tooling, hors du build web.
     "apps-devices/**",
   ]),

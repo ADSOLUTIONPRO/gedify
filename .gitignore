@@ -59,3 +59,6 @@ coverage
 .vercel
 # Données OCR (re-téléchargées au build Docker) + cache
 tessdata/
+
+# Prisma generated client
+/src/generated
