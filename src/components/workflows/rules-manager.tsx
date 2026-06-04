@@ -48,6 +48,7 @@ const ACTIONS: { value: string; label: string; placeholder: string }[] = [
   { value: "set_correspondent", label: "Définir le correspondant", placeholder: "ex. EDF" },
   { value: "set_document_type", label: "Définir le type", placeholder: "ex. Facture" },
   { value: "move_to_folder", label: "Classer dans le dossier", placeholder: "ex. Maison/Électricité" },
+  { value: "create_task", label: "Créer une tâche / rappel", placeholder: "ex. +30j Relancer le paiement" },
 ];
 
 const fieldLabel = (v: string) => FIELDS.find((f) => f.value === v)?.label ?? v;

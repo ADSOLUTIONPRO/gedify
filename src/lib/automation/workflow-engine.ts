@@ -52,6 +52,7 @@ export const WORKFLOW_ACTIONS = [
   "set_correspondent",
   "set_document_type",
   "move_to_folder",
+  "create_task",
 ] as const;
 
 type EvalContext = {
@@ -224,6 +225,19 @@ async function applyActions(
           } else {
             results.push({ type: action.type, value, ok: false, detail: "dossier non résolu" });
           }
+        }
+      } else if (action.type === "create_task") {
+        // value = « [+Nj] Intitulé » → tâche/rappel liée au document, échéance optionnelle.
+        if (!value) { results.push({ type: action.type, value, ok: false, detail: "intitulé vide" }); continue; }
+        const m = value.match(/^\+(\d+)\s*j\s+(.*)$/i);
+        const dueDate = m ? new Date(Date.now() + Number(m[1]) * 86_400_000).toISOString() : null;
+        const taskTitle = m ? m[2].trim() : value;
+        if (dryRun) {
+          results.push({ type: action.type, value, ok: true, detail: `créerait la tâche « ${taskTitle} »${dueDate ? ` (échéance ${dueDate.slice(0, 10)})` : ""}` });
+        } else {
+          const { createAction } = await import("@/lib/actions/action-store");
+          await createAction({ title: taskTitle, documentIds: [doc.id], dueDate });
+          results.push({ type: action.type, value, ok: true, detail: `tâche « ${taskTitle} » créée` });
         }
       } else {
         results.push({ type: action.type, value, ok: false, detail: "action inconnue" });
