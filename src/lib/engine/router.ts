@@ -3,6 +3,7 @@ import "server-only";
 import path from "node:path";
 import {
   deleteOriginal,
+  deletePreview,
   deleteThumbnail,
   mutateList,
   nextId,
@@ -648,6 +649,7 @@ async function trashAction(body: Record<string, unknown>): Promise<Response> {
     for (const d of toPurge) {
       await deleteOriginal(d.storedFilename).catch(() => {});
       await deleteThumbnail(d.id).catch(() => {});
+      await deletePreview(d.id).catch(() => {});
       await removeFromIndex(d.id);
     }
     return json({ result: "OK" });

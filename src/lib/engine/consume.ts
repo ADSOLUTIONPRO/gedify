@@ -8,12 +8,14 @@ import {
   nextId,
   readStore,
   saveOriginal,
+  savePreview,
   saveThumbnail,
   STORE,
   type EngineDocument,
 } from "./stores";
 import { extractText } from "./ocr";
 import { makeThumbnail } from "./thumbnails";
+import { makePreview } from "./previews";
 import { indexDocument } from "./search";
 import { baseName, loadNameMaps, mimeFromExt } from "./helpers";
 import type { PaperlessTask } from "@/lib/paperless-types";
@@ -84,11 +86,26 @@ export async function consume(input: ConsumeInput): Promise<PaperlessTask> {
 
     const { text, pageCount } = await extractText(input.buffer, mime, ext);
 
+    let thumbnailStatus: EngineDocument["thumbnail_status"] = "failed";
     try {
       const thumb = await makeThumbnail(input.buffer, mime, ext);
       await saveThumbnail(id, thumb);
+      thumbnailStatus = "ready";
     } catch {
       /* miniature best-effort */
+    }
+
+    let previewStatus: EngineDocument["preview_status"] = "failed";
+    try {
+      const preview = await makePreview(input.buffer, mime, ext);
+      if (preview) {
+        await savePreview(id, preview);
+        previewStatus = "ready";
+      } else {
+        previewStatus = "skipped";
+      }
+    } catch {
+      /* aperçu best-effort */
     }
 
     const nowIso = new Date().toISOString();
@@ -116,11 +133,22 @@ export async function consume(input: ConsumeInput): Promise<PaperlessTask> {
       checksum: sum,
       deleted: false,
       deletedAt: null,
+      thumbnail_status: thumbnailStatus,
+      preview_status: previewStatus,
+      pages_status: "pending",
+      ocr_status: text.trim() ? "ready" : "skipped",
+      ai_status: "pending",
+      index_status: "pending",
     };
     await mutateList<EngineDocument>(STORE.documents, (list) => [doc, ...list]);
 
     const maps = await loadNameMaps();
     await indexDocument(doc, maps.correspondents, maps.document_types, maps.tags);
+    // L'indexation vient de réussir → refléter le statut sur le document stocké.
+    doc.index_status = "ready";
+    await mutateList<EngineDocument>(STORE.documents, (list) =>
+      list.map((d) => (d.id === id ? { ...d, index_status: "ready" } : d)),
+    );
 
     const task = makeTask(taskId, input.filename, "SUCCESS", `Nouveau document #${id} : ${doc.title}`, id);
     await persistTask(task);

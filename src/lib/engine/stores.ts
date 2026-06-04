@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
 import { getDataDir } from "@/lib/storage/data-dir";
+import { filesSubdir } from "@/lib/storage/ged-paths";
 import {
   postgresEngineEnabled,
   engineCollectionSupported,
@@ -34,6 +35,14 @@ export function originalsDir() {
 }
 export function thumbnailsDir() {
   return path.join(mediaDir(), "thumbnails");
+}
+/* Aperçus moyenne résolution + pages PDF rendues : nouvelle arborescence files/
+   (cf. ged-paths). N'entre pas en conflit avec l'ancien media/. */
+export function previewsDir() {
+  return filesSubdir("previews");
+}
+export function pagesDir() {
+  return filesSubdir("pages");
 }
 
 async function ensureDir(dir: string) {
@@ -218,8 +227,48 @@ export async function thumbnailExists(id: number): Promise<boolean> {
   }
 }
 
+/* ── Aperçus (previews) — image moyenne résolution, files/previews/<id>.webp ── */
+export async function savePreview(id: number, buf: Buffer): Promise<void> {
+  await ensureDir(previewsDir());
+  await fs.writeFile(path.join(previewsDir(), `${id}.webp`), buf);
+}
+export async function readPreview(id: number): Promise<Buffer | null> {
+  try {
+    return await fs.readFile(path.join(previewsDir(), `${id}.webp`));
+  } catch {
+    return null;
+  }
+}
+export async function deletePreview(id: number): Promise<void> {
+  await fs.rm(path.join(previewsDir(), `${id}.webp`), { force: true });
+}
+export async function previewExists(id: number): Promise<boolean> {
+  try {
+    await fs.stat(path.join(previewsDir(), `${id}.webp`));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/* ── Statuts de traitement par étape du pipeline documentaire ──────────────
+   pending : à faire · processing : en cours · ready : prêt · failed : échec ·
+   skipped : non applicable (ex. pas d'OCR pour un .txt). Champs OPTIONNELS :
+   les documents importés avant ce chantier n'en ont pas (traités comme inconnus
+   → la page Santé peut recalculer depuis le disque). */
+export type DerivedStatus = "pending" | "processing" | "ready" | "failed" | "skipped";
+
+export type DocumentDerivedStatuses = {
+  thumbnail_status?: DerivedStatus;
+  preview_status?: DerivedStatus;
+  pages_status?: DerivedStatus;
+  ocr_status?: DerivedStatus;
+  ai_status?: DerivedStatus;
+  index_status?: DerivedStatus;
+};
+
 /* ── Modèle interne d'un document (sur-ensemble de PaperlessDocument) ────── */
-export type EngineDocument = {
+export type EngineDocument = DocumentDerivedStatuses & {
   id: number;
   title: string;
   content: string;

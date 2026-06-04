@@ -11,6 +11,7 @@ import {
   originalsDir,
   readStore,
   saveOriginal,
+  savePreview,
   saveThumbnail,
   slugify,
   STORE,
@@ -23,6 +24,7 @@ import {
 } from "@/lib/engine/stores";
 import { mimeFromExt } from "@/lib/engine/helpers";
 import { makeThumbnail } from "@/lib/engine/thumbnails";
+import { makePreview } from "@/lib/engine/previews";
 import { reindexAll } from "@/lib/engine/search";
 import { EXPORT_FORMAT } from "./export";
 import type { PaperlessDocument, PaperlessNote } from "@/lib/paperless-types";
@@ -288,6 +290,8 @@ export async function importFromZip(
 
     const mime = doc.mime_type ?? (ext ? mimeFromExt(ext) : null);
 
+    let thumbnailStatus: EngineDocument["thumbnail_status"] = buf ? "failed" : "pending";
+    let previewStatus: EngineDocument["preview_status"] = buf ? "failed" : "pending";
     if (buf) {
       storedFilename = await saveOriginal(id, ext, buf);
       files += 1;
@@ -296,8 +300,20 @@ export async function importFromZip(
         const thumb = await makeThumbnail(buf, mime ?? "", ext);
         await saveThumbnail(id, thumb);
         thumbnails += 1;
+        thumbnailStatus = "ready";
       } catch {
         /* miniature best-effort (générée à la volée sinon) */
+      }
+      try {
+        const preview = await makePreview(buf, mime ?? "", ext);
+        if (preview) {
+          await savePreview(id, preview);
+          previewStatus = "ready";
+        } else {
+          previewStatus = "skipped";
+        }
+      } catch {
+        /* aperçu best-effort */
       }
     } else {
       missingFile += 1;
@@ -328,6 +344,12 @@ export async function importFromZip(
       checksum: sum,
       deleted: false,
       deletedAt: null,
+      thumbnail_status: thumbnailStatus,
+      preview_status: previewStatus,
+      pages_status: "pending",
+      ocr_status: (doc.content ?? "").trim() ? "ready" : "skipped",
+      ai_status: "pending",
+      index_status: "pending",
     };
     byId.set(id, engineDoc);
   }
@@ -350,10 +372,19 @@ export async function importFromZip(
   const dataFiles = await restoreOverlay(zip);
 
   // 5) Réindexation plein-texte
+  let indexStatus: EngineDocument["index_status"] = "ready";
   try {
     await reindexAll();
   } catch (e) {
+    indexStatus = "failed";
     errors.push(`Réindexation : ${e instanceof Error ? e.message : e}`);
+  }
+  // Refléter le résultat de l'indexation sur les documents importés.
+  if (documents.some((d) => d.index_status !== indexStatus)) {
+    await writeStore(
+      STORE.documents,
+      documents.map((d) => ({ ...d, index_status: indexStatus })),
+    );
   }
 
   return {
