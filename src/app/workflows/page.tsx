@@ -2,6 +2,7 @@ import { ArrowRight, CheckSquare, Filter, Workflow, Zap } from "lucide-react";
 import { ResourceListView } from "@/components/paperless/resource-list-view";
 import { HelpCard } from "@/components/ui/help-card";
 import { SectionCard } from "@/components/ui/section-card";
+import { RulesManager } from "@/components/workflows/rules-manager";
 import { safePaperlessCollection } from "@/lib/paperless-resources";
 
 export const dynamic = "force-dynamic";
@@ -77,6 +78,13 @@ export default async function WorkflowsPage() {
       detailBasePath="/workflows"
       help={
         <div className="space-y-4">
+          <SectionCard
+            icon={Zap}
+            title="Règles automatiques"
+            description="Appliquées à chaque document importé. Testez ou appliquez à l'existant à tout moment."
+          >
+            <RulesManager />
+          </SectionCard>
           <HelpCard
             tone="emerald"
             icon={Workflow}

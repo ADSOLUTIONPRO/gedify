@@ -288,10 +288,19 @@ export async function applyWorkflowToDocument(
   return { workflowId: wf.id, workflowName: wf.name, matched: true, actions: results };
 }
 
-/** Déclencheurs considérés « à l'arrivée d'un document ». */
+/** Déclencheurs considérés « à l'arrivée d'un document » (tout sauf manuel/planifié). */
 function isOnAddTrigger(trigger: string): boolean {
   const t = (trigger ?? "").toLowerCase();
-  return t === "" || t === "added" || t === "consumption" || t === "import" || t === "any" || t === "document_added";
+  if (t === "manual" || t === "scheduled" || t === "manuel") return false;
+  return (
+    t === "" ||
+    t === "any" ||
+    t === "added" ||
+    t === "consumption" ||
+    t.includes("import") ||
+    t.includes("add") ||
+    t.includes("document")
+  );
 }
 
 /**
