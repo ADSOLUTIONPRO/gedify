@@ -208,6 +208,16 @@ export async function deleteThumbnail(id: number): Promise<void> {
   await fs.rm(path.join(thumbnailsDir(), `${id}.webp`), { force: true });
 }
 
+/** Présence d'une miniature sur disque (stat rapide, sans charger les octets). */
+export async function thumbnailExists(id: number): Promise<boolean> {
+  try {
+    await fs.stat(path.join(thumbnailsDir(), `${id}.webp`));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /* ── Modèle interne d'un document (sur-ensemble de PaperlessDocument) ────── */
 export type EngineDocument = {
   id: number;

@@ -312,9 +312,15 @@ async function fileResponse(id: number, kind: "thumb" | "preview" | "download"):
       }
     }
     if (!thumb) return notFound("Vignette indisponible.");
+    // Miniature ~immuable par id : cache navigateur + revalidation par ETag.
+    // (id jamais réutilisé ; la longueur change si la miniature est régénérée.)
     return new Response(new Uint8Array(thumb), {
       status: 200,
-      headers: { "Content-Type": "image/webp", "Cache-Control": "private, no-store" },
+      headers: {
+        "Content-Type": "image/webp",
+        "Cache-Control": "private, max-age=3600, must-revalidate",
+        ETag: `"t-${id}-${thumb.length}"`,
+      },
     });
   }
 

@@ -116,13 +116,35 @@ export async function proxyDocumentJsonGet(
 }
 
 export async function proxyDocumentFileGet(
-  _request: NextRequest,
+  request: NextRequest,
   context: RouteContext,
   suffix: string,
   { label }: EndpointOptions
 ) {
   try {
     const { id } = await context.params;
+
+    // Miniatures : cache navigateur + revalidation conditionnelle (304) — clé de
+    // la fluidité de la grille (plus de re-téléchargement à chaque rendu/scroll).
+    if (suffix === "thumb") {
+      const ifNoneMatch = request.headers.get("if-none-match");
+      const response = await paperlessFetchRaw(`/api/documents/${id}/${suffix}/`, {
+        headers: { Accept: "image/*,*/*" },
+      });
+      const etag = response.headers.get("etag");
+      const cacheHeaders: Record<string, string> = {
+        "Cache-Control": "private, max-age=3600, must-revalidate",
+      };
+      if (etag) cacheHeaders.ETag = etag;
+      // Le navigateur a déjà la bonne version → 304 sans corps.
+      if (etag && ifNoneMatch && ifNoneMatch === etag) {
+        return new Response(null, { status: 304, headers: cacheHeaders });
+      }
+      const contentType = response.headers.get("content-type");
+      if (contentType) cacheHeaders["Content-Type"] = contentType;
+      return new Response(response.body, { status: response.status, headers: cacheHeaders });
+    }
+
     const response = await paperlessFetchRaw(`/api/documents/${id}/${suffix}/`, {
       headers: {
         Accept: "image/*,application/pdf,application/octet-stream,*/*",
