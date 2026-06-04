@@ -3,7 +3,8 @@ import "server-only";
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { jsonError } from "@/lib/api-utils";
-import { paperlessFetch } from "@/lib/paperless";
+import { enqueueJob } from "@/lib/jobs/job-store";
+import { kickJobWorker } from "@/lib/jobs/job-worker";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,9 +12,9 @@ export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
 
 /**
- * Relance l'OCR d'un document via l'opération groupée Gedify `redo_ocr`.
- * Le retraitement est asynchrone côté Gedify (file de tâches) — on renvoie
- * un statut « queued ». L'analyse IA pourra ensuite être relancée sur le nouvel OCR.
+ * Relance RÉELLE de l'OCR d'un document : met un job `ocr` en file (le worker
+ * pipeline ré-extrait le texte et réindexe en arrière-plan). Remplace l'ancien
+ * appel bulk_edit `redo_ocr` qui n'était pas traité par le moteur.
  */
 export async function POST(request: NextRequest, { params }: Ctx) {
   const deny = await requireAuth(request);
@@ -26,14 +27,13 @@ export async function POST(request: NextRequest, { params }: Ctx) {
   }
 
   try {
-    await paperlessFetch(`/api/documents/bulk_edit/`, {
-      method: "POST",
-      body: { documents: [docId], method: "redo_ocr", parameters: {} },
-    });
+    const job = await enqueueJob("ocr", docId, { priority: 50 });
+    kickJobWorker();
     return NextResponse.json({
       ok: true,
       status: "queued",
-      message: "OCR relancé — le retraitement peut prendre quelques minutes.",
+      jobId: job?.id ?? null,
+      message: "OCR relancé en arrière-plan — le texte et l'index seront mis à jour sous peu.",
     });
   } catch (error) {
     return jsonError("Relance de l'OCR impossible", error);

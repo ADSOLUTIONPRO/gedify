@@ -10,4 +10,11 @@ export async function register() {
   } catch (e) {
     console.error("[instrumentation] amorçage sauvegarde auto échoué :", e instanceof Error ? e.message : e);
   }
+
+  try {
+    const { startJobWorker } = await import("@/lib/jobs/job-worker");
+    startJobWorker();
+  } catch (e) {
+    console.error("[instrumentation] amorçage worker pipeline échoué :", e instanceof Error ? e.message : e);
+  }
 }

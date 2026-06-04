@@ -6,6 +6,7 @@ import {
   Activity,
   AlertTriangle,
   Brain,
+  Cpu,
   Database,
   DownloadCloud,
   FileWarning,
@@ -47,6 +48,7 @@ type GedHealth = {
   database: { mode: string; postgres: boolean; ok: boolean; detail: string | null };
   services: { openaiConfigured: boolean };
   lastBackup: { file: string; at: string } | null;
+  pipeline: { pending: number; processing: number; failed: number; total: number; lastFinishedAt: string | null };
   generatedAt: string;
 };
 
@@ -109,6 +111,32 @@ export function HealthDashboard() {
           if (!data.remaining || data.remaining <= 0) break;
         }
         setProgress(`✓ Terminé — ${total} généré(s).`);
+        await load();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Erreur inconnue");
+      } finally {
+        setBusy(null);
+      }
+    },
+    [load],
+  );
+
+  const runPipeline = useCallback(
+    async (action: string, label: string) => {
+      setBusy(label);
+      setProgress(null);
+      try {
+        const res = await fetch("/api/admin/pipeline", {
+          method: "POST",
+          credentials: "include",
+          cache: "no-store",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action }),
+        });
+        const data = (await res.json()) as { queued?: number; requeued?: number; error?: string };
+        if (!res.ok || data.error) throw new Error(data.error ?? `HTTP ${res.status}`);
+        const n = data.queued ?? data.requeued ?? 0;
+        setProgress(`✓ ${n} job(s) ${action === "retry-failed" ? "relancé(s)" : "mis en file"}.`);
         await load();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Erreur inconnue");
@@ -219,6 +247,21 @@ export function HealthDashboard() {
           </div>
         </SectionCard>
       </div>
+
+      {/* Pipeline documentaire (jobs) */}
+      <SectionCard icon={Cpu} title="Pipeline documentaire" description="File de traitement en arrière-plan (OCR, miniatures, aperçus, index).">
+        <div className="mb-4 grid gap-3 sm:grid-cols-4">
+          <StatCard label="En attente" value={health!.pipeline.pending} helper="jobs" icon={Activity} tone={health!.pipeline.pending ? "amber" : "emerald"} />
+          <StatCard label="En cours" value={health!.pipeline.processing} helper="jobs" icon={Cpu} tone={health!.pipeline.processing ? "blue" : "slate"} />
+          <StatCard label="Échoués" value={health!.pipeline.failed} helper="jobs" icon={AlertTriangle} tone={health!.pipeline.failed ? "rose" : "emerald"} />
+          <StatCard label="Total" value={health!.pipeline.total} helper="en file" icon={Database} tone="slate" />
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <ActionButton onClick={() => void runPipeline("ocr-missing", "p-ocr")} busy={busy === "p-ocr"} disabled={Boolean(busy)} icon={ScanText} label="Relancer l'OCR manquant" />
+          <ActionButton onClick={() => void runPipeline("reindex-all", "p-index")} busy={busy === "p-index"} disabled={Boolean(busy)} icon={RefreshCw} label="Réindexer tout" />
+          <ActionButton onClick={() => void runPipeline("retry-failed", "p-retry")} busy={busy === "p-retry"} disabled={Boolean(busy)} icon={RefreshCw} label="Relancer les jobs échoués" tone="rose" />
+        </div>
+      </SectionCard>
 
       {/* Actions de maintenance */}
       <SectionCard icon={RefreshCw} title="Maintenance" description="Régénération et nettoyage des fichiers dérivés.">

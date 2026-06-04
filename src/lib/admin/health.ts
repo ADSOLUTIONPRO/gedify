@@ -14,6 +14,7 @@ import {
 import { getBackupsDir, legacyMediaSubdir } from "@/lib/storage/ged-paths";
 import { listProjectFolders } from "@/lib/projects/project-store";
 import { pgStorageActive } from "@/lib/db/pg-store";
+import { jobStats } from "@/lib/jobs/job-store";
 
 /* ────────────────────────────────────────────────────────────────────────
    Santé GED (Chantier 4) : état documentaire, stockage, base, services.
@@ -46,6 +47,7 @@ export type GedHealth = {
   database: { mode: string; postgres: boolean; ok: boolean; detail: string | null };
   services: { openaiConfigured: boolean };
   lastBackup: { file: string; at: string } | null;
+  pipeline: { pending: number; processing: number; failed: number; total: number; lastFinishedAt: string | null };
   generatedAt: string;
 };
 
@@ -182,7 +184,7 @@ export async function computeGedHealth(): Promise<GedHealth> {
   const orphanThumbnails = [...thumbIds].filter((id) => !activeIds.has(id)).length;
   const orphanPreviews = [...previewIds].filter((id) => !activeIds.has(id)).length;
 
-  const [originals, thumbnails, previews, pages, backups, database, backup] = await Promise.all([
+  const [originals, thumbnails, previews, pages, backups, database, backup, jobs] = await Promise.all([
     dirUsage(originalsDir()),
     dirUsage(thumbnailsDir()),
     dirUsage(previewsDir()),
@@ -190,6 +192,7 @@ export async function computeGedHealth(): Promise<GedHealth> {
     dirUsage(getBackupsDir()),
     databaseHealth(),
     lastBackup(),
+    jobStats().catch(() => ({ pending: 0, processing: 0, failed: 0, total: 0, lastFinishedAt: null })),
   ]);
   // Inclure aussi l'ancienne arbo media/ dans la taille des originaux/miniatures.
   const legacyOriginals = await dirUsage(legacyMediaSubdir("originals"));
@@ -217,6 +220,13 @@ export async function computeGedHealth(): Promise<GedHealth> {
     database,
     services: { openaiConfigured: Boolean(process.env.OPENAI_API_KEY?.trim()) },
     lastBackup: backup,
+    pipeline: {
+      pending: jobs.pending,
+      processing: jobs.processing,
+      failed: jobs.failed,
+      total: jobs.total,
+      lastFinishedAt: jobs.lastFinishedAt,
+    },
     generatedAt: new Date().toISOString(),
   };
 }

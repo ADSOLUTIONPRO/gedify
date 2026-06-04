@@ -15,6 +15,7 @@ const entries = [
   ["scripts/storage-inspect.ts", "scripts/gedify-storage-inspect.mjs"],
   ["scripts/storage-doctor.ts", "scripts/gedify-storage-doctor.mjs"],
   ["scripts/previews-doctor.ts", "scripts/gedify-previews-doctor.mjs"],
+  ["scripts/pipeline-doctor.ts", "scripts/gedify-pipeline-doctor.mjs"],
   ["scripts/backup-json.ts", "scripts/gedify-backup-json.mjs"],
   ["scripts/migrate-json.ts", "scripts/gedify-migrate-json.mjs"],
   ["scripts/db-push.ts", "scripts/gedify-db-push.mjs"],
