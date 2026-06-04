@@ -14,13 +14,14 @@ import { getPool } from "@/lib/db/pg";
    counters. Les autres collections restent en JSON (repli).
    ──────────────────────────────────────────────────────────────────────── */
 
-const TABLES: Record<string, string> = {
-  documents: "documents",
-  tags: "tags",
-  document_types: "document_types",
-  correspondents: "correspondents",
-  custom_fields: "custom_fields",
-  users: "users",
+// La colonne « blob JSON intégral » varie selon la table (raw vs metadata).
+const TABLES: Record<string, { table: string; blob: string }> = {
+  documents: { table: "documents", blob: "raw" },
+  tags: { table: "tags", blob: "raw" },
+  document_types: { table: "document_types", blob: "raw" },
+  correspondents: { table: "correspondents", blob: "raw" },
+  custom_fields: { table: "custom_fields", blob: "metadata" },
+  users: { table: "users", blob: "metadata" },
 };
 
 export function postgresEngineEnabled(): boolean {
@@ -47,8 +48,8 @@ export async function readCollectionPg(name: string): Promise<unknown> {
     for (const r of rows) out[r.name] = Number(r.value);
     return out;
   }
-  const table = TABLES[name];
-  const { rows } = await pool.query(`SELECT raw FROM "${table}" ORDER BY id`);
+  const { table, blob } = TABLES[name];
+  const { rows } = await pool.query(`SELECT "${blob}" AS raw FROM "${table}" ORDER BY id`);
   return rows.map((r) => r.raw);
 }
 
@@ -71,7 +72,7 @@ export async function writeCollectionPg(name: string, data: unknown): Promise<vo
         );
       }
     } else {
-      const table = TABLES[name];
+      const { table, blob } = TABLES[name];
       const arr = Array.isArray(data) ? data : [];
       const ids: number[] = [];
       for (const item of arr) {
@@ -79,7 +80,7 @@ export async function writeCollectionPg(name: string, data: unknown): Promise<vo
         if (!Number.isFinite(id)) continue;
         ids.push(id);
         await client.query(
-          `INSERT INTO "${table}"(id, raw) VALUES($1, $2) ON CONFLICT(id) DO UPDATE SET raw = EXCLUDED.raw`,
+          `INSERT INTO "${table}"(id, "${blob}") VALUES($1, $2) ON CONFLICT(id) DO UPDATE SET "${blob}" = EXCLUDED."${blob}"`,
           [id, JSON.stringify(item)],
         );
       }

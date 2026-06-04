@@ -21,15 +21,18 @@ export function jsonFallback(): boolean {
   return process.env.ENABLE_JSON_FALLBACK !== "false";
 }
 
-/** Lit toutes les lignes d'une table → tableau d'objets `raw` (forme JSON d'origine). */
-export async function pgReadAll<T>(table: string, idCol = "id"): Promise<T[]> {
+/**
+ * Lit toutes les lignes d'une table → tableau d'objets de la colonne blob (forme
+ * JSON d'origine). `blobCol` = "raw" (défaut) ou "metadata" selon la table.
+ */
+export async function pgReadAll<T>(table: string, idCol = "id", blobCol = "raw"): Promise<T[]> {
   const pool = await getPool();
-  const { rows } = await pool.query(`SELECT raw FROM "${table}" ORDER BY "${idCol}"`);
-  return rows.map((r) => r.raw as T);
+  const { rows } = await pool.query(`SELECT "${blobCol}" AS blob FROM "${table}" ORDER BY "${idCol}"`);
+  return rows.map((r) => r.blob as T);
 }
 
 /**
- * Remplace l'état complet d'une table : upsert de chaque élément (idCol + raw)
+ * Remplace l'état complet d'une table : upsert de chaque élément (idCol + blob)
  * puis suppression des lignes absentes, en transaction.
  */
 export async function pgWriteAll<T>(
@@ -37,6 +40,7 @@ export async function pgWriteAll<T>(
   idCol: string,
   idOf: (item: T) => string | number | null | undefined,
   items: T[],
+  blobCol = "raw",
 ): Promise<void> {
   const pool = await getPool();
   const client = await pool.connect();
@@ -48,7 +52,7 @@ export async function pgWriteAll<T>(
       if (id == null || id === "") continue;
       ids.push(id);
       await client.query(
-        `INSERT INTO "${table}"("${idCol}", raw) VALUES($1, $2) ON CONFLICT("${idCol}") DO UPDATE SET raw = EXCLUDED.raw`,
+        `INSERT INTO "${table}"("${idCol}", "${blobCol}") VALUES($1, $2) ON CONFLICT("${idCol}") DO UPDATE SET "${blobCol}" = EXCLUDED."${blobCol}"`,
         [id, JSON.stringify(item)],
       );
     }

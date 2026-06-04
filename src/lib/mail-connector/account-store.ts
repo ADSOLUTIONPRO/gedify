@@ -3,6 +3,7 @@ import "server-only";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { pgStorageActive, jsonFallback, pgReadAll, pgWriteAll } from "@/lib/db/pg-store";
 import {
   decryptPassword,
   encryptPassword,
@@ -25,7 +26,7 @@ function getFilePath() {
   return path.join(getMailConnectorDataDir(), ACCOUNTS_FILE);
 }
 
-async function readAll(): Promise<MailAccount[]> {
+async function readAllJson(): Promise<MailAccount[]> {
   try {
     const raw = await readFile(getFilePath(), "utf8");
     const parsed = JSON.parse(raw);
@@ -36,7 +37,23 @@ async function readAll(): Promise<MailAccount[]> {
   }
 }
 
+async function readAll(): Promise<MailAccount[]> {
+  if (pgStorageActive()) {
+    try {
+      return await pgReadAll<MailAccount>("mail_accounts", "id", "metadata");
+    } catch (e) {
+      if (jsonFallback()) return readAllJson();
+      throw e;
+    }
+  }
+  return readAllJson();
+}
+
 async function writeAll(accounts: MailAccount[]) {
+  if (pgStorageActive()) {
+    await pgWriteAll<MailAccount>("mail_accounts", "id", (a) => a.id, accounts, "metadata");
+    return;
+  }
   await ensureDir();
   await writeFile(getFilePath(), JSON.stringify(accounts, null, 2), "utf8");
 }

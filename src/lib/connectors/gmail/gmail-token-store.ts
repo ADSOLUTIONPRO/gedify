@@ -3,6 +3,7 @@ import "server-only";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
+import { pgStorageActive, jsonFallback, pgReadAll, pgWriteAll } from "@/lib/db/pg-store";
 import { getMailConnectorDataDir } from "@/lib/mail-connector/storage-paths";
 
 const FILE = "gmail-tokens.json";
@@ -58,7 +59,7 @@ function getFilePath() {
   return path.join(getMailConnectorDataDir(), FILE);
 }
 
-async function readAll(): Promise<GmailTokenRecord[]> {
+async function readAllJson(): Promise<GmailTokenRecord[]> {
   try {
     const raw = await readFile(getFilePath(), "utf8");
     const parsed = JSON.parse(raw);
@@ -68,7 +69,23 @@ async function readAll(): Promise<GmailTokenRecord[]> {
   }
 }
 
+async function readAll(): Promise<GmailTokenRecord[]> {
+  if (pgStorageActive()) {
+    try {
+      return await pgReadAll<GmailTokenRecord>("mail_oauth_tokens", "id", "metadata");
+    } catch (e) {
+      if (jsonFallback()) return readAllJson();
+      throw e;
+    }
+  }
+  return readAllJson();
+}
+
 async function writeAll(items: GmailTokenRecord[]) {
+  if (pgStorageActive()) {
+    await pgWriteAll<GmailTokenRecord>("mail_oauth_tokens", "id", (t) => t.accountId, items, "metadata");
+    return;
+  }
   await mkdir(getMailConnectorDataDir(), { recursive: true });
   await writeFile(getFilePath(), JSON.stringify(items, null, 2), "utf8");
 }

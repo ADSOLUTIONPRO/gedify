@@ -3,6 +3,7 @@ import "server-only";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { pgStorageActive, jsonFallback, pgReadAll, pgWriteAll } from "@/lib/db/pg-store";
 import { getAiDataDir } from "@/lib/budget/storage";
 import { scoreSimilarity, type DocumentFingerprint } from "./document-fingerprint";
 import type { LearnedTemplate, TemplateBudgetMapping } from "./learned-templates-types";
@@ -15,7 +16,7 @@ function filePath() {
 async function ensureDir() {
   await mkdir(getAiDataDir(), { recursive: true });
 }
-async function readAll(): Promise<LearnedTemplate[]> {
+async function readAllJson(): Promise<LearnedTemplate[]> {
   try {
     const raw = await readFile(filePath(), "utf8");
     const parsed = JSON.parse(raw) as unknown;
@@ -24,7 +25,22 @@ async function readAll(): Promise<LearnedTemplate[]> {
     return [];
   }
 }
+async function readAll(): Promise<LearnedTemplate[]> {
+  if (pgStorageActive()) {
+    try {
+      return await pgReadAll<LearnedTemplate>("learned_templates");
+    } catch (e) {
+      if (jsonFallback()) return readAllJson();
+      throw e;
+    }
+  }
+  return readAllJson();
+}
 async function writeAll(items: LearnedTemplate[]) {
+  if (pgStorageActive()) {
+    await pgWriteAll<LearnedTemplate>("learned_templates", "id", (t) => t.id, items);
+    return;
+  }
   await ensureDir();
   await writeFile(filePath(), JSON.stringify(items, null, 2), "utf8");
 }

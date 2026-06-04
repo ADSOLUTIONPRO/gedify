@@ -2,6 +2,7 @@ import "server-only";
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { pgStorageActive, jsonFallback, pgReadAll, pgWriteAll } from "@/lib/db/pg-store";
 import { getDataDir } from "@/lib/storage/data-dir";
 import { randomUUID } from "node:crypto";
 
@@ -22,7 +23,7 @@ async function ensureDir() {
   await mkdir(DATA_DIR, { recursive: true });
 }
 
-async function readAll(): Promise<HiddenSender[]> {
+async function readAllJson(): Promise<HiddenSender[]> {
   try {
     const raw = await readFile(FILE, "utf8");
     const parsed = JSON.parse(raw) as unknown;
@@ -32,7 +33,23 @@ async function readAll(): Promise<HiddenSender[]> {
   }
 }
 
+async function readAll(): Promise<HiddenSender[]> {
+  if (pgStorageActive()) {
+    try {
+      return await pgReadAll<HiddenSender>("hidden_senders", "id", "metadata");
+    } catch (e) {
+      if (jsonFallback()) return readAllJson();
+      throw e;
+    }
+  }
+  return readAllJson();
+}
+
 async function writeAll(items: HiddenSender[]): Promise<void> {
+  if (pgStorageActive()) {
+    await pgWriteAll<HiddenSender>("hidden_senders", "id", (h) => h.id, items, "metadata");
+    return;
+  }
   await ensureDir();
   await writeFile(FILE, JSON.stringify(items, null, 2), "utf8");
 }

@@ -2,6 +2,7 @@ import "server-only";
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { pgStorageActive, jsonFallback, pgReadAll, pgWriteAll } from "@/lib/db/pg-store";
 import { getDataDir } from "@/lib/storage/data-dir";
 import type { EmailContactRecord } from "./email-types";
 
@@ -11,7 +12,7 @@ function getFilePath() {
   return path.join(getDataDir(), STORE_FILE);
 }
 
-async function readAll(): Promise<EmailContactRecord[]> {
+async function readAllJson(): Promise<EmailContactRecord[]> {
   try {
     const raw = await readFile(getFilePath(), "utf8");
     const parsed = JSON.parse(raw) as unknown;
@@ -24,7 +25,23 @@ async function readAll(): Promise<EmailContactRecord[]> {
   }
 }
 
+async function readAll(): Promise<EmailContactRecord[]> {
+  if (pgStorageActive()) {
+    try {
+      return await pgReadAll<EmailContactRecord>("email_contacts", "id", "metadata");
+    } catch (e) {
+      if (jsonFallback()) return readAllJson();
+      throw e;
+    }
+  }
+  return readAllJson();
+}
+
 async function writeAll(items: EmailContactRecord[]) {
+  if (pgStorageActive()) {
+    await pgWriteAll<EmailContactRecord>("email_contacts", "id", (c) => c.resourceName, items, "metadata");
+    return;
+  }
   const filePath = getFilePath();
   await mkdir(path.dirname(filePath), { recursive: true });
   await writeFile(filePath, JSON.stringify(items, null, 2), "utf8");
