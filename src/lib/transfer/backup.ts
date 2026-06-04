@@ -26,6 +26,30 @@ export type BackupEntry = { filename: string; bytes: number; createdAt: string }
 
 const PREFIX = "gedify-backup-";
 
+/** Nombre de sauvegardes serveur à conserver (rétention). 0 = illimité. */
+export function backupRetention(): number {
+  const v = Number(process.env.GEDIFY_BACKUP_RETENTION);
+  return Number.isFinite(v) && v >= 0 ? Math.floor(v) : 14;
+}
+
+/** Supprime les sauvegardes les plus anciennes au-delà de `keep`. */
+export async function pruneBackups(keep = backupRetention()): Promise<number> {
+  if (keep <= 0) return 0;
+  const dir = getBackupsDir();
+  const all = await listServerBackups(); // déjà trié du plus récent au plus ancien
+  const toDelete = all.slice(keep);
+  let deleted = 0;
+  for (const b of toDelete) {
+    try {
+      await fs.rm(path.join(dir, b.filename), { force: true });
+      deleted += 1;
+    } catch {
+      /* ignore */
+    }
+  }
+  return deleted;
+}
+
 export async function createServerBackup(
   options: { includeFiles?: boolean } = {},
 ): Promise<BackupReport> {
@@ -36,6 +60,9 @@ export async function createServerBackup(
   const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
   const filename = `${PREFIX}${stamp}.zip`;
   await fs.writeFile(path.join(dir, filename), buffer);
+
+  // Rétention : on ne garde que les N dernières.
+  await pruneBackups().catch(() => 0);
 
   return {
     ok: true,

@@ -22,9 +22,22 @@ export async function GET(request: NextRequest) {
   }
 }
 
+/** Autorise un déclencheur externe (cron) via BACKUP_CRON_TOKEN, sinon session. */
+function hasValidCronToken(request: NextRequest): boolean {
+  const expected = process.env.BACKUP_CRON_TOKEN?.trim();
+  if (!expected) return false;
+  const provided =
+    request.headers.get("x-backup-token")?.trim() ||
+    request.nextUrl.searchParams.get("token")?.trim() ||
+    "";
+  return provided.length > 0 && provided === expected;
+}
+
 export async function POST(request: NextRequest) {
-  const deny = await requireAuth(request);
-  if (deny) return deny;
+  if (!hasValidCronToken(request)) {
+    const deny = await requireAuth(request);
+    if (deny) return deny;
+  }
 
   let body: { includeFiles?: boolean } = {};
   try {
