@@ -2,7 +2,7 @@ import "server-only";
 
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { jsonError } from "@/lib/api-utils";
+import { jsonError, contentDisposition as safeContentDisposition } from "@/lib/api-utils";
 import { paperlessFetch, paperlessFetchRaw } from "@/lib/paperless";
 
 type RouteContext = {
@@ -159,12 +159,15 @@ export async function proxyDocumentFileGet(
     }
 
     // Pour le preview, forcer l'affichage inline (jamais de téléchargement forcé).
-    // Pour le download, conserver le Content-Disposition de Paperless (attachment).
+    // Pour le download, conserver le Content-Disposition (attachment). Dans les
+    // deux cas, on réencode le nom de fichier en en-tête SÛR (Latin-1/RFC 5987)
+    // pour éviter l'erreur ByteString sur un nom accentué.
     if (suffix === "preview") {
-      const fileName = contentDisposition?.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/)?.[1]?.replace(/['"]/g, "") ?? `document-${id}`;
-      headers.set("Content-Disposition", `inline; filename="${fileName}"`);
+      const fileName = contentDisposition?.match(/filename[^*][^;=\n]*=((['"]).*?\2|[^;\n]*)/)?.[1]?.replace(/['"]/g, "") ?? `document-${id}`;
+      headers.set("Content-Disposition", safeContentDisposition("inline", fileName));
     } else if (contentDisposition) {
-      headers.set("Content-Disposition", contentDisposition);
+      const fileName = contentDisposition.match(/filename[^*][^;=\n]*=((['"]).*?\2|[^;\n]*)/)?.[1]?.replace(/['"]/g, "") ?? `document-${id}`;
+      headers.set("Content-Disposition", safeContentDisposition("attachment", fileName));
     }
 
     headers.set("Cache-Control", "private, no-store");

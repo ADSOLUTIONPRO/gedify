@@ -229,7 +229,7 @@ export function DocumentBulkActions({
                 style={{ color: "var(--text-main)" }}
               >
                 <ImageIcon className="h-4 w-4 shrink-0" strokeWidth={1.75} />
-                Régénérer la miniature
+                Régénérer miniature + aperçu
               </button>
 
               <button

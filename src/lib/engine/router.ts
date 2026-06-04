@@ -21,6 +21,7 @@ import { buildSnippet, indexDocument, moreLikeIds, removeFromIndex, searchIds } 
 import { loadDocCounts, loadNameMaps, mimeFromExt, serializeDocument } from "./helpers";
 import { makeThumbnail } from "./thumbnails";
 import { consume, type ConsumeInput } from "./consume";
+import { contentDisposition } from "@/lib/api-utils";
 import { ENGINE_VERSION, getRemoteVersion, getStatistics, getSystemStatus } from "./status";
 import { createUser, deleteUser, listUsers, primaryProfile, publicUser, updateUser } from "./users";
 import type { PaperlessTask } from "@/lib/paperless-types";
@@ -333,8 +334,8 @@ async function fileResponse(id: number, kind: "thumb" | "preview" | "download"):
 
   const orig = await readOriginal(doc.storedFilename);
   if (!orig) return notFound("Fichier introuvable.");
-  const filename = (doc.original_file_name || `document-${id}${path.extname(doc.storedFilename)}`).replace(/["\\]/g, "_");
-  const disposition = kind === "download" ? `attachment; filename="${filename}"` : `inline; filename="${filename}"`;
+  const filename = doc.original_file_name || `document-${id}${path.extname(doc.storedFilename)}`;
+  const disposition = contentDisposition(kind === "download" ? "attachment" : "inline", filename);
   return new Response(new Uint8Array(orig), {
     status: 200,
     headers: {

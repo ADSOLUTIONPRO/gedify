@@ -42,6 +42,23 @@ export function paperlessProxyError(context: string, error: unknown) {
   return jsonError(context, error);
 }
 
+/**
+ * En-tête Content-Disposition SÛR (en-têtes HTTP = ByteString / Latin-1 only).
+ * Un nom de fichier accentué (ex. accent combinant U+0301) ferait planter
+ * `new Response(headers)`. On fournit donc un fallback ASCII + filename* RFC 5987.
+ */
+export function contentDisposition(type: "inline" | "attachment", filename: string): string {
+  const ascii =
+    (filename || "document")
+      .normalize("NFKD")
+      .replace(/[̀-ͯ]/g, "") // accents combinants
+      .replace(/[^\x20-\x7E]/g, "_") // tout caractère non-ASCII
+      .replace(/["\\]/g, "_")
+      .trim() || "document";
+  const encoded = encodeURIComponent(filename).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+  return `${type}; filename="${ascii}"; filename*=UTF-8''${encoded}`;
+}
+
 export function parseNullableNumber(value: unknown) {
   if (value === "" || value === null || value === undefined) {
     return null;

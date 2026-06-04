@@ -22,7 +22,7 @@ import { setAssistantOverrides, clearAssistantOverrides } from "@/components/ai-
 import { openComposer } from "@/lib/messaging/mail-composer-store";
 import { fetchCurrentUser } from "@/lib/documents/document-quick-edit";
 import { ANALYSIS_ACTIONS, logAiAction, runAiAction, type AiActionId, type AiActionResult } from "@/lib/documents/document-ai";
-import { CheckSquare, Sparkles, Square } from "lucide-react";
+import { CheckSquare, Loader2, Sparkles, Square } from "lucide-react";
 
 type Option = { id: number | string; name: string };
 
@@ -65,6 +65,7 @@ export function DocumentSpace({
 }: DocumentSpaceProps) {
   const router = useRouter();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkStatus, setBulkStatus] = useState<string | null>(null);
   // Ancre pour la sélection par plage (Maj + clic sur une case).
   const lastIndexRef = useRef<number | null>(null);
   const [activeId, setActiveId] = useState<number | null>(docs[0]?.id ?? null);
@@ -181,38 +182,31 @@ export function DocumentSpace({
     });
   }
 
-  async function reanalyzeSelection() {
+  // Exécute une action groupée avec progression (X/N), puis rafraîchit.
+  async function runBulk(label: string, makeUrls: (id: number) => string[]) {
     const targets = selectedDocs.length > 0 ? selectedDocs : activeDoc ? [activeDoc] : [];
+    if (targets.length === 0) return;
+    let done = 0;
+    setBulkStatus(`${label} : 0/${targets.length}…`);
     for (const doc of targets) {
-      await fetch(`/api/documents/${doc.id}/reanalyze`, {
-        method: "POST",
-        credentials: "include",
-      }).catch(() => {});
+      await Promise.all(
+        makeUrls(doc.id).map((u) => fetch(u, { method: "POST", credentials: "include" }).catch(() => {})),
+      );
+      done += 1;
+      setBulkStatus(`${label} : ${done}/${targets.length}…`);
     }
+    setBulkStatus(`✓ ${label} — ${targets.length} document(s) en traitement.`);
     router.refresh();
+    setTimeout(() => setBulkStatus(null), 6000);
   }
 
-  async function redoOcrSelection() {
-    const targets = selectedDocs.length > 0 ? selectedDocs : activeDoc ? [activeDoc] : [];
-    for (const doc of targets) {
-      await fetch(`/api/documents/${doc.id}/redo-ocr`, {
-        method: "POST",
-        credentials: "include",
-      }).catch(() => {});
-    }
-    router.refresh();
-  }
-
-  async function regenerateThumbnailSelection() {
-    const targets = selectedDocs.length > 0 ? selectedDocs : activeDoc ? [activeDoc] : [];
-    for (const doc of targets) {
-      await fetch(`/api/documents/${doc.id}/regenerate-thumbnail`, {
-        method: "POST",
-        credentials: "include",
-      }).catch(() => {});
-    }
-    router.refresh();
-  }
+  const reanalyzeSelection = () => runBulk("Analyse IA", (id) => [`/api/documents/${id}/reanalyze`]);
+  const redoOcrSelection = () => runBulk("OCR", (id) => [`/api/documents/${id}/redo-ocr`]);
+  const regenerateThumbnailSelection = () =>
+    runBulk("Miniature + aperçu", (id) => [
+      `/api/documents/${id}/regenerate-thumbnail`,
+      `/api/documents/${id}/regenerate-preview`,
+    ]);
 
   async function deleteSelection() {
     setDeleting(true);
@@ -323,6 +317,17 @@ export function DocumentSpace({
             paperlessUrl={paperlessUrl}
             firstDocId={primary?.id ?? null}
           />
+
+          {bulkStatus ? (
+            <div
+              className="flex items-center gap-2 rounded-xl border px-3 py-2 text-[13px] font-semibold"
+              style={{ borderColor: "var(--blue-600)", background: "rgba(11,92,255,0.06)", color: "var(--blue-600)" }}
+              role="status"
+            >
+              <Loader2 className={`h-4 w-4 ${bulkStatus.startsWith("✓") ? "" : "animate-spin"}`} strokeWidth={2} />
+              {bulkStatus}
+            </div>
+          ) : null}
 
           <div className="overflow-hidden rounded-2xl bg-white" style={{ boxShadow: "var(--shadow-card)" }}>
             {docs.length === 0 ? (
