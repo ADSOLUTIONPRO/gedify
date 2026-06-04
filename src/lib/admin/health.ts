@@ -15,6 +15,7 @@ import { getBackupsDir, legacyMediaSubdir } from "@/lib/storage/ged-paths";
 import { listProjectFolders } from "@/lib/projects/project-store";
 import { pgStorageActive } from "@/lib/db/pg-store";
 import { jobStats } from "@/lib/jobs/job-store";
+import { duplicateStats } from "@/lib/documents/duplicate-detection";
 
 /* ────────────────────────────────────────────────────────────────────────
    Santé GED (Chantier 4) : état documentaire, stockage, base, services.
@@ -36,6 +37,7 @@ export type GedHealth = {
     jobsPending: number;
   };
   orphans: { thumbnails: number; previews: number };
+  duplicates: { groups: number; exact: number; probable: number };
   storage: {
     originals: DirUsage;
     thumbnails: DirUsage;
@@ -194,6 +196,7 @@ export async function computeGedHealth(): Promise<GedHealth> {
     lastBackup(),
     jobStats().catch(() => ({ pending: 0, processing: 0, failed: 0, total: 0, lastFinishedAt: null })),
   ]);
+  const dups = await duplicateStats().catch(() => ({ groups: 0, exact: 0, probable: 0, documents: 0 }));
   // Inclure aussi l'ancienne arbo media/ dans la taille des originaux/miniatures.
   const legacyOriginals = await dirUsage(legacyMediaSubdir("originals"));
   const legacyThumbs = await dirUsage(legacyMediaSubdir("thumbnails"));
@@ -216,6 +219,7 @@ export async function computeGedHealth(): Promise<GedHealth> {
       jobsPending,
     },
     orphans: { thumbnails: orphanThumbnails, previews: orphanPreviews },
+    duplicates: { groups: dups.groups, exact: dups.exact, probable: dups.probable },
     storage: { originals, thumbnails, previews, pages, backups, totalBytes },
     database,
     services: { openaiConfigured: Boolean(process.env.OPENAI_API_KEY?.trim()) },

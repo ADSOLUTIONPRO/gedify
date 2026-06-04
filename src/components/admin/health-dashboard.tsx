@@ -37,6 +37,7 @@ type GedHealth = {
     jobsPending: number;
   };
   orphans: { thumbnails: number; previews: number };
+  duplicates: { groups: number; exact: number; probable: number };
   storage: {
     originals: DirUsage;
     thumbnails: DirUsage;
@@ -234,6 +235,7 @@ export function HealthDashboard() {
             <Row label="PostgreSQL" value={health!.database.postgres ? (health!.database.ok ? "OK" : "Erreur") : "Inactif"} tone={!health!.database.postgres ? "slate" : health!.database.ok ? "emerald" : "rose"} />
             <Row label="Orphelins (vignettes)" value={String(health!.orphans.thumbnails)} tone={health!.orphans.thumbnails ? "amber" : "emerald"} />
             <Row label="Orphelins (aperçus)" value={String(health!.orphans.previews)} tone={health!.orphans.previews ? "amber" : "emerald"} />
+            <Row label="Doublons possibles" value={`${health!.duplicates.groups} groupe(s)`} tone={health!.duplicates.groups ? "amber" : "emerald"} />
           </div>
           {health!.database.detail ? (
             <p className="mt-3 text-[11px]" style={{ color: "var(--text-muted)" }}>{health!.database.detail}</p>
