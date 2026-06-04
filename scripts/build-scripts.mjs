@@ -19,6 +19,7 @@ const entries = [
   ["scripts/ocr-doctor.ts", "scripts/gedify-ocr-doctor.mjs"],
   ["scripts/classification-doctor.ts", "scripts/gedify-classification-doctor.mjs"],
   ["scripts/duplicates-doctor.ts", "scripts/gedify-duplicates-doctor.mjs"],
+  ["scripts/integrity-doctor.ts", "scripts/gedify-integrity-doctor.mjs"],
   ["scripts/backup-json.ts", "scripts/gedify-backup-json.mjs"],
   ["scripts/migrate-json.ts", "scripts/gedify-migrate-json.mjs"],
   ["scripts/db-push.ts", "scripts/gedify-db-push.mjs"],
