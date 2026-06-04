@@ -1,0 +1,58 @@
+{
+  "name": "gedify-macos",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Application macOS Gedify (Electron) — 3 modes : serveur distant, local léger, local complet (Paperless via Docker).",
+  "author": "ADSOLUTIONPRO",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "build:electron": "tsc -p tsconfig.json",
+    "dev": "npm run build:electron && electron .",
+    "build": "npm run build:electron",
+    "package": "npm run build && electron-builder --mac --dir",
+    "pkg": "npm run build && electron-builder --mac pkg",
+    "dmg": "npm run build && electron-builder --mac dmg",
+    "make:icns": "bash scripts/make-icns.sh",
+    "notarize": "bash scripts/notarize.sh"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0",
+    "typescript": "^5.6.0"
+  },
+  "build": {
+    "extends": null,
+    "appId": "fr.azserver.gedify",
+    "productName": "Gedify",
+    "asar": false,
+    "directories": {
+      "output": "dist",
+      "buildResources": "build/resources"
+    },
+    "files": [
+      "dist-electron/**",
+      "renderer/**",
+      "package.json"
+    ],
+    "extraResources": [
+      { "from": "local-stack", "to": "local-stack" },
+      { "from": "gedify-runtime", "to": "gedify-runtime" }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "electron/assets/Gedify.icns",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "identity": null,
+      "target": [
+        { "target": "pkg", "arch": ["arm64"] }
+      ]
+    },
+    "pkg": {
+      "installLocation": "/Applications"
+    }
+  }
+}

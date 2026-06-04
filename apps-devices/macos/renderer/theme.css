@@ -1,0 +1,92 @@
+/* Tokens Gedify partagés (miroir de src/app/globals.css). Garder synchronisé. */
+:root {
+  --bg-app: #F7F4EE;
+  --bg-panel: #F3EFE7;
+  --bg-card: #EEE7DC;
+  --bg-card-soft: #F4F0E8;
+  --bg-elevated: #FFFFFF;
+  --border: #E6DCCD;
+  --border-strong: #D8C7B5;
+  --text-main: #1F2937;
+  --text-secondary: #5F6B7A;
+  --text-muted: #5F6B7A;
+  --text-hint: #8B95A7;
+  --gedify-navy: #14233C;
+  --gedify-navy-hover: #0F1B31;
+  --gedify-pink: #F75C8D;
+  --gedify-pink-hover: #E84C7F;
+  --gedify-pink-soft: #FDECF2;
+  --gedify-purple: #7C3AED;
+  --gedify-purple-soft: #F2ECFF;
+  --gedify-green: #16A34A;
+  --gedify-green-soft: #EAF8EF;
+  --gedify-red: #EF4444;
+  --gedify-red-soft: #FDECEC;
+  --shadow-card: 0 4px 14px rgba(20, 35, 60, 0.06);
+  --shadow-soft: 0 8px 24px rgba(20, 35, 60, 0.08);
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 22px;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--bg-app);
+  color: var(--text-main);
+  -webkit-font-smoothing: antialiased;
+}
+h1 { color: var(--gedify-navy); font-weight: 800; letter-spacing: -0.02em; }
+h2 { color: var(--gedify-navy); font-weight: 800; }
+p { color: var(--text-secondary); line-height: 1.55; }
+a { color: var(--gedify-pink); }
+
+.app { max-width: 860px; margin: 0 auto; padding: 56px 28px 40px; }
+.titlebar-drag { -webkit-app-region: drag; height: 28px; }
+
+.surface { background: #fff; border-radius: var(--radius-xl); box-shadow: var(--shadow-card); padding: 22px; }
+.soft { background: var(--bg-card-soft); border-radius: var(--radius-lg); }
+
+.cards { display: grid; gap: 16px; grid-template-columns: 1fr; }
+@media (min-width: 720px) { .cards { grid-template-columns: 1fr 1fr 1fr; } }
+
+.choice {
+  text-align: left; background: #fff; border: 2px solid transparent; border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card); padding: 20px; cursor: pointer; transition: transform .12s, border-color .12s;
+  display: flex; flex-direction: column; gap: 8px; color: inherit;
+}
+.choice:hover { transform: translateY(-2px); }
+.choice.selected { border-color: var(--gedify-pink); }
+.choice .ico { width: 44px; height: 44px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+.choice h3 { margin: 6px 0 0; font-size: 15px; color: var(--gedify-navy); font-weight: 800; }
+.choice p { margin: 0; font-size: 12.5px; }
+
+label { display: block; font-size: 12px; font-weight: 700; color: var(--text-main); margin: 14px 0 5px; }
+input[type=text], input[type=url], input[type=password], select {
+  width: 100%; height: 40px; border: 1px solid var(--border); border-radius: 12px; padding: 0 12px;
+  font-size: 13.5px; background: #fff; color: var(--text-main); outline: none;
+}
+input:focus, select:focus { border-color: var(--gedify-pink); box-shadow: 0 0 0 3px var(--gedify-pink-soft); }
+.hint { font-size: 11.5px; color: var(--text-hint); margin-top: 4px; }
+
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.spacer { flex: 1; }
+
+button { font: inherit; cursor: pointer; border: none; }
+.btn { height: 42px; padding: 0 20px; border-radius: 999px; font-weight: 800; font-size: 13.5px; display: inline-flex; align-items: center; gap: 8px; transition: opacity .12s, background .12s; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn-navy { background: var(--gedify-navy); color: #fff; }
+.btn-pink { background: var(--gedify-pink); color: #fff; }
+.btn-green { background: var(--gedify-green); color: #fff; }
+.btn-ghost { background: transparent; color: var(--text-secondary); }
+.btn-outline { background: #fff; border: 1.5px solid var(--border-strong); color: var(--text-main); }
+
+.badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.ok { background: var(--gedify-green-soft); color: #15803D; }
+.err { background: var(--gedify-red-soft); color: #B91C1C; }
+.warn { background: #FFF4E5; color: #B45309; }
+
+.log { background: var(--gedify-navy); color: #DCE3EE; border-radius: 14px; padding: 12px; font-family: ui-monospace, monospace; font-size: 11.5px; white-space: pre-wrap; max-height: 240px; overflow: auto; }
+.muted { color: var(--text-muted); font-size: 12.5px; }
+.hidden { display: none !important; }

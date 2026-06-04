@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;" />
+  <title>Bienvenue dans Gedify</title>
+  <link rel="stylesheet" href="../theme.css" />
+</head>
+<body>
+  <div class="titlebar-drag"></div>
+  <div class="app">
+    <!-- Étape 1 : choix du mode -->
+    <section id="step-mode">
+      <h1>Bienvenue dans Gedify</h1>
+      <p>Choisissez comment vous souhaitez utiliser Gedify.</p>
+      <div class="cards" style="margin-top:22px">
+        <button class="choice" data-mode="remote_gedify">
+          <span class="ico" style="background:var(--gedify-purple-soft);color:var(--gedify-purple)">☁︎</span>
+          <h3>Me connecter à un serveur Gedify existant</h3>
+          <p>J'ai déjà un serveur Gedify / Paperless en ligne ou sur mon réseau.</p>
+        </button>
+        <button class="choice" data-mode="local_gedify">
+          <span class="ico" style="background:var(--gedify-green-soft);color:#15803D">🖥︎</span>
+          <h3>Créer Gedify local sur ce Mac</h3>
+          <p>Gedify fonctionne localement, mais se connecte à un Paperless existant.</p>
+        </button>
+        <!-- Mode « Local complet » (Docker) masqué : trop complexe pour la distribution grand public. -->
+      </div>
+      <div class="row" style="margin-top:22px">
+        <span class="spacer"></span>
+        <button class="btn btn-navy" id="mode-next" disabled>Continuer</button>
+      </div>
+    </section>
+
+    <!-- Étape 2A : serveur distant -->
+    <section id="step-remote" class="hidden">
+      <h2>Connexion à un serveur Gedify</h2>
+      <div class="soft" style="margin-top:14px;padding:12px 14px">
+        <p class="muted" style="margin:0"><b>2 adresses distinctes</b> — Gedify = l'interface, Paperless = les documents :</p>
+        <p class="muted" style="margin:6px 0 0">• <b>Gedify</b> ex. <code>https://doc.azserver.fr</code> &nbsp;•&nbsp; <b>Paperless</b> ex. <code>https://ged.azserver.fr</code></p>
+      </div>
+      <div class="surface" style="margin-top:12px">
+        <label>URL du serveur Gedify</label>
+        <input type="url" id="r-gedify" placeholder="https://doc.azserver.fr" />
+        <label>URL Paperless</label>
+        <input type="url" id="r-paperless" placeholder="https://ged.azserver.fr" />
+        <label>Token Paperless (recommandé pour tester la connexion)</label>
+        <input type="password" id="r-token" placeholder="Token API Paperless" />
+        <p class="hint">💡 Où le trouver : ouvre Paperless → menu utilisateur (en haut à droite) → <b>Mon profil</b> → champ <b>Token API</b> (bouton copier). <a href="#" id="r-open-paperless">Ouvrir Paperless</a></p>
+        <div id="r-result" class="hidden" style="margin-top:14px"></div>
+      </div>
+      <div class="row" style="margin-top:18px">
+        <button class="btn btn-ghost" data-back>Retour</button>
+        <span class="spacer"></span>
+        <button class="btn btn-outline" id="r-test">Tester la connexion</button>
+        <button class="btn btn-navy" id="r-save">Enregistrer</button>
+      </div>
+    </section>
+
+    <!-- Étape 2B : local léger -->
+    <section id="step-local" class="hidden">
+      <h2>Créer un espace Gedify local</h2>
+      <div class="soft" style="margin-top:14px;padding:12px 14px">
+        <p class="muted" style="margin:0">Gedify tourne <b>en local sur ce Mac</b> (données dans ton dossier perso), et lit tes documents depuis un <b>Paperless existant</b> (le tien, sur ton réseau ou en ligne). Aucun document n'est dupliqué.</p>
+      </div>
+      <div class="surface" style="margin-top:12px">
+        <label>Nom de l'espace Gedify</label>
+        <input type="text" id="l-name" placeholder="Mon espace Gedify" />
+        <label>Dossier de stockage local</label>
+        <div class="row">
+          <input type="text" id="l-dir" placeholder="~/Library/Application Support/Gedify/data" />
+          <button class="btn btn-outline" id="l-choose">Choisir…</button>
+        </div>
+        <label>URL Paperless existant</label>
+        <input type="url" id="l-paperless" placeholder="http://192.168.1.17:8010 ou https://ged.azserver.fr" />
+        <p class="hint">HTTP accepté en réseau local ; HTTPS recommandé pour un serveur distant.</p>
+        <label>Token Paperless</label>
+        <input type="password" id="l-token" placeholder="Token API Paperless" />
+        <p class="hint">💡 Où le trouver : ouvre Paperless → menu utilisateur (en haut à droite) → <b>Mon profil</b> → champ <b>Token API</b> (bouton copier). <a href="#" id="l-open-paperless">Ouvrir Paperless</a></p>
+        <div id="l-result" class="hidden" style="margin-top:14px"></div>
+      </div>
+      <div class="row" style="margin-top:18px">
+        <button class="btn btn-ghost" data-back>Retour</button>
+        <span class="spacer"></span>
+        <button class="btn btn-outline" id="l-test">Tester Paperless</button>
+        <button class="btn btn-green" id="l-save">Créer l'espace local</button>
+      </div>
+    </section>
+
+    <!-- Étape 2C : local complet -->
+    <section id="step-full" class="hidden">
+      <h2>Installer Gedify Local complète</h2>
+      <div class="soft" style="margin-top:14px;padding:12px 14px">
+        <p class="muted" style="margin:0"><b>Tout est automatique.</b> L'app installe Paperless en local (PostgreSQL, Redis, Tika, Gotenberg), <b>crée le compte admin et récupère le token</b>, puis lance Gedify local. <b>Aucun token à saisir.</b></p>
+        <p class="muted" style="margin:6px 0 0">Seul prérequis : <b>Docker Desktop</b> installé et lancé. Paperless reste accessible sur <a href="#" id="f-open-paperless">localhost:8010</a>.</p>
+      </div>
+      <div class="surface" style="margin-top:12px">
+        <div id="f-docker"><span class="badge warn">Vérification de Docker…</span></div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn btn-outline" id="f-docker-recheck">Vérifier Docker à nouveau</button>
+          <button class="btn btn-outline" id="f-docker-download">Télécharger Docker Desktop</button>
+        </div>
+        <div class="row" style="margin-top:14px">
+          <button class="btn btn-navy" id="f-install" disabled>Installer & démarrer le stack local</button>
+        </div>
+        <pre id="f-log" class="log hidden" style="margin-top:14px"></pre>
+      </div>
+      <div class="row" style="margin-top:18px">
+        <button class="btn btn-ghost" data-back>Retour</button>
+        <span class="spacer"></span>
+        <button class="btn btn-green hidden" id="f-finish">Terminer & ouvrir Gedify local</button>
+      </div>
+    </section>
+  </div>
+  <script src="./onboarding.js"></script>
+</body>
+</html>

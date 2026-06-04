@@ -3,6 +3,7 @@ import "server-only";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { pgStorageActive, jsonFallback, pgReadAll, pgWriteAll } from "@/lib/db/pg-store";
 import { getActionsDataDir } from "@/lib/budget/storage";
 
 /**
@@ -51,7 +52,7 @@ async function ensureDir() {
 function indexPath() {
   return path.join(getActionsDataDir(), INDEX_FILE);
 }
-async function readAll(): Promise<ReminderRecord[]> {
+async function readAllJson(): Promise<ReminderRecord[]> {
   try {
     const raw = await readFile(indexPath(), "utf8");
     const parsed = JSON.parse(raw);
@@ -60,7 +61,22 @@ async function readAll(): Promise<ReminderRecord[]> {
     return [];
   }
 }
+async function readAll(): Promise<ReminderRecord[]> {
+  if (pgStorageActive()) {
+    try {
+      return await pgReadAll<ReminderRecord>("reminders");
+    } catch (e) {
+      if (jsonFallback()) return readAllJson();
+      throw e;
+    }
+  }
+  return readAllJson();
+}
 async function writeAll(items: ReminderRecord[]) {
+  if (pgStorageActive()) {
+    await pgWriteAll<ReminderRecord>("reminders", "id", (r) => r.id, items);
+    return;
+  }
   await ensureDir();
   await writeFile(indexPath(), JSON.stringify(items, null, 2), "utf8");
 }

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;" />
+  <title>Gedify — Réglages & Diagnostics</title>
+  <link rel="stylesheet" href="../theme.css" />
+</head>
+<body>
+  <div class="titlebar-drag"></div>
+  <div class="app">
+    <h1>Réglages & Diagnostics</h1>
+
+    <div class="surface" style="margin-top:18px">
+      <h2 style="font-size:16px;margin:0 0 8px">Mode actuel</h2>
+      <div id="cfg" class="muted">Chargement…</div>
+      <div class="row" style="margin-top:14px">
+        <button class="btn btn-outline" id="open-data">Ouvrir le dossier de données</button>
+        <button class="btn btn-outline" id="open-paperless">Ouvrir Paperless local</button>
+        <button class="btn btn-navy" id="open-app">Ouvrir Gedify</button>
+        <span class="spacer"></span>
+        <button class="btn btn-ghost" id="change-mode">Changer de mode / serveur</button>
+      </div>
+    </div>
+
+    <div class="surface" id="local-block" style="margin-top:16px">
+      <h2 style="font-size:16px;margin:0 0 8px">Installation locale (Paperless)</h2>
+      <div id="docker" class="muted">—</div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn btn-green" id="ls-start">Démarrer</button>
+        <button class="btn btn-outline" id="ls-stop">Arrêter</button>
+        <button class="btn btn-outline" id="ls-status">État</button>
+        <button class="btn btn-outline" id="ls-reset">Réinitialiser…</button>
+      </div>
+      <pre id="ls-log" class="log hidden" style="margin-top:14px"></pre>
+    </div>
+
+    <div class="surface" style="margin-top:16px">
+      <h2 style="font-size:16px;margin:0 0 8px">Sauvegarde</h2>
+      <p class="muted">Exporte ou restaure tes données Gedify locales (dossiers, finances, IA, signatures, paramètres…). Les documents Paperless ne sont pas inclus.</p>
+      <div class="row" style="margin-top:10px">
+        <button class="btn btn-outline" id="bk-create">Exporter une sauvegarde</button>
+        <button class="btn btn-outline" id="bk-restore">Restaurer une sauvegarde…</button>
+      </div>
+      <div id="bk-msg" class="muted" style="margin-top:8px"></div>
+    </div>
+
+    <div class="surface" style="margin-top:16px">
+      <h2 style="font-size:16px;margin:0 0 8px">Zone sensible</h2>
+      <p class="muted">Réinitialiser la configuration ne supprime PAS vos données locales ni vos documents.</p>
+      <button class="btn btn-outline" id="reset-cfg" style="color:#B91C1C;border-color:#F3B5B5">Réinitialiser la configuration</button>
+    </div>
+  </div>
+  <script src="./settings.js"></script>
+</body>
+</html>

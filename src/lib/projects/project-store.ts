@@ -2,6 +2,7 @@ import "server-only";
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { pgStorageActive, jsonFallback, pgReadAll, pgWriteAll } from "@/lib/db/pg-store";
 import { getDataDir } from "@/lib/storage/data-dir";
 import type {
   ProjectFolder,
@@ -84,6 +85,18 @@ async function assertSupportedStore() {
 }
 
 async function readProjects(): Promise<ProjectFolder[]> {
+  if (pgStorageActive()) {
+    try {
+      return await pgReadAll<ProjectFolder>("folders");
+    } catch (e) {
+      if (jsonFallback()) return readProjectsJson();
+      throw e;
+    }
+  }
+  return readProjectsJson();
+}
+
+async function readProjectsJson(): Promise<ProjectFolder[]> {
   await assertSupportedStore();
 
   if (getConfiguredStoreType() === "memory") {
@@ -104,6 +117,10 @@ async function readProjects(): Promise<ProjectFolder[]> {
 }
 
 async function writeProjects(projects: ProjectFolder[]) {
+  if (pgStorageActive()) {
+    await pgWriteAll<ProjectFolder>("folders", "id", (p) => p.id, projects);
+    return;
+  }
   await assertSupportedStore();
 
   if (getConfiguredStoreType() === "memory") {

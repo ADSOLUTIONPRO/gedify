@@ -20,6 +20,7 @@ const TABLES: Record<string, string> = {
   document_types: "document_types",
   correspondents: "correspondents",
   custom_fields: "custom_fields",
+  users: "users",
 };
 
 export function postgresEngineEnabled(): boolean {

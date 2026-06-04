@@ -3,6 +3,7 @@ import "server-only";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { pgStorageActive, jsonFallback, pgReadAll, pgWriteAll } from "@/lib/db/pg-store";
 import { getBudgetDataDir } from "./storage";
 import { classifyDueDate, toBudgetYear } from "./budget-periods";
 import {
@@ -22,7 +23,7 @@ function filePath() {
   return path.join(getBudgetDataDir(), FILE);
 }
 
-async function readAll(): Promise<FinancialItem[]> {
+async function readAllJson(): Promise<FinancialItem[]> {
   try {
     const raw = await readFile(filePath(), "utf8");
     const parsed = JSON.parse(raw);
@@ -32,7 +33,23 @@ async function readAll(): Promise<FinancialItem[]> {
   }
 }
 
+async function readAll(): Promise<FinancialItem[]> {
+  if (pgStorageActive()) {
+    try {
+      return await pgReadAll<FinancialItem>("budget_entries");
+    } catch (e) {
+      if (jsonFallback()) return readAllJson();
+      throw e;
+    }
+  }
+  return readAllJson();
+}
+
 async function writeAll(items: FinancialItem[]) {
+  if (pgStorageActive()) {
+    await pgWriteAll<FinancialItem>("budget_entries", "id", (i) => i.id, items);
+    return;
+  }
   await ensureDir();
   await writeFile(filePath(), JSON.stringify(items, null, 2), "utf8");
 }
