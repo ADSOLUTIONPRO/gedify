@@ -6841,15 +6841,13 @@ var MIGRATORS = [
           continue;
         }
         if (!dry && prisma) {
-          const { passwordHash: _omit, ...rest } = u;
-          void _omit;
           const data = {
             username,
             email: u.email ? String(u.email) : null,
             passwordHash: str(u.passwordHash),
             isSuperuser: u.is_superuser === true,
             isActive: u.is_active !== false,
-            metadata: jsonVal(rest)
+            metadata: jsonVal(u)
           };
           await prisma.user.upsert({ where: { id }, create: { id, ...data }, update: data });
         }

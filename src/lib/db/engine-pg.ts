@@ -73,6 +73,20 @@ export async function readCollectionPg(name: string): Promise<unknown> {
     for (const r of rows) out[r.name] = Number(r.value);
     return out;
   }
+  if (name === "users") {
+    // Le migrateur a stocké le hash dans la colonne password_hash (hors metadata).
+    // On le ré-injecte pour que verifyCredentials fonctionne en mode postgres.
+    const { rows } = await pool.query(
+      'SELECT metadata, password_hash FROM users ORDER BY id',
+    );
+    return rows.map((r) => {
+      const obj = { ...((r.metadata ?? {}) as Record<string, unknown>) };
+      if ((obj.passwordHash == null || obj.passwordHash === "") && r.password_hash != null) {
+        obj.passwordHash = r.password_hash;
+      }
+      return obj;
+    });
+  }
   const { table, blob } = TABLES[name];
   const { rows } = await pool.query(`SELECT "${blob}" AS raw FROM "${table}" ORDER BY id`);
   return rows.map((r) => r.raw);

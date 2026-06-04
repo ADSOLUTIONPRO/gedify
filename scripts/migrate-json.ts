@@ -374,16 +374,16 @@ const MIGRATORS: Migrator[] = [
           continue;
         }
         if (!dry && prisma) {
-          // passwordHash conservé tel quel (jamais loggé) ; exclu de metadata pour ne pas le dupliquer.
-          const { passwordHash: _omit, ...rest } = u;
-          void _omit;
+          // passwordHash conservé tel quel (jamais loggé). IMPORTANT : il doit
+          // rester DANS metadata (l'app lit les users depuis le blob metadata),
+          // en plus de la colonne dédiée.
           const data = {
             username,
             email: u.email ? String(u.email) : null,
             passwordHash: str(u.passwordHash),
             isSuperuser: u.is_superuser === true,
             isActive: u.is_active !== false,
-            metadata: jsonVal(rest),
+            metadata: jsonVal(u),
           };
           await prisma.user.upsert({ where: { id }, create: { id, ...data }, update: data });
         }
