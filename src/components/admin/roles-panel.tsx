@@ -59,6 +59,8 @@ export function RolesPanel() {
   }, []);
 
   useEffect(() => {
+    // Chargement initial des données (effet de fetch légitime).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
@@ -152,7 +154,7 @@ export function RolesPanel() {
       {/* Journal d'audit */}
       <div>
         <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-500">
-          <ScrollText className="h-3.5 w-3.5" /> Journal d'audit ({audit.length})
+          <ScrollText className="h-3.5 w-3.5" /> Journal d&apos;audit ({audit.length})
         </p>
         {audit.length === 0 ? (
           <p className="text-sm" style={{ color: "var(--text-muted)" }}>Aucune action sensible enregistrée pour l&apos;instant.</p>

@@ -43,6 +43,7 @@ export function SearchAutocomplete({
   useEffect(() => {
     const q = value.trim();
     if (q.length < 2) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSuggestions([]);
       return;
     }

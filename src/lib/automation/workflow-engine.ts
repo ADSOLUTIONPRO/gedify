@@ -181,7 +181,7 @@ async function applyActions(
   dryRun: boolean,
 ): Promise<{ results: WorkflowActionResult[]; changed: EngineDocument }> {
   const results: WorkflowActionResult[] = [];
-  let tags = [...(doc.tags ?? [])];
+  const tags = [...(doc.tags ?? [])];
   let correspondent = doc.correspondent;
   let documentType = doc.document_type;
 

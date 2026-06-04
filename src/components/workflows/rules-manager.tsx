@@ -83,6 +83,7 @@ export function RulesManager() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
@@ -121,7 +122,6 @@ export function RulesManager() {
     } finally {
       setBusy(null);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [name, conditions, actions, load]);
 
   const toggle = useCallback(
