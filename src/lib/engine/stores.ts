@@ -288,12 +288,23 @@ export async function deletePages(id: number): Promise<void> {
 export type DerivedStatus = "pending" | "processing" | "ready" | "failed" | "skipped";
 
 export type DocumentDerivedStatuses = {
+  import_status?: DerivedStatus;
   thumbnail_status?: DerivedStatus;
   preview_status?: DerivedStatus;
   pages_status?: DerivedStatus;
   ocr_status?: DerivedStatus;
-  ai_status?: DerivedStatus;
   index_status?: DerivedStatus;
+  ai_status?: DerivedStatus;
+  classification_status?: DerivedStatus; // ready = classé ; pending = à classer
+  archive_status?: DerivedStatus;
+  /** Horodatage du dernier traitement pipeline + dernière erreur (debug). */
+  last_processed_at?: string | null;
+  last_error?: string | null;
+  /** Scores de confiance (0–100) quand disponibles. */
+  ocr_confidence?: number | null;
+  ai_confidence?: number | null;
+  classification_confidence?: number | null;
+  needs_review_reason?: string | null;
 };
 
 /* ── Modèle interne d'un document (sur-ensemble de PaperlessDocument) ────── */

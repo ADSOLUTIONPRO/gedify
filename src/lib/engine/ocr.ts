@@ -15,7 +15,7 @@ import { extractPdfText, loadPdf, renderPdfPageToPng, type PdfDoc } from "./pdf"
    Tout est best-effort : en cas d'échec, le document est stocké sans texte.
    ──────────────────────────────────────────────────────────────────────── */
 
-export type ExtractResult = { text: string; pageCount: number | null };
+export type ExtractResult = { text: string; pageCount: number | null; confidence: number | null };
 
 const IMAGE_EXT = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tif", ".tiff"];
 const TEXT_EXT = [".txt", ".md", ".csv", ".log", ".json", ".xml", ".html", ".htm"];
@@ -51,7 +51,8 @@ async function preprocess(buf: Buffer): Promise<Buffer> {
 
 /* ── Pool de workers Tesseract + file d'attente (sûr en concurrence) ─────── */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-type Job = { png: Buffer; resolve: (s: string) => void; reject: (e: unknown) => void };
+type OcrResult = { text: string; confidence: number | null };
+type Job = { png: Buffer; resolve: (r: OcrResult) => void; reject: (e: unknown) => void };
 
 let pool: any[] = [];
 let poolInit: Promise<any[]> | null = null;
@@ -119,7 +120,10 @@ async function drain(worker: any): Promise<void> {
       const job = queue.shift()!;
       try {
         const { data } = await worker.recognize(job.png);
-        job.resolve((data?.text ?? "").trim());
+        job.resolve({
+          text: (data?.text ?? "").trim(),
+          confidence: typeof data?.confidence === "number" ? data.confidence : null,
+        });
       } catch (e) {
         job.reject(e);
       }
@@ -135,66 +139,77 @@ async function pump(): Promise<void> {
 }
 
 /** OCR d'une image déjà pré-traitée (PNG), via le pool. */
-function recognize(png: Buffer): Promise<string> {
-  return new Promise<string>((resolve, reject) => {
+function recognize(png: Buffer): Promise<OcrResult> {
+  return new Promise<OcrResult>((resolve, reject) => {
     queue.push({ png, resolve, reject });
     void pump();
   });
 }
 
-async function ocrImage(buf: Buffer): Promise<string> {
+async function ocrImage(buf: Buffer): Promise<OcrResult> {
   try {
     return await recognize(await preprocess(buf));
   } catch (e) {
     console.error("[engine/ocr] reconnaissance échouée :", e instanceof Error ? e.message : e);
-    return "";
+    return { text: "", confidence: null };
   }
 }
 
+function avgConfidence(results: OcrResult[]): number | null {
+  const vals = results.map((r) => r.confidence).filter((c): c is number => typeof c === "number");
+  if (vals.length === 0) return null;
+  return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+}
+
 /* ── OCR d'un PDF scanné : rendu 300 DPI + OCR parallèle ─────────────────── */
-async function ocrPdf(doc: PdfDoc): Promise<string> {
+async function ocrPdf(doc: PdfDoc): Promise<OcrResult> {
   const max = Math.min(doc.numPages, OCR_MAX_PAGES);
-  const jobs: Promise<string>[] = [];
+  const jobs: Promise<OcrResult>[] = [];
   for (let i = 1; i <= max; i++) {
     const png = await renderPdfPageToPng(doc, i, { dpi: OCR_DPI, maxDim: 3500 });
-    jobs.push(png ? ocrImage(png) : Promise.resolve(""));
+    jobs.push(png ? ocrImage(png) : Promise.resolve({ text: "", confidence: null }));
   }
-  const texts = await Promise.all(jobs);
-  return texts.join("\n").trim();
+  const results = await Promise.all(jobs);
+  return { text: results.map((r) => r.text).join("\n").trim(), confidence: avgConfidence(results) };
 }
 
 async function extractPdf(buf: Buffer): Promise<ExtractResult> {
   const doc = await loadPdf(buf);
-  if (!doc) return { text: "", pageCount: null };
+  if (!doc) return { text: "", pageCount: null, confidence: null };
   const pageCount = doc.numPages;
   let text = await extractPdfText(doc);
+  let confidence: number | null = null;
   // Couche texte absente/maigre (scan) → OCR de secours.
   const sparse = text.replace(/\s+/g, "").length < pageCount * 16;
   if (sparse) {
     const ocr = await ocrPdf(doc);
-    if (ocr.length > text.length) text = ocr;
+    if (ocr.text.length > text.length) {
+      text = ocr.text;
+      confidence = ocr.confidence;
+    }
   }
   await doc.destroy?.().catch(() => {});
-  return { text, pageCount };
+  return { text, pageCount, confidence };
 }
 
 export async function extractText(buf: Buffer, mime: string, ext: string): Promise<ExtractResult> {
   const lower = ext.toLowerCase();
   try {
     if (mime.startsWith("text/") || TEXT_EXT.includes(lower)) {
-      return { text: safeUtf8(buf), pageCount: null };
+      return { text: safeUtf8(buf), pageCount: null, confidence: null };
     }
     if (mime === "application/pdf" || lower === ".pdf") {
       return await extractPdf(buf);
     }
     if (mime.startsWith("image/") || IMAGE_EXT.includes(lower)) {
-      return { text: await ocrImage(buf), pageCount: 1 };
+      const r = await ocrImage(buf);
+      return { text: r.text, pageCount: 1, confidence: r.confidence };
     }
   } catch (e) {
     console.error("[engine/ocr] extraction échouée :", e instanceof Error ? e.message : e);
   }
   // docx/xlsx/autres : pas d'extraction pur-JS en v1.
-  return { text: "", pageCount: null };
+  return { text: "", pageCount: null, confidence: null };
 }
 
 /** Libère les workers Tesseract (optionnel, ex. arrêt propre). */

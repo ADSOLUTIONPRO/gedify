@@ -130,10 +130,12 @@ export async function consume(input: ConsumeInput): Promise<PaperlessTask> {
     const asyncMode = asyncImportEnabled();
     let text = "";
     let pageCount: number | null = null;
+    let ocrConfidence: number | null = null;
     if (!asyncMode) {
       const r = await extractText(input.buffer, mime, ext);
       text = r.text;
       pageCount = r.pageCount;
+      ocrConfidence = r.confidence;
     }
 
     const nowIso = new Date().toISOString();
@@ -161,12 +163,18 @@ export async function consume(input: ConsumeInput): Promise<PaperlessTask> {
       checksum: sum,
       deleted: false,
       deletedAt: null,
+      import_status: "ready",
       thumbnail_status: thumbnailStatus,
       preview_status: previewStatus,
       pages_status: "pending",
       ocr_status: asyncMode ? "pending" : text.trim() ? "ready" : "skipped",
       ai_status: "pending",
       index_status: "pending",
+      classification_status:
+        (input.correspondent ?? null) != null && (input.document_type ?? null) != null ? "ready" : "pending",
+      archive_status: "skipped",
+      ocr_confidence: ocrConfidence,
+      last_processed_at: nowIso,
     };
     await mutateList<EngineDocument>(STORE.documents, (list) => [doc, ...list]);
 

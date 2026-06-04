@@ -52,12 +52,13 @@ async function runOcr(documentId: number, fromImport = false): Promise<void> {
   if (!orig) throw new Error("fichier original introuvable");
 
   await patchDoc(documentId, { ocr_status: "processing" });
-  const { text, pageCount } = await extractText(orig, mimeOf(doc), extOf(doc));
+  const { text, pageCount, confidence } = await extractText(orig, mimeOf(doc), extOf(doc));
   const ocrStatus: EngineDocument["ocr_status"] = text.trim() ? "ready" : "skipped";
   await patchDoc(documentId, {
     content: text,
     page_count: pageCount ?? doc.page_count ?? null,
     ocr_status: ocrStatus,
+    ocr_confidence: confidence,
     index_status: "processing",
   });
 
@@ -109,7 +110,24 @@ async function runAi(documentId: number): Promise<void> {
     await patchDoc(documentId, { ai_status: "failed" });
     throw new Error(outcome.message);
   }
-  await patchDoc(documentId, { ai_status: "ready" });
+  // Succès : confiance IA + statut de classement + raison de vérification.
+  const analysis = ("analysis" in outcome ? outcome.analysis : null) as
+    | { globalConfidenceScore?: number; warnings?: unknown[]; needsReview?: boolean }
+    | null;
+  const aiConf =
+    analysis && typeof analysis.globalConfidenceScore === "number"
+      ? Math.round(analysis.globalConfidenceScore * 100)
+      : null;
+  const needsReview = Boolean(analysis?.needsReview) || (analysis?.warnings?.length ?? 0) > 0;
+  const after = await loadDoc(documentId);
+  const classified = Boolean(after && after.correspondent != null && after.document_type != null);
+  await patchDoc(documentId, {
+    ai_status: "ready",
+    ai_confidence: aiConf,
+    classification_confidence: aiConf,
+    classification_status: classified ? "ready" : "pending",
+    needs_review_reason: needsReview ? "Suggestions IA à vérifier" : null,
+  });
 }
 
 async function runThumbnail(documentId: number): Promise<void> {
@@ -145,8 +163,7 @@ async function runIndex(documentId: number): Promise<void> {
   await patchDoc(documentId, { index_status: "ready" });
 }
 
-/** Exécute un job selon son type. Lève en cas d'échec (géré par le worker). */
-export async function runJob(job: PipelineJob): Promise<void> {
+async function dispatchJob(job: PipelineJob): Promise<void> {
   switch (job.type) {
     case "ocr":
       return runOcr(job.documentId, job.payload?.fromImport === true);
@@ -160,5 +177,17 @@ export async function runJob(job: PipelineJob): Promise<void> {
       return runAi(job.documentId);
     default:
       throw new Error(`type de job inconnu : ${job.type}`);
+  }
+}
+
+/** Exécute un job + persiste last_processed_at / last_error sur le document. */
+export async function runJob(job: PipelineJob): Promise<void> {
+  try {
+    await dispatchJob(job);
+    await patchDoc(job.documentId, { last_processed_at: new Date().toISOString(), last_error: null }).catch(() => {});
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    await patchDoc(job.documentId, { last_processed_at: new Date().toISOString(), last_error: msg.slice(0, 300) }).catch(() => {});
+    throw e;
   }
 }
