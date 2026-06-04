@@ -5,6 +5,7 @@ import "./globals.css";
 import { AppShell } from "@/components/layout/app-shell";
 import { AuthSetupBanner } from "@/components/ui/auth-setup-banner";
 import { SessionExpiredBanner } from "@/components/ui/session-expired-banner";
+import { AssistantProvider } from "@/components/ai-assistant/assistant-provider";
 import { readSession } from "@/lib/auth/session";
 
 export const metadata: Metadata = {
@@ -62,9 +63,11 @@ export default async function RootLayout({
         className="min-h-screen antialiased"
         style={{ background: "var(--bg-page)", color: "var(--text-main)" }}
       >
-        <AuthSetupBanner />
-        <SessionExpiredBanner />
-        <AppShell>{children}</AppShell>
+        <AssistantProvider>
+          <AuthSetupBanner />
+          <SessionExpiredBanner />
+          <AppShell>{children}</AppShell>
+        </AssistantProvider>
       </body>
     </html>
   );

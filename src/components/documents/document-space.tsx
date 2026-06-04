@@ -18,6 +18,7 @@ import { DocumentAiResultDialog } from "@/components/documents/document-ai-resul
 import { BulkAnalyzeDialog } from "@/components/documents/bulk-analyze-dialog";
 import type { DocumentVM } from "@/components/documents/types";
 import { ConfirmActionDialog } from "@/components/ui/confirm-action-dialog";
+import { setAssistantOverrides, clearAssistantOverrides } from "@/components/ai-assistant/assistant-context-provider";
 import { openComposer } from "@/lib/messaging/mail-composer-store";
 import { fetchCurrentUser } from "@/lib/documents/document-quick-edit";
 import { ANALYSIS_ACTIONS, logAiAction, runAiAction, type AiActionId, type AiActionResult } from "@/lib/documents/document-ai";
@@ -92,6 +93,12 @@ export function DocumentSpace({
   useEffect(() => {
     void Promise.resolve().then(async () => setAiUser(await fetchCurrentUser()));
   }, []);
+
+  // Expose la sélection / le document actif à l'assistant IA contextuel.
+  useEffect(() => {
+    setAssistantOverrides({ selectedDocumentIds: [...selectedIds], activeDocumentId: activeId });
+    return () => clearAssistantOverrides();
+  }, [selectedIds, activeId]);
 
   async function runAi(doc: DocumentVM, action: AiActionId) {
     if (aiBusyId) return;
