@@ -42,7 +42,7 @@ export function jsonFallbackEnabled(): boolean {
 /* ── Réglages clé/valeur (table settings) ──────────────────────────────────
    Certains stores moteur sont des OBJETS (pas des tableaux) persistés via
    readStore/writeStore. Seules les clés listées ici vivent dans `settings`. */
-const SETTINGS_KEYS = new Set<string>(["assistant-settings"]);
+const SETTINGS_KEYS = new Set<string>(["assistant-settings", "saved-searches"]);
 
 export function engineSettingSupported(name: string): boolean {
   return SETTINGS_KEYS.has(name);

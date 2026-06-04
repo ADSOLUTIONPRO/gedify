@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Pagination } from "@/components/ui/pagination";
 import { SearchInput } from "@/components/ui/search-input";
 import { SectionCard } from "@/components/ui/section-card";
+import { SavedSearchesBar } from "@/components/search/saved-searches-bar";
 import { cleanSearchParams, firstParam, numberParam, type PageSearchParams } from "@/lib/page-params";
 import {
   getCorrespondents,
@@ -42,11 +43,19 @@ function buildSearchApiParams(params: Record<string, string | string[] | undefin
   const correspondent = firstParam(params, "correspondent");
   const documentType = firstParam(params, "document_type");
   const tag = firstParam(params, "tag");
+  const createdFrom = firstParam(params, "created_from");
+  const createdTo = firstParam(params, "created_to");
+  const untagged = firstParam(params, "untagged") === "on";
+  const noCorrespondent = firstParam(params, "no_correspondent") === "on";
 
   if (query) apiParams.query = query;
   if (correspondent) apiParams.correspondent__id = correspondent;
   if (documentType) apiParams.document_type__id = documentType;
   if (tag) apiParams.tags__id__all = tag;
+  if (createdFrom) apiParams.created__date__gte = createdFrom;
+  if (createdTo) apiParams.created__date__lte = createdTo;
+  if (untagged) apiParams.is_tagged = "false";
+  if (noCorrespondent) apiParams.correspondent__isnull = "true";
 
   return apiParams;
 }
@@ -78,6 +87,10 @@ export default async function RecherchePage({
       "correspondent",
       "document_type",
       "tag",
+      "created_from",
+      "created_to",
+      "untagged",
+      "no_correspondent",
       "ordering",
       "include_projects",
     ]);
@@ -102,6 +115,8 @@ export default async function RecherchePage({
             </Link>
           }
         />
+
+        <SavedSearchesBar />
 
         <form action="/recherche" className="mb-6">
           <FilterBar resetHref="/recherche">
@@ -152,6 +167,24 @@ export default async function RecherchePage({
               </select>
             </label>
             <label>
+              <span className={labelClass()}>Date document — du</span>
+              <input
+                type="date"
+                name="created_from"
+                defaultValue={firstParam(params, "created_from")}
+                className={fieldClass()}
+              />
+            </label>
+            <label>
+              <span className={labelClass()}>au</span>
+              <input
+                type="date"
+                name="created_to"
+                defaultValue={firstParam(params, "created_to")}
+                className={fieldClass()}
+              />
+            </label>
+            <label>
               <span className={labelClass()}>Tri</span>
               <select
                 name="ordering"
@@ -164,6 +197,26 @@ export default async function RecherchePage({
                 <option value="-created">Date document récente</option>
                 <option value="created">Date document ancienne</option>
               </select>
+            </label>
+            <label className="flex min-h-11 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700">
+              <input
+                type="checkbox"
+                name="untagged"
+                value="on"
+                defaultChecked={firstParam(params, "untagged") === "on"}
+                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              />
+              Sans tag
+            </label>
+            <label className="flex min-h-11 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700">
+              <input
+                type="checkbox"
+                name="no_correspondent"
+                value="on"
+                defaultChecked={firstParam(params, "no_correspondent") === "on"}
+                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              />
+              Sans correspondant
             </label>
             <label className="flex min-h-11 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700">
               <input
