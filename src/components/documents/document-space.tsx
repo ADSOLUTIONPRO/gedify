@@ -192,6 +192,17 @@ export function DocumentSpace({
     router.refresh();
   }
 
+  async function redoOcrSelection() {
+    const targets = selectedDocs.length > 0 ? selectedDocs : activeDoc ? [activeDoc] : [];
+    for (const doc of targets) {
+      await fetch(`/api/documents/${doc.id}/redo-ocr`, {
+        method: "POST",
+        credentials: "include",
+      }).catch(() => {});
+    }
+    router.refresh();
+  }
+
   async function deleteSelection() {
     setDeleting(true);
     const targets = selectedDocs.length > 0 ? selectedDocs : activeDoc ? [activeDoc] : [];
@@ -294,6 +305,7 @@ export function DocumentSpace({
             onSendByMail={sendByMail}
             onArchive={() => primary && router.push(primary.detailHref)}
             onReanalyze={() => void reanalyzeSelection()}
+            onRedoOcr={() => void redoOcrSelection()}
             onOpenFirst={() => primary && router.push(primary.detailHref)}
             onDelete={() => setConfirmDelete(true)}
             paperlessUrl={paperlessUrl}

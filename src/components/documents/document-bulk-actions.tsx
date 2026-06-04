@@ -12,6 +12,7 @@ import {
   FolderPlus,
   Mail,
   MoreHorizontal,
+  ScanText,
   Trash2,
   X,
 } from "lucide-react";
@@ -25,6 +26,7 @@ type DocumentBulkActionsProps = {
   onSendByMail: () => void;
   onArchive: () => void;
   onReanalyze: () => void;
+  onRedoOcr: () => void;
   onOpenFirst: () => void;
   onDelete: () => void;
   paperlessUrl: string | null;
@@ -48,6 +50,7 @@ export function DocumentBulkActions({
   onSendByMail,
   onArchive,
   onReanalyze,
+  onRedoOcr,
   onOpenFirst,
   onDelete,
   paperlessUrl,
@@ -204,6 +207,16 @@ export function DocumentBulkActions({
               >
                 <Bot className="h-4 w-4 shrink-0" strokeWidth={1.75} />
                 Relancer l&apos;analyse IA
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { onRedoOcr(); setMenuOpen(false); }}
+                className="flex w-full items-center gap-2.5 px-3 py-2 text-[13px] transition hover:bg-slate-50"
+                style={{ color: "var(--text-main)" }}
+              >
+                <ScanText className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+                Relancer l&apos;OCR
               </button>
 
               <button
