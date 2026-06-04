@@ -71,6 +71,52 @@ export function TaxonomyManager({
   const [message, setMessage] = useState("");
   const [pendingDelete, setPendingDelete] = useState<TaxonomyEntity | null>(null);
   const [deleting, setDeleting] = useState(false);
+  // Fusion
+  const [mergeMode, setMergeMode] = useState(false);
+  const [mergeSel, setMergeSel] = useState<Set<number>>(new Set());
+  const [mergeMaster, setMergeMaster] = useState<number | null>(null);
+  const [merging, setMerging] = useState(false);
+  const [confirmMerge, setConfirmMerge] = useState(false);
+
+  const mergeResource =
+    documentParam === "tag" ? "tags" : documentParam === "correspondent" ? "correspondents" : "document_types";
+
+  function toggleMergeSel(id: number) {
+    setMergeSel((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      if (mergeMaster == null || !next.has(mergeMaster)) setMergeMaster([...next][0] ?? null);
+      return next;
+    });
+  }
+
+  async function doMerge() {
+    if (mergeMaster == null || mergeSel.size < 2) return;
+    setMerging(true);
+    setConfirmMerge(false);
+    try {
+      const res = await fetch("/api/admin/taxonomy/merge", {
+        method: "POST",
+        credentials: "include",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ resource: mergeResource, keepId: mergeMaster, mergeIds: [...mergeSel].filter((id) => id !== mergeMaster) }),
+      });
+      const data = (await res.json()) as { ok?: boolean; message?: string; error?: string };
+      if (!res.ok || data.error || !data.ok) throw new Error(data.error ?? data.message ?? `HTTP ${res.status}`);
+      setMessage(data.message ?? "Fusion effectuée.");
+      setStatus("success");
+      setMergeSel(new Set());
+      setMergeMaster(null);
+      setMergeMode(false);
+      router.refresh();
+    } catch (err) {
+      setStatus("error");
+      setMessage(err instanceof Error ? err.message : "Erreur de fusion.");
+    } finally {
+      setMerging(false);
+    }
+  }
 
   const pluralNoun = nounPlural ?? `${noun}s`;
   const existingNames = useMemo(
@@ -313,6 +359,43 @@ export function TaxonomyManager({
           </div>
         </div>
 
+        {/* Barre de fusion */}
+        <div className="flex flex-wrap items-center gap-2 border-b px-5 py-2.5 text-sm" style={{ borderColor: "var(--border-soft)" }}>
+          <button
+            type="button"
+            onClick={() => { setMergeMode((m) => !m); setMergeSel(new Set()); setMergeMaster(null); }}
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg border bg-white px-3 font-semibold text-slate-700 hover:bg-slate-50"
+            style={{ borderColor: "var(--border)" }}
+          >
+            {mergeMode ? "Annuler la fusion" : `Fusionner des ${pluralNoun}`}
+          </button>
+          {mergeMode && mergeSel.size >= 2 ? (
+            <>
+              <span className="text-slate-500">Conserver :</span>
+              <select
+                value={String(mergeMaster ?? "")}
+                onChange={(e) => setMergeMaster(Number(e.target.value))}
+                className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-sm font-semibold"
+              >
+                {[...mergeSel].map((id) => (
+                  <option key={id} value={id}>{items.find((i) => i.id === id)?.name ?? `#${id}`}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => setConfirmMerge(true)}
+                disabled={merging}
+                className="inline-flex h-8 items-center rounded-lg px-3 font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+                style={{ background: "var(--accent)" }}
+              >
+                Fusionner {mergeSel.size} → 1
+              </button>
+            </>
+          ) : mergeMode ? (
+            <span className="text-slate-400">Cochez au moins 2 {pluralNoun} à fusionner.</span>
+          ) : null}
+        </div>
+
         {filteredItems.length === 0 ? (
           items.length === 0 ? (
             <div className="p-5">
@@ -352,6 +435,15 @@ export function TaxonomyManager({
               >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
+                    {mergeMode ? (
+                      <input
+                        type="checkbox"
+                        checked={mergeSel.has(item.id)}
+                        onChange={() => toggleMergeSel(item.id)}
+                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                        aria-label={`Sélectionner ${item.name}`}
+                      />
+                    ) : null}
                     {colorEnabled ? (
                       <span
                         aria-hidden="true"
@@ -447,6 +539,17 @@ export function TaxonomyManager({
         }
         confirmLabel="Supprimer"
         loading={deleting}
+      />
+
+      <ConfirmActionDialog
+        isOpen={confirmMerge}
+        onClose={() => setConfirmMerge(false)}
+        onConfirm={doMerge}
+        variant="warning"
+        title={`Fusionner ${mergeSel.size} ${pluralNoun} ?`}
+        description={`Les documents seront re-référencés vers « ${items.find((i) => i.id === mergeMaster)?.name ?? ""} », puis les autres ${pluralNoun} seront supprimés. Action journalisée.`}
+        confirmLabel="Fusionner"
+        loading={merging}
       />
     </div>
   );

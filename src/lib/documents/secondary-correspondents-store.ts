@@ -71,6 +71,19 @@ export async function getSecondaryCorrespondentsMap(documentIds: number[]): Prom
   return map;
 }
 
+/** Remplace un correspondant secondaire par un autre partout (fusion). */
+export async function reassignSecondaryCorrespondent(oldId: number, newId: number): Promise<void> {
+  const all = await readAll();
+  let dirty = false;
+  for (const e of all) {
+    if (e.correspondentIds.includes(oldId)) {
+      e.correspondentIds = [...new Set(e.correspondentIds.map((id) => (id === oldId ? newId : id)))];
+      dirty = true;
+    }
+  }
+  if (dirty) await writeAll(all);
+}
+
 async function setSecondary(documentId: number, ids: number[]): Promise<number[]> {
   const all = await readAll();
   const unique = [...new Set(ids)];
