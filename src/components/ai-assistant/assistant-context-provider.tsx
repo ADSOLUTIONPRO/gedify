@@ -76,6 +76,8 @@ export function useAssistantContext(): GedifyAssistantContext {
     if (dm) base.activeDocumentId = Number(dm[1]);
     const fm = pathname.match(/^\/(?:organiser\/dossiers|dossiers|projets)\/([^/]+)/);
     if (fm) base.activeFolderId = fm[1];
+    const tm = pathname.match(/^\/messagerie\/thread\/([^/]+)/);
+    if (tm) base.activeMailId = decodeURIComponent(tm[1]);
 
     if (typeof window !== "undefined") {
       const sp = new URLSearchParams(window.location.search);

@@ -98,9 +98,11 @@ function AssistantWidget() {
       }
       if (action.type === "draft_mail") {
         openComposer({
-          to: (action.params.to as string) ?? undefined,
+          to: (action.params.to as string | null) || undefined,
           subject: (action.params.subject as string) ?? "",
           bodyHtml: ((action.params.body as string) ?? "").replace(/\n/g, "<br>"),
+          threadId: (action.params.threadId as string | null) || undefined,
+          inReplyTo: (action.params.inReplyTo as string | null) || undefined,
           attachments: action.documentIds.map((id) => ({ documentId: id, name: `Document ${id}` })),
         });
         setActionState(action.id, "done", "Brouillon ouvert dans le compositeur.");
@@ -196,6 +198,13 @@ function suggestionsForSpace(space: string, hasSelection: boolean): QuickSuggest
     return [
       { label: "Ranger ce dossier", prompt: "Range les documents non classés dans le dossier actif." },
       ...DEFAULT_SUGGESTIONS.slice(0, 3),
+    ];
+  if (space === "mails")
+    return [
+      { label: "Docs liés à ce mail", prompt: "Trouve les documents GED liés à ce mail." },
+      { label: "Préparer une réponse", prompt: "Prépare un brouillon de réponse à ce mail." },
+      { label: "Mails avec PJ", prompt: "Cherche les mails récents qui ont une pièce jointe." },
+      ...DEFAULT_SUGGESTIONS.slice(0, 1),
     ];
   return DEFAULT_SUGGESTIONS;
 }

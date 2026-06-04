@@ -7,6 +7,10 @@ import { listProjectFolders } from "@/lib/projects/project-store";
 import { listFinancialItems } from "@/lib/budget/financial-item-store";
 import { getLatestAnalysisForDocument } from "@/lib/ai/ai-analysis-store";
 import { listReminders } from "@/lib/actions/reminder-store";
+import { listMailDocumentLinks } from "@/lib/messaging/mail-document-links-store";
+import { listEmailLinks } from "@/lib/messaging/email-ged-link-store";
+import { listEmailContacts } from "@/lib/messaging/email-contact-store";
+import { loadThreads } from "@/lib/messaging/load-threads";
 import type {
   DocumentRef,
   GedifyAssistantContext,
@@ -104,6 +108,19 @@ export const TOOL_SCHEMAS = [
   fn("list_reminders", "Liste les rappels.", {
     status: { type: "string", enum: ["scheduled", "done"], description: "Statut (défaut scheduled)." },
   }, []),
+  fn("find_documents_for_mail", "Documents GED liés à un mail/thread (pièces jointes importées + liens). Sans threadId, utilise le mail actif.", {
+    threadId: { type: "string", description: "Identifiant du thread mail (optionnel si un mail est actif)." },
+  }, []),
+  fn("find_mail_for_document", "Retrouve le(s) mail(s) source(s) d'un document (thread + fichier joint).", {
+    documentId: { type: "number" },
+  }, ["documentId"]),
+  fn("search_mails", "Recherche des mails dans la boîte connectée (syntaxe Gmail, ex: from:edf has:attachment).", {
+    query: { type: "string", description: "Requête de recherche (défaut: boîte de réception)." },
+    limit: { type: "number" },
+  }, []),
+  fn("list_contacts", "Recherche dans les contacts mail (par nom ou adresse).", {
+    query: { type: "string", description: "Nom ou fragment d'adresse (optionnel)." },
+  }, []),
 
   // ── Outils d'ACTION (proposent, n'exécutent pas) ──────────────────────────
   fn("propose_assign_folder", "Propose de classer des documents dans un dossier (par nom).", {
@@ -134,12 +151,14 @@ export const TOOL_SCHEMAS = [
     dueDate: { type: "string", description: "Échéance YYYY-MM-DD." },
     documentId: { type: "number", description: "Document lié (optionnel)." },
   }, ["title"]),
-  fn("propose_draft_mail", "Propose un brouillon de mail (jamais envoyé sans confirmation).", {
+  fn("propose_draft_mail", "Propose un brouillon de mail (jamais envoyé sans confirmation). Renseigner threadId pour répondre à un mail.", {
     to: { type: "string", description: "Adresse destinataire si connue." },
     contactQuery: { type: "string", description: "Nom du contact/correspondant si l'adresse est inconnue." },
     subject: { type: "string" },
     body: { type: "string" },
     documentIds: { type: "array", items: { type: "number" }, description: "Pièces jointes (documents)." },
+    threadId: { type: "string", description: "Thread auquel répondre (réponse). Défaut: mail actif." },
+    inReplyTo: { type: "string", description: "Identifiant du message auquel répondre (optionnel)." },
   }, ["subject", "body"]),
   fn("propose_navigate", "Propose d'ouvrir une page/élément (document, dossier, espace).", {
     target: { type: "string", enum: ["document", "folder", "finances", "mails", "reminders", "documents"] },
@@ -190,6 +209,14 @@ export async function runTool(
       return budgetTool(String(args.filter ?? "all"));
     case "list_reminders":
       return remindersTool(String(args.status ?? "scheduled"));
+    case "find_documents_for_mail":
+      return mailDocumentsTool(args.threadId ? String(args.threadId) : rc.ctx.activeMailId, rc);
+    case "find_mail_for_document":
+      return mailForDocumentTool(num(args.documentId) ?? 0);
+    case "search_mails":
+      return searchMailsTool(args.query ? String(args.query) : "in:inbox", num(args.limit) ?? 20);
+    case "list_contacts":
+      return contactsTool(args.query ? String(args.query) : "");
 
     case "propose_assign_folder":
       return propose("assign_folder", rc, idArray(args.documentIds), {
@@ -221,6 +248,8 @@ export async function runTool(
         contactQuery: args.contactQuery ? String(args.contactQuery) : null,
         subject: String(args.subject ?? ""),
         body: String(args.body ?? ""),
+        threadId: args.threadId ? String(args.threadId) : rc.ctx.activeMailId,
+        inReplyTo: args.inReplyTo ? String(args.inReplyTo) : null,
       });
     case "propose_navigate":
       return propose("navigate", rc, [], { target: String(args.target ?? "documents"), id: args.id != null ? String(args.id) : null });
@@ -376,6 +405,80 @@ async function remindersTool(status: string) {
   return {
     count: list.length,
     reminders: list.slice(0, 30).map((r) => ({ id: r.id, title: r.title, remindAt: r.remindAt, status: r.status })),
+  };
+}
+
+/* ── Mails / contacts ────────────────────────────────────────────────────── */
+
+async function mailDocumentsTool(threadId: string | null, rc: ToolRunContext) {
+  if (!threadId) return { count: 0, documents: [], note: "Aucun mail actif — précisez un threadId." };
+  const [attLinks, gedLinks, docs, maps] = await Promise.all([
+    listMailDocumentLinks({ threadId }),
+    listEmailLinks({ emailId: threadId, targetKind: "document" }),
+    liveDocs(),
+    loadMaps(),
+  ]);
+  const ids = new Set<number>();
+  for (const l of attLinks) if (l.paperlessDocumentId) ids.add(l.paperlessDocumentId);
+  for (const l of gedLinks) if (l.target.kind === "document") ids.add(l.target.documentId);
+  const found = docs.filter((d) => ids.has(d.id));
+  pushRefs(rc.refs, found);
+  return { threadId, count: found.length, documents: found.map((d) => compact(d, maps)) };
+}
+
+async function mailForDocumentTool(documentId: number) {
+  if (!documentId) return { mails: [], note: "documentId manquant." };
+  const [attLinks, gedLinks] = await Promise.all([
+    listMailDocumentLinks(),
+    listEmailLinks({ targetKind: "document" }),
+  ]);
+  const mails: { threadId: string; filename: string | null; source: string }[] = [];
+  for (const l of attLinks) if (l.paperlessDocumentId === documentId) mails.push({ threadId: l.threadId, filename: l.filename, source: "pièce jointe" });
+  for (const l of gedLinks) if (l.target.kind === "document" && l.target.documentId === documentId) mails.push({ threadId: l.emailId, filename: null, source: "lien manuel" });
+  return { documentId, count: mails.length, mails: mails.slice(0, 20) };
+}
+
+async function searchMailsTool(query: string, limit: number) {
+  let res: Awaited<ReturnType<typeof loadThreads>>;
+  try {
+    res = await loadThreads(query, Math.min(limit, 40));
+  } catch (e) {
+    return { connected: false, threads: [], note: `Recherche mail indisponible : ${e instanceof Error ? e.message : e}` };
+  }
+  if (!res.connected) return { connected: false, threads: [], note: "Boîte mail non connectée." };
+  return {
+    connected: true,
+    account: res.accountEmail,
+    count: res.threads.length,
+    threads: res.threads.slice(0, limit).map((t) => ({
+      threadId: t.id,
+      subject: t.subject,
+      from: t.participants[0] ? (t.participants[0].name ?? t.participants[0].email) : null,
+      snippet: t.snippet,
+      date: t.lastMessageAt,
+      unread: t.unread,
+    })),
+  };
+}
+
+async function contactsTool(query: string) {
+  const contacts = await listEmailContacts();
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? contacts.filter(
+        (c) =>
+          (c.displayName ?? "").toLowerCase().includes(q) ||
+          (c.email ?? "").toLowerCase().includes(q) ||
+          (c.emails ?? []).some((e) => e.toLowerCase().includes(q)),
+      )
+    : contacts;
+  return {
+    count: filtered.length,
+    contacts: filtered.slice(0, 25).map((c) => ({
+      name: c.displayName,
+      email: c.email ?? c.emails?.[0] ?? null,
+      correspondentId: c.correspondentId,
+    })),
   };
 }
 

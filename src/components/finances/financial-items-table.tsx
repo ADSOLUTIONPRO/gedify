@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { setAssistantOverrides, clearAssistantOverrides } from "@/components/ai-assistant/assistant-context-provider";
 import { Check, Eye, FileText, Loader2, Sparkles, Trash2, X } from "lucide-react";
 import { ResponsiveDetailPanel } from "@/components/layout/responsive-detail-panel";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
@@ -46,6 +47,13 @@ export function FinancialItemsTable({ items, emptyLabel = "Aucun élément.", al
   const router = useRouter();
   const [activeId, setActiveId] = useState<string | null>(items[0]?.id ?? null);
   const [busy, setBusy] = useState(false);
+
+  // Expose la ligne budget active à l'assistant IA contextuel.
+  useEffect(() => {
+    setAssistantOverrides({ activeBudgetEntryId: activeId });
+    return () => clearAssistantOverrides();
+  }, [activeId]);
+
   const [flash, setFlash] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
