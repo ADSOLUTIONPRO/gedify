@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download, ExternalLink, Loader2, Trash2 } from "lucide-react";
+import { Download, ExternalLink, Loader2, RefreshCw, Trash2 } from "lucide-react";
 import { ConfirmActionDialog } from "@/components/ui/confirm-action-dialog";
 
 type Props = {
@@ -31,10 +31,25 @@ export function DocumentViewer({ documentId, documentTitle, mimeType, onDeleted 
   const [loading, setLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [regen, setRegen] = useState<"idle" | "running" | "done">("idle");
 
   const previewUrl = `/api/paperless/documents/${documentId}/preview`;
   const downloadUrl = `/api/paperless/documents/${documentId}/download`;
   const canPreview = isPreviewable(mimeType);
+
+  async function regenerate() {
+    setRegen("running");
+    try {
+      await Promise.all([
+        fetch(`/api/documents/${documentId}/regenerate-thumbnail`, { method: "POST", credentials: "include" }).catch(() => {}),
+        fetch(`/api/documents/${documentId}/regenerate-preview`, { method: "POST", credentials: "include" }).catch(() => {}),
+      ]);
+      setRegen("done");
+      setTimeout(() => setRegen("idle"), 4000);
+    } catch {
+      setRegen("idle");
+    }
+  }
 
   async function handleDelete() {
     setDeleting(true);
@@ -71,6 +86,21 @@ export function DocumentViewer({ documentId, documentTitle, mimeType, onDeleted 
             <Download className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
             Télécharger
           </a>
+          <button
+            type="button"
+            onClick={() => void regenerate()}
+            disabled={regen === "running"}
+            title="Régénère la miniature et l'aperçu en arrière-plan"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border bg-white px-3 text-xs font-semibold transition hover:bg-slate-50 disabled:opacity-50"
+            style={{ borderColor: "var(--border)", color: "var(--text-main)" }}
+          >
+            {regen === "running" ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
+            ) : (
+              <RefreshCw className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+            )}
+            {regen === "done" ? "Régénération lancée ✓" : "Régénérer l'aperçu"}
+          </button>
         </div>
         <button
           type="button"
