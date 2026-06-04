@@ -27,6 +27,8 @@ export const ETAT_LABELS: Record<string, string> = {
   ia_none: "IA non analysé",
   ocr_done: "OCR terminé",
   ocr_error: "OCR manquant",
+  classified: "Classé",
+  unclassified: "À classer",
   budget_created: "Budget créé",
   budget_review: "Budget à vérifier",
 };
