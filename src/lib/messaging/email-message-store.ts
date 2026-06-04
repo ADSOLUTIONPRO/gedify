@@ -2,6 +2,7 @@ import "server-only";
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { pgStorageActive, jsonFallback, pgReadAll, pgWriteAll } from "@/lib/db/pg-store";
 import { getDataDir } from "@/lib/storage/data-dir";
 
 /* ────────────────────────────────────────────────────────────────────────
@@ -29,7 +30,7 @@ const FILE = () => path.join(getDataDir(), "email-messages.json");
 const MAX = 3000;
 const MAX_TEXT = 4000;
 
-async function readAll(): Promise<EmailMessageRecord[]> {
+async function readAllJson(): Promise<EmailMessageRecord[]> {
   try {
     const raw = await readFile(FILE(), "utf8");
     const parsed = JSON.parse(raw) as unknown;
@@ -39,7 +40,23 @@ async function readAll(): Promise<EmailMessageRecord[]> {
   }
 }
 
+async function readAll(): Promise<EmailMessageRecord[]> {
+  if (pgStorageActive()) {
+    try {
+      return await pgReadAll<EmailMessageRecord>("mails", "id", "raw");
+    } catch (e) {
+      if (jsonFallback()) return readAllJson();
+      throw e;
+    }
+  }
+  return readAllJson();
+}
+
 async function writeAll(items: EmailMessageRecord[]): Promise<void> {
+  if (pgStorageActive()) {
+    await pgWriteAll<EmailMessageRecord>("mails", "id", (m) => m.id, items, "raw");
+    return;
+  }
   await mkdir(path.dirname(FILE()), { recursive: true });
   await writeFile(FILE(), JSON.stringify(items, null, 2), "utf8");
 }

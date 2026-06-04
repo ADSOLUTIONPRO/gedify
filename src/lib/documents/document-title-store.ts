@@ -2,6 +2,7 @@ import "server-only";
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { pgStorageActive, jsonFallback, pgReadAll, pgWriteAll } from "@/lib/db/pg-store";
 import { getDataDir } from "@/lib/storage/data-dir";
 import type {
   DocumentTitleOverride,
@@ -20,7 +21,7 @@ function getStorePath() {
   return path.join(getDataDir(), STORE_FILE);
 }
 
-async function readOverrides(): Promise<DocumentTitleOverride[]> {
+async function readOverridesJson(): Promise<DocumentTitleOverride[]> {
   if (isMemoryStoreEnabled()) {
     return memoryOverrides;
   }
@@ -37,7 +38,29 @@ async function readOverrides(): Promise<DocumentTitleOverride[]> {
   }
 }
 
+async function readOverrides(): Promise<DocumentTitleOverride[]> {
+  if (pgStorageActive()) {
+    try {
+      return await pgReadAll<DocumentTitleOverride>("document_title_overrides", "document_id", "metadata");
+    } catch (e) {
+      if (jsonFallback()) return readOverridesJson();
+      throw e;
+    }
+  }
+  return readOverridesJson();
+}
+
 async function writeOverrides(overrides: DocumentTitleOverride[]): Promise<void> {
+  if (pgStorageActive()) {
+    await pgWriteAll<DocumentTitleOverride>(
+      "document_title_overrides",
+      "document_id",
+      (o) => o.documentId,
+      overrides,
+      "metadata",
+    );
+    return;
+  }
   if (isMemoryStoreEnabled()) {
     memoryOverrides = overrides;
     return;

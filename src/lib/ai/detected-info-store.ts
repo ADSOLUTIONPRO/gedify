@@ -3,6 +3,7 @@ import "server-only";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { pgStorageActive, jsonFallback, pgReadAll, pgWriteAll } from "@/lib/db/pg-store";
 import { getAiDataDir } from "@/lib/budget/storage";
 import type {
   DetectedInfo,
@@ -22,7 +23,7 @@ function filePath() {
   return path.join(getAiDataDir(), FILE);
 }
 
-async function readAll(): Promise<DetectedInfo[]> {
+async function readAllJson(): Promise<DetectedInfo[]> {
   try {
     const raw = await readFile(filePath(), "utf8");
     const parsed = JSON.parse(raw);
@@ -32,7 +33,23 @@ async function readAll(): Promise<DetectedInfo[]> {
   }
 }
 
+async function readAll(): Promise<DetectedInfo[]> {
+  if (pgStorageActive()) {
+    try {
+      return await pgReadAll<DetectedInfo>("document_ai_suggestions", "id", "raw_payload");
+    } catch (e) {
+      if (jsonFallback()) return readAllJson();
+      throw e;
+    }
+  }
+  return readAllJson();
+}
+
 async function writeAll(items: DetectedInfo[]) {
+  if (pgStorageActive()) {
+    await pgWriteAll<DetectedInfo>("document_ai_suggestions", "id", (d) => d.id, items, "raw_payload");
+    return;
+  }
   await ensureDir();
   await writeFile(filePath(), JSON.stringify(items, null, 2), "utf8");
 }
