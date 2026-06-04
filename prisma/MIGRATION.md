@@ -41,18 +41,31 @@ npm run gedify:migrate-json
 Réexécutable sans danger (upsert idempotent). Tant que la migration n'est pas
 vérifiée, on garde `GEDIFY_STORAGE_MODE=json`.
 
-## Où exécuter
+## Où exécuter — DANS le conteneur Coolify (recommandé)
 
-Les scripts ont besoin de Node + des dépendances (tsx, prisma, pg) **et** de
-l'accès au volume JSON. Deux options :
+Les scripts sont **compilés au build** en JS autonome (`dist-scripts/*.mjs`,
+ESM, sans `tsx` ni binaire natif) et embarqués dans l'image runtime avec le
+client Prisma et le schéma SQL. On peut donc tout faire directement sur le
+serveur, sans copier les données ailleurs :
 
-- **Recommandé (sans toucher l'image)** : copier le dossier de données
-  (`/data/gedify` côté serveur) sur une machine disposant du dépôt, pointer
-  `DATA_DIR` dessus, `DATABASE_URL` sur la base Coolify, puis lancer les
-  commandes ci-dessus. Lecture seule des JSON → aucun risque.
-- **Dans le conteneur** : nécessite d'embarquer la chaîne d'outils
-  (tsx/prisma/pg) dans l'image runtime — non fait pour l'instant (à wirer en
-  étape suivante si souhaité).
+```bash
+# Sur le serveur :
+docker ps --format "table {{.Names}}\t{{.Image}}" | grep -i ged
+docker exec -it <CONTENEUR_GEDIFY> sh
+
+# Dans le conteneur (cwd = /app, volume monté sur /app/.data) :
+npm run gedify:storage:inspect        # = node dist-scripts/gedify-storage-inspect.mjs
+npm run gedify:migrate-json:dry-run   # vérifier le rapport
+npm run gedify:backup-json
+npm run gedify:db:push                # crée les tables via prisma/sql/init.sql + pg
+npm run gedify:migrate-json           # migration réelle
+```
+
+`db:push` n'utilise PAS le CLI Prisma (absent du runtime) : il applique
+`prisma/sql/init.sql` (DDL idempotent `IF NOT EXISTS`) via `pg`.
+
+> Le schéma SQL `prisma/sql/init.sql` est généré depuis `prisma/schema.prisma`.
+> Après toute modification du schéma : `npm run prisma:sql` (puis commit).
 
 ## Bascule (plus tard, après vérification)
 

@@ -67,6 +67,23 @@ RUN node -e "try{const{createCanvas}=require('@napi-rs/canvas');const c=createCa
 # Répertoire de données persistant (point de montage du volume Coolify).
 RUN mkdir -p /app/.data && chown -R nextjs:nodejs /app/.data
 
+# ── Outils de migration JSON → PostgreSQL (exécutables DANS le conteneur) ──────
+# Scripts compilés en ESM autonome (sans tsx ni binaire natif), schéma SQL
+# idempotent, et client Prisma 7 runtime (compilateur WASM). On élague les gros
+# paquets Prisma CLI/dev/studio inutiles à l'exécution des requêtes.
+COPY --from=builder --chown=nextjs:nodejs /app/dist-scripts ./dist-scripts
+COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
+RUN rm -rf node_modules/@prisma/engines node_modules/@prisma/dev \
+           node_modules/@prisma/studio-core node_modules/@prisma/fetch-engine \
+           node_modules/@prisma/get-platform
+# Auto-test : la chaîne de migration se charge réellement dans l'image finale
+# (dry-run = importe le client Prisma + pg, n'écrit rien en base).
+RUN node dist-scripts/gedify-migrate-json.mjs --dry-run >/dev/null 2>&1 \
+ && echo "[build] migration toolchain OK (dry-run)" \
+ || (echo "[build] migration toolchain KO" && exit 1)
+
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 

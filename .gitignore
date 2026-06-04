@@ -62,3 +62,6 @@ tessdata/
 
 # Prisma generated client
 /src/generated
+
+# Scripts de migration compilés (build)
+/dist-scripts
