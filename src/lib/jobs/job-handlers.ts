@@ -39,7 +39,7 @@ async function patchDoc(documentId: number, patch: Partial<EngineDocument>): Pro
 }
 
 /** Re-OCR RÉEL d'un document (corrige le no-op historique). */
-async function runOcr(documentId: number): Promise<void> {
+async function runOcr(documentId: number, fromImport = false): Promise<void> {
   const doc = await loadDoc(documentId);
   if (!doc) throw new Error("document introuvable");
   const orig = await readOriginal(doc.storedFilename);
@@ -61,6 +61,17 @@ async function runOcr(documentId: number): Promise<void> {
     const maps = await loadNameMaps();
     await indexDocument(updated, maps.correspondents, maps.document_types, maps.tags).catch(() => {});
     await patchDoc(documentId, { index_status: "ready" });
+  }
+
+  // Import asynchrone : appliquer les règles automatiques une fois l'OCR prêt
+  // (les conditions « contenu contient … » nécessitent le texte OCR).
+  if (fromImport) {
+    try {
+      const { runWorkflowsForDocument } = await import("@/lib/automation/workflow-engine");
+      await runWorkflowsForDocument(documentId);
+    } catch {
+      /* moteur de règles indisponible → ignoré */
+    }
   }
 }
 
@@ -101,7 +112,7 @@ async function runIndex(documentId: number): Promise<void> {
 export async function runJob(job: PipelineJob): Promise<void> {
   switch (job.type) {
     case "ocr":
-      return runOcr(job.documentId);
+      return runOcr(job.documentId, job.payload?.fromImport === true);
     case "thumbnail":
       return runThumbnail(job.documentId);
     case "preview":

@@ -66,6 +66,17 @@ function makeTask(
   };
 }
 
+/**
+ * Import asynchrone (OCR/index/règles différés au worker) : activé seulement si
+ * GEDIFY_ASYNC_IMPORT=1 ET worker non désactivé. Par défaut OFF → comportement
+ * synchrone historique strictement inchangé (l'OCR existant n'est jamais cassé).
+ */
+function asyncImportEnabled(): boolean {
+  if (process.env.GEDIFY_JOBS_WORKER?.trim() === "0") return false;
+  const v = process.env.GEDIFY_ASYNC_IMPORT?.trim().toLowerCase();
+  return v === "1" || v === "true" || v === "on";
+}
+
 export async function consume(input: ConsumeInput): Promise<PaperlessTask> {
   const taskId = randomUUID();
   try {
@@ -84,8 +95,8 @@ export async function consume(input: ConsumeInput): Promise<PaperlessTask> {
     const mime = input.mime || mimeFromExt(ext);
     const storedFilename = await saveOriginal(id, ext, input.buffer);
 
-    const { text, pageCount } = await extractText(input.buffer, mime, ext);
-
+    // Miniature + aperçu : rapides, pour un visuel immédiat dans la grille
+    // (dans les deux modes — l'OCR est la seule étape lourde, voir plus bas).
     let thumbnailStatus: EngineDocument["thumbnail_status"] = "failed";
     try {
       const thumb = await makeThumbnail(input.buffer, mime, ext);
@@ -106,6 +117,17 @@ export async function consume(input: ConsumeInput): Promise<PaperlessTask> {
       }
     } catch {
       /* aperçu best-effort */
+    }
+
+    // OCR : inline (défaut, comportement historique inchangé) OU différé au
+    // worker en file de jobs quand GEDIFY_ASYNC_IMPORT=1 (import non bloquant).
+    const asyncMode = asyncImportEnabled();
+    let text = "";
+    let pageCount: number | null = null;
+    if (!asyncMode) {
+      const r = await extractText(input.buffer, mime, ext);
+      text = r.text;
+      pageCount = r.pageCount;
     }
 
     const nowIso = new Date().toISOString();
@@ -136,26 +158,39 @@ export async function consume(input: ConsumeInput): Promise<PaperlessTask> {
       thumbnail_status: thumbnailStatus,
       preview_status: previewStatus,
       pages_status: "pending",
-      ocr_status: text.trim() ? "ready" : "skipped",
+      ocr_status: asyncMode ? "pending" : text.trim() ? "ready" : "skipped",
       ai_status: "pending",
       index_status: "pending",
     };
     await mutateList<EngineDocument>(STORE.documents, (list) => [doc, ...list]);
 
-    const maps = await loadNameMaps();
-    await indexDocument(doc, maps.correspondents, maps.document_types, maps.tags);
-    // L'indexation vient de réussir → refléter le statut sur le document stocké.
-    doc.index_status = "ready";
-    await mutateList<EngineDocument>(STORE.documents, (list) =>
-      list.map((d) => (d.id === id ? { ...d, index_status: "ready" } : d)),
-    );
+    if (asyncMode) {
+      // OCR + indexation + règles automatiques différés en arrière-plan : le
+      // document apparaît immédiatement, le worker complète ensuite.
+      try {
+        const { enqueueJob } = await import("@/lib/jobs/job-store");
+        const { kickJobWorker } = await import("@/lib/jobs/job-worker");
+        await enqueueJob("ocr", id, { priority: 40, payload: { fromImport: true } });
+        kickJobWorker();
+      } catch {
+        /* worker indisponible → OCR relançable via Santé GED */
+      }
+    } else {
+      const maps = await loadNameMaps();
+      await indexDocument(doc, maps.correspondents, maps.document_types, maps.tags);
+      // L'indexation vient de réussir → refléter le statut sur le document stocké.
+      doc.index_status = "ready";
+      await mutateList<EngineDocument>(STORE.documents, (list) =>
+        list.map((d) => (d.id === id ? { ...d, index_status: "ready" } : d)),
+      );
 
-    // Règles automatiques (workflows) — best-effort, n'interrompt jamais l'import.
-    try {
-      const { runWorkflowsForDocument } = await import("@/lib/automation/workflow-engine");
-      await runWorkflowsForDocument(id);
-    } catch {
-      /* moteur de règles indisponible → ignoré */
+      // Règles automatiques (workflows) — best-effort, n'interrompt jamais l'import.
+      try {
+        const { runWorkflowsForDocument } = await import("@/lib/automation/workflow-engine");
+        await runWorkflowsForDocument(id);
+      } catch {
+        /* moteur de règles indisponible → ignoré */
+      }
     }
 
     const task = makeTask(taskId, input.filename, "SUCCESS", `Nouveau document #${id} : ${doc.title}`, id);
