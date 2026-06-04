@@ -1,5 +1,8 @@
 import "server-only";
 
+import fs from "node:fs";
+import path from "node:path";
+
 /* ────────────────────────────────────────────────────────────────────────
    Helpers PDF (pdfjs en Node + rendu raster via @napi-rs/canvas).
    Tout est best-effort : la moindre erreur renvoie null/[] sans casser
@@ -42,6 +45,37 @@ async function canvasLib(): Promise<any> {
   return canvasMod;
 }
 
+/**
+ * Dossier des POLICES STANDARD pdf.js (Helvetica/Times/… non embarquées).
+ * SANS lui, en environnement sans polices système (conteneur Alpine), pdf.js
+ * dessine les vecteurs (traits, fonds) mais PAS le texte (ou page blanche si le
+ * PDF est uniquement textuel). Le dossier est embarqué dans l'image Docker
+ * (node_modules/pdfjs-dist/standard_fonts).
+ */
+let standardFontDataUrl: string | undefined;
+function resolveStandardFonts(): string | undefined {
+  if (standardFontDataUrl !== undefined) return standardFontDataUrl || undefined;
+  // process.cwd() = racine projet (dev) ou /app (conteneur standalone) ; dans les
+  // deux cas node_modules/pdfjs-dist/standard_fonts est présent (copié au build).
+  const candidates = [
+    process.env.PDFJS_STANDARD_FONTS?.trim() || null,
+    path.join(process.cwd(), "node_modules", "pdfjs-dist", "standard_fonts"),
+  ].filter((c): c is string => Boolean(c));
+  for (const c of candidates) {
+    try {
+      if (fs.existsSync(path.join(c, "FoxitDingbats.pfb"))) {
+        standardFontDataUrl = c.endsWith(path.sep) ? c : c + path.sep;
+        return standardFontDataUrl;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  standardFontDataUrl = "";
+  console.warn("[engine/pdf] standard_fonts pdf.js introuvable — le texte des PDF sans police embarquée ne sera pas rendu.");
+  return undefined;
+}
+
 let pdfjsMod: any = null;
 async function pdfjs(): Promise<any> {
   if (!pdfjsMod) {
@@ -60,11 +94,15 @@ export async function loadPdf(buf: Buffer): Promise<PdfDoc | null> {
     // usage du même Buffer (texte puis miniature) échoue (« detached ArrayBuffer »).
     const data = new Uint8Array(buf.byteLength);
     data.set(buf);
+    const fonts = resolveStandardFonts();
     return await lib.getDocument({
       data,
       isEvalSupported: false,
-      useSystemFonts: true,
+      // Pas de polices système (conteneur sans fontconfig) → on s'appuie sur les
+      // polices embarquées du PDF + les polices standard pdf.js (standardFontDataUrl).
+      useSystemFonts: false,
       disableFontFace: true,
+      ...(fonts ? { standardFontDataUrl: fonts } : {}),
     }).promise;
   } catch (e) {
     console.error("[engine/pdf] ouverture échouée :", e instanceof Error ? e.message : e);
