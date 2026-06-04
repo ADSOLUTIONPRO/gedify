@@ -3,6 +3,7 @@ import "server-only";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { pgStorageActive, jsonFallback, pgReadScoped, pgWriteScoped } from "@/lib/db/pg-store";
 import { getDataDir } from "@/lib/storage/data-dir";
 
 /** Signature email (texte/HTML) — distincte des signatures image de l'éditeur. */
@@ -24,7 +25,7 @@ function filePath() {
   return path.join(getDataDir(), STORE_FILE);
 }
 
-async function readAll(): Promise<EmailSignature[]> {
+async function readAllJson(): Promise<EmailSignature[]> {
   try {
     const raw = await readFile(filePath(), "utf8");
     const parsed = JSON.parse(raw) as unknown;
@@ -35,7 +36,26 @@ async function readAll(): Promise<EmailSignature[]> {
   }
 }
 
+async function readAll(): Promise<EmailSignature[]> {
+  if (pgStorageActive()) {
+    try {
+      return await pgReadScoped<EmailSignature>("signatures", "scope", "email");
+    } catch (e) {
+      if (jsonFallback()) return readAllJson();
+      throw e;
+    }
+  }
+  return readAllJson();
+}
+
 async function writeAll(items: EmailSignature[]) {
+  if (pgStorageActive()) {
+    await pgWriteScoped<EmailSignature>("signatures", "id", (s) => s.id, items, {
+      scopeCol: "scope",
+      scopeVal: "email",
+    });
+    return;
+  }
   await mkdir(path.dirname(filePath()), { recursive: true });
   await writeFile(filePath(), JSON.stringify(items, null, 2), "utf8");
 }

@@ -2,6 +2,12 @@ import "server-only";
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import {
+  pgStorageActive,
+  jsonFallback,
+  pgReadDocCorrespondents,
+  pgWriteDocCorrespondents,
+} from "@/lib/db/pg-store";
 import { getDataDir } from "@/lib/storage/data-dir";
 
 const DATA_DIR = getDataDir();
@@ -14,11 +20,13 @@ const FILE = path.join(DATA_DIR, "document-secondary-correspondents.json");
  */
 type Entry = { documentId: number; correspondentIds: number[] };
 
+const PG_ROLE = "secondary";
+
 async function ensureDir() {
   await mkdir(DATA_DIR, { recursive: true });
 }
 
-async function readAll(): Promise<Entry[]> {
+async function readAllJson(): Promise<Entry[]> {
   try {
     const raw = await readFile(FILE, "utf8");
     const parsed = JSON.parse(raw) as unknown;
@@ -28,7 +36,23 @@ async function readAll(): Promise<Entry[]> {
   }
 }
 
+async function readAll(): Promise<Entry[]> {
+  if (pgStorageActive()) {
+    try {
+      return await pgReadDocCorrespondents(PG_ROLE);
+    } catch (e) {
+      if (jsonFallback()) return readAllJson();
+      throw e;
+    }
+  }
+  return readAllJson();
+}
+
 async function writeAll(items: Entry[]): Promise<void> {
+  if (pgStorageActive()) {
+    await pgWriteDocCorrespondents(PG_ROLE, items);
+    return;
+  }
   await ensureDir();
   await writeFile(FILE, JSON.stringify(items, null, 2), "utf8");
 }

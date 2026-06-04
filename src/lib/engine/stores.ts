@@ -7,9 +7,12 @@ import { getDataDir } from "@/lib/storage/data-dir";
 import {
   postgresEngineEnabled,
   engineCollectionSupported,
+  engineSettingSupported,
   jsonFallbackEnabled,
   readCollectionPg,
   writeCollectionPg,
+  readSettingPg,
+  writeSettingPg,
   nextIdPg,
 } from "@/lib/db/engine-pg";
 import type { PaperlessNote } from "@/lib/paperless-types";
@@ -80,12 +83,23 @@ async function readStoreJson<T>(name: string, fallback: T): Promise<T> {
  * d'erreur) lit le JSON. Comportement par défaut (mode json) : identique à avant.
  */
 export async function readStore<T>(name: string, fallback: T): Promise<T> {
-  if (postgresEngineEnabled() && engineCollectionSupported(name)) {
-    try {
-      return (await readCollectionPg(name)) as T;
-    } catch (e) {
-      if (jsonFallbackEnabled()) return readStoreJson(name, fallback);
-      throw e;
+  if (postgresEngineEnabled()) {
+    if (engineSettingSupported(name)) {
+      try {
+        const v = await readSettingPg(name);
+        return (v ?? fallback) as T;
+      } catch (e) {
+        if (jsonFallbackEnabled()) return readStoreJson(name, fallback);
+        throw e;
+      }
+    }
+    if (engineCollectionSupported(name)) {
+      try {
+        return (await readCollectionPg(name)) as T;
+      } catch (e) {
+        if (jsonFallbackEnabled()) return readStoreJson(name, fallback);
+        throw e;
+      }
     }
   }
   return readStoreJson(name, fallback);
@@ -93,9 +107,15 @@ export async function readStore<T>(name: string, fallback: T): Promise<T> {
 
 /** Écriture atomique d'un store (Postgres en mode postgres, sinon JSON). */
 export async function writeStore<T>(name: string, data: T): Promise<void> {
-  if (postgresEngineEnabled() && engineCollectionSupported(name)) {
-    await writeCollectionPg(name, data);
-    return;
+  if (postgresEngineEnabled()) {
+    if (engineSettingSupported(name)) {
+      await writeSettingPg(name, data);
+      return;
+    }
+    if (engineCollectionSupported(name)) {
+      await writeCollectionPg(name, data);
+      return;
+    }
   }
   await withLock(`store:${name}`, () => writeJsonAtomic(storePath(name), data));
 }

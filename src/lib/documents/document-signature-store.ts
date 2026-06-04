@@ -2,6 +2,7 @@ import "server-only";
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { pgStorageActive, jsonFallback, pgReadScoped, pgWriteScoped } from "@/lib/db/pg-store";
 import { getDataDir } from "@/lib/storage/data-dir";
 import { randomUUID } from "node:crypto";
 
@@ -34,7 +35,7 @@ async function ensureDir() {
   await mkdir(DATA_DIR, { recursive: true });
 }
 
-async function readAll(): Promise<DocumentSignature[]> {
+async function readAllJson(): Promise<DocumentSignature[]> {
   try {
     const raw = await readFile(FILE, "utf8");
     const parsed = JSON.parse(raw) as unknown;
@@ -44,7 +45,26 @@ async function readAll(): Promise<DocumentSignature[]> {
   }
 }
 
+async function readAll(): Promise<DocumentSignature[]> {
+  if (pgStorageActive()) {
+    try {
+      return await pgReadScoped<DocumentSignature>("signatures", "scope", "document");
+    } catch (e) {
+      if (jsonFallback()) return readAllJson();
+      throw e;
+    }
+  }
+  return readAllJson();
+}
+
 async function writeAll(items: DocumentSignature[]): Promise<void> {
+  if (pgStorageActive()) {
+    await pgWriteScoped<DocumentSignature>("signatures", "id", (s) => s.id, items, {
+      scopeCol: "scope",
+      scopeVal: "document",
+    });
+    return;
+  }
   await ensureDir();
   await writeFile(FILE, JSON.stringify(items, null, 2), "utf8");
 }

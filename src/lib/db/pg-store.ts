@@ -70,3 +70,121 @@ export async function pgWriteAll<T>(
     client.release();
   }
 }
+
+/* ────────────────────────────────────────────────────────────────────────
+   Variantes « avec portée » (scope/kind) : plusieurs stores partagent une même
+   table, distingués par une colonne discriminante (`scope` pour signatures,
+   `kind` pour mail_document_links). La suppression est CONFINÉE à la portée du
+   store, donc un store n'efface jamais les lignes d'un autre store.
+   ──────────────────────────────────────────────────────────────────────── */
+
+/** Lit les lignes d'une portée donnée → tableau d'objets (colonne blob). */
+export async function pgReadScoped<T>(
+  table: string,
+  scopeCol: string,
+  scopeVal: string,
+  idCol = "id",
+  blobCol = "raw",
+): Promise<T[]> {
+  const pool = await getPool();
+  const { rows } = await pool.query(
+    `SELECT "${blobCol}" AS blob FROM "${table}" WHERE "${scopeCol}" = $1 ORDER BY "${idCol}"`,
+    [scopeVal],
+  );
+  return rows.map((r) => r.blob as T);
+}
+
+/** Remplace l'état complet d'UNE portée (upsert + suppression confinée). */
+export async function pgWriteScoped<T>(
+  table: string,
+  idCol: string,
+  idOf: (item: T) => string | number | null | undefined,
+  items: T[],
+  opts: { scopeCol: string; scopeVal: string; blobCol?: string },
+): Promise<void> {
+  const blobCol = opts.blobCol ?? "raw";
+  const { scopeCol, scopeVal } = opts;
+  const pool = await getPool();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const ids: (string | number)[] = [];
+    for (const item of items) {
+      const id = idOf(item);
+      if (id == null || id === "") continue;
+      ids.push(id);
+      await client.query(
+        `INSERT INTO "${table}"("${idCol}", "${scopeCol}", "${blobCol}") VALUES($1, $2, $3)
+         ON CONFLICT("${idCol}") DO UPDATE SET "${scopeCol}" = EXCLUDED."${scopeCol}", "${blobCol}" = EXCLUDED."${blobCol}"`,
+        [id, scopeVal, JSON.stringify(item)],
+      );
+    }
+    if (ids.length > 0) {
+      const ph = ids.map((_, i) => `$${i + 2}`).join(",");
+      await client.query(
+        `DELETE FROM "${table}" WHERE "${scopeCol}" = $1 AND "${idCol}" NOT IN (${ph})`,
+        [scopeVal, ...ids],
+      );
+    } else {
+      await client.query(`DELETE FROM "${table}" WHERE "${scopeCol}" = $1`, [scopeVal]);
+    }
+    await client.query("COMMIT");
+  } catch (e) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+   document_correspondents : table de jointure (clé composite, pas de blob).
+   On ne touche QUE le rôle demandé (« secondary ») ; le correspondant principal
+   (rôle « primary », posé par la migration des documents) est préservé.
+   ──────────────────────────────────────────────────────────────────────── */
+export type DocCorrespondentEntry = { documentId: number; correspondentIds: number[] };
+
+export async function pgReadDocCorrespondents(role: string): Promise<DocCorrespondentEntry[]> {
+  const pool = await getPool();
+  const { rows } = await pool.query(
+    `SELECT document_id, correspondent_id FROM document_correspondents WHERE role = $1 ORDER BY document_id, correspondent_id`,
+    [role],
+  );
+  const map = new Map<number, number[]>();
+  for (const r of rows) {
+    const did = Number(r.document_id);
+    const arr = map.get(did) ?? [];
+    arr.push(Number(r.correspondent_id));
+    map.set(did, arr);
+  }
+  return [...map.entries()].map(([documentId, correspondentIds]) => ({ documentId, correspondentIds }));
+}
+
+export async function pgWriteDocCorrespondents(
+  role: string,
+  entries: DocCorrespondentEntry[],
+): Promise<void> {
+  const pool = await getPool();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    // Remplace tout l'ensemble du rôle (le store écrit toujours la collection complète).
+    await client.query("DELETE FROM document_correspondents WHERE role = $1", [role]);
+    for (const e of entries) {
+      for (const cid of [...new Set(e.correspondentIds)]) {
+        // DO NOTHING : ne jamais écraser une ligne « primary » sur la même paire.
+        await client.query(
+          `INSERT INTO document_correspondents(document_id, correspondent_id, role) VALUES($1, $2, $3)
+           ON CONFLICT(document_id, correspondent_id) DO NOTHING`,
+          [e.documentId, cid, role],
+        );
+      }
+    }
+    await client.query("COMMIT");
+  } catch (e) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw e;
+  } finally {
+    client.release();
+  }
+}

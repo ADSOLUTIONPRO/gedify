@@ -240,15 +240,16 @@ const MIGRATORS: Migrator[] = [
         }
         stat.migrated++;
       }
-      // Liens GED (email-ged-links) ciblant un document
+      // Liens GED (email-ged-links) — TOUTES les cibles (document, dossier, …),
+      // documentId rempli seulement pour les cibles « document ».
       for (const l of loadArray(root, "email-ged-links.json")) {
         const target = obj(l.target);
-        if (target.kind !== "document") continue;
         stat.read++;
         const id = str(l.id);
         if (!id) { stat.skipped++; continue; }
         if (!dry && prisma) {
-          const data = { accountId: str(l.accountId), mailId: str(l.emailId), threadId: str(l.emailId), documentId: num(target.documentId), filename: null, status: str(l.scope), kind: "ged-link", raw: jsonVal(l) };
+          const documentId = target.kind === "document" ? num(target.documentId) : null;
+          const data = { accountId: str(l.accountId), mailId: str(l.emailId), threadId: str(l.emailId), documentId, filename: null, status: str(l.scope), kind: "ged-link", raw: jsonVal(l) };
           await prisma.mailDocumentLink.upsert({ where: { id }, create: { id, ...data }, update: data });
         }
         stat.migrated++;
@@ -343,6 +344,7 @@ const MIGRATORS: Migrator[] = [
       const sources: { file: string; scope: string }[] = [
         { file: "document-signatures.json", scope: "document" },
         { file: "email-signatures.json", scope: "email" },
+        { file: "signatures.json", scope: "writer" }, // index signatures rédaction (image sur disque)
       ];
       for (const src of sources) {
         for (const s of loadArray(root, src.file)) {
@@ -631,6 +633,7 @@ const COVERED = new Set<string>([
   ...MIGRATORS.map((m) => m.file),
   "email-ged-links.json", // lu par mail_document_links
   "email-signatures.json", // lu par signatures
+  "signatures.json", // index signatures rédaction → signatures (scope=writer)
 ]);
 
 type Importance = "critique" | "important" | "mineur" | "éphémère" | "ignoré" | "vide" | "à examiner";

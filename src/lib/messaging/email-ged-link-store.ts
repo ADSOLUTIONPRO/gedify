@@ -3,6 +3,7 @@ import "server-only";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { pgStorageActive, jsonFallback, pgReadScoped, pgWriteScoped } from "@/lib/db/pg-store";
 import { getDataDir } from "@/lib/storage/data-dir";
 import type { EmailGedLink, EmailGedLinkTarget } from "./email-types";
 
@@ -12,7 +13,7 @@ function getFilePath() {
   return path.join(getDataDir(), STORE_FILE);
 }
 
-async function readAll(): Promise<EmailGedLink[]> {
+async function readAllJson(): Promise<EmailGedLink[]> {
   try {
     const raw = await readFile(getFilePath(), "utf8");
     const parsed = JSON.parse(raw) as unknown;
@@ -25,7 +26,26 @@ async function readAll(): Promise<EmailGedLink[]> {
   }
 }
 
+async function readAll(): Promise<EmailGedLink[]> {
+  if (pgStorageActive()) {
+    try {
+      return await pgReadScoped<EmailGedLink>("mail_document_links", "kind", "ged-link");
+    } catch (e) {
+      if (jsonFallback()) return readAllJson();
+      throw e;
+    }
+  }
+  return readAllJson();
+}
+
 async function writeAll(items: EmailGedLink[]) {
+  if (pgStorageActive()) {
+    await pgWriteScoped<EmailGedLink>("mail_document_links", "id", (l) => l.id, items, {
+      scopeCol: "kind",
+      scopeVal: "ged-link",
+    });
+    return;
+  }
   const filePath = getFilePath();
   await mkdir(path.dirname(filePath), { recursive: true });
   await writeFile(filePath, JSON.stringify(items, null, 2), "utf8");

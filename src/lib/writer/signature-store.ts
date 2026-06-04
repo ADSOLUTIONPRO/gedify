@@ -3,6 +3,7 @@ import "server-only";
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { pgStorageActive, jsonFallback, pgReadScoped, pgWriteScoped } from "@/lib/db/pg-store";
 import {
   getSignatureDataDir,
   SIGNATURE_INDEX_FILE,
@@ -21,7 +22,7 @@ function signatureFilePath(signature: Pick<WriterSignature, "id" | "fileName">) 
   return path.join(getSignatureDataDir(), `${signature.id}__${signature.fileName}`);
 }
 
-async function readIndex(): Promise<WriterSignature[]> {
+async function readIndexJson(): Promise<WriterSignature[]> {
   try {
     const raw = await readFile(indexPath(), "utf8");
     const parsed = JSON.parse(raw);
@@ -32,7 +33,26 @@ async function readIndex(): Promise<WriterSignature[]> {
   }
 }
 
+async function readIndex(): Promise<WriterSignature[]> {
+  if (pgStorageActive()) {
+    try {
+      return await pgReadScoped<WriterSignature>("signatures", "scope", "writer");
+    } catch (e) {
+      if (jsonFallback()) return readIndexJson();
+      throw e;
+    }
+  }
+  return readIndexJson();
+}
+
 async function writeIndex(items: WriterSignature[]) {
+  if (pgStorageActive()) {
+    await pgWriteScoped<WriterSignature>("signatures", "id", (s) => s.id, items, {
+      scopeCol: "scope",
+      scopeVal: "writer",
+    });
+    return;
+  }
   await ensureDir();
   await writeFile(indexPath(), JSON.stringify(items, null, 2), "utf8");
 }

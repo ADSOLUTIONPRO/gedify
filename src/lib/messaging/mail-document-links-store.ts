@@ -2,6 +2,7 @@ import "server-only";
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { pgStorageActive, jsonFallback, pgReadScoped, pgWriteScoped } from "@/lib/db/pg-store";
 import { getDataDir } from "@/lib/storage/data-dir";
 import { randomUUID } from "node:crypto";
 
@@ -31,7 +32,7 @@ async function ensureDir() {
   await mkdir(DATA_DIR, { recursive: true });
 }
 
-async function readAll(): Promise<MailDocumentLink[]> {
+async function readAllJson(): Promise<MailDocumentLink[]> {
   try {
     const raw = await readFile(FILE, "utf8");
     const parsed = JSON.parse(raw) as unknown;
@@ -41,7 +42,26 @@ async function readAll(): Promise<MailDocumentLink[]> {
   }
 }
 
+async function readAll(): Promise<MailDocumentLink[]> {
+  if (pgStorageActive()) {
+    try {
+      return await pgReadScoped<MailDocumentLink>("mail_document_links", "kind", "attachment");
+    } catch (e) {
+      if (jsonFallback()) return readAllJson();
+      throw e;
+    }
+  }
+  return readAllJson();
+}
+
 async function writeAll(items: MailDocumentLink[]): Promise<void> {
+  if (pgStorageActive()) {
+    await pgWriteScoped<MailDocumentLink>("mail_document_links", "id", (l) => l.id, items, {
+      scopeCol: "kind",
+      scopeVal: "attachment",
+    });
+    return;
+  }
   await ensureDir();
   await writeFile(FILE, JSON.stringify(items, null, 2), "utf8");
 }

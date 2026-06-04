@@ -6689,7 +6689,6 @@ var MIGRATORS = [
       }
       for (const l of loadArray(root, "email-ged-links.json")) {
         const target = obj(l.target);
-        if (target.kind !== "document") continue;
         stat.read++;
         const id = str(l.id);
         if (!id) {
@@ -6697,7 +6696,8 @@ var MIGRATORS = [
           continue;
         }
         if (!dry && prisma) {
-          const data = { accountId: str(l.accountId), mailId: str(l.emailId), threadId: str(l.emailId), documentId: num(target.documentId), filename: null, status: str(l.scope), kind: "ged-link", raw: jsonVal(l) };
+          const documentId = target.kind === "document" ? num(target.documentId) : null;
+          const data = { accountId: str(l.accountId), mailId: str(l.emailId), threadId: str(l.emailId), documentId, filename: null, status: str(l.scope), kind: "ged-link", raw: jsonVal(l) };
           await prisma.mailDocumentLink.upsert({ where: { id }, create: { id, ...data }, update: data });
         }
         stat.migrated++;
@@ -6806,7 +6806,9 @@ var MIGRATORS = [
     async run({ root, prisma, dry, stat }) {
       const sources = [
         { file: "document-signatures.json", scope: "document" },
-        { file: "email-signatures.json", scope: "email" }
+        { file: "email-signatures.json", scope: "email" },
+        { file: "signatures.json", scope: "writer" }
+        // index signatures rédaction (image sur disque)
       ];
       for (const src of sources) {
         for (const s of loadArray(root, src.file)) {
@@ -7118,8 +7120,10 @@ var COVERED = /* @__PURE__ */ new Set([
   ...MIGRATORS.map((m) => m.file),
   "email-ged-links.json",
   // lu par mail_document_links
-  "email-signatures.json"
+  "email-signatures.json",
   // lu par signatures
+  "signatures.json"
+  // index signatures rédaction → signatures (scope=writer)
 ]);
 var CLASSIFY = {
   "tasks.json": { level: "\xE9ph\xE9m\xE8re", reason: "t\xE2ches de traitement moteur (OCR/ingestion) \u2014 volontairement non migr\xE9" },

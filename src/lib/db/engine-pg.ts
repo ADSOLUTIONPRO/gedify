@@ -39,6 +39,31 @@ export function jsonFallbackEnabled(): boolean {
   return process.env.ENABLE_JSON_FALLBACK !== "false";
 }
 
+/* ── Réglages clé/valeur (table settings) ──────────────────────────────────
+   Certains stores moteur sont des OBJETS (pas des tableaux) persistés via
+   readStore/writeStore. Seules les clés listées ici vivent dans `settings`. */
+const SETTINGS_KEYS = new Set<string>(["assistant-settings"]);
+
+export function engineSettingSupported(name: string): boolean {
+  return SETTINGS_KEYS.has(name);
+}
+
+/** Lit la valeur (objet JSON) d'un réglage, ou null si absent. */
+export async function readSettingPg(key: string): Promise<unknown | null> {
+  const pool = await getPool();
+  const { rows } = await pool.query("SELECT value FROM settings WHERE key = $1", [key]);
+  return rows.length ? rows[0].value : null;
+}
+
+/** Upsert d'un réglage clé/valeur. */
+export async function writeSettingPg(key: string, value: unknown): Promise<void> {
+  const pool = await getPool();
+  await pool.query(
+    "INSERT INTO settings(key, value) VALUES($1, $2) ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value",
+    [key, JSON.stringify(value)],
+  );
+}
+
 /** Lecture d'une collection moteur → même forme que le JSON d'origine. */
 export async function readCollectionPg(name: string): Promise<unknown> {
   const pool = await getPool();
