@@ -7,10 +7,12 @@ import { listProjectFolders } from "@/lib/projects/project-store";
 import { listFinancialItems } from "@/lib/budget/financial-item-store";
 import { getLatestAnalysisForDocument } from "@/lib/ai/ai-analysis-store";
 import { listReminders } from "@/lib/actions/reminder-store";
+import { listActions, getAction, type ListActionOptions } from "@/lib/actions/action-store";
 import { listMailDocumentLinks } from "@/lib/messaging/mail-document-links-store";
 import { listEmailLinks } from "@/lib/messaging/email-ged-link-store";
 import { listEmailContacts } from "@/lib/messaging/email-contact-store";
 import { loadThreads } from "@/lib/messaging/load-threads";
+import { listAccounts } from "@/lib/mail-connector/account-store";
 import type {
   DocumentRef,
   GedifyAssistantContext,
@@ -114,12 +116,18 @@ export const TOOL_SCHEMAS = [
   fn("find_mail_for_document", "Retrouve le(s) mail(s) source(s) d'un document (thread + fichier joint).", {
     documentId: { type: "number" },
   }, ["documentId"]),
-  fn("search_mails", "Recherche des mails dans la boîte connectée (syntaxe Gmail, ex: from:edf has:attachment).", {
+  fn("search_mails", "Recherche des mails : live si compte Gmail connecté (syntaxe Gmail, ex: from:edf has:attachment) ET mails dont une pièce jointe a été importée (tous comptes, dont IMAP).", {
     query: { type: "string", description: "Requête de recherche (défaut: boîte de réception)." },
     limit: { type: "number" },
   }, []),
   fn("list_contacts", "Recherche dans les contacts mail (par nom ou adresse).", {
     query: { type: "string", description: "Nom ou fragment d'adresse (optionnel)." },
+  }, []),
+  fn("list_tasks", "Liste les tâches/actions à faire.", {
+    status: { type: "string", enum: ["open", "todo", "in-progress", "waiting", "overdue", "done"], description: "Filtre (défaut: open = à faire)." },
+  }, []),
+  fn("get_task", "Détail d'une tâche/action et ses documents liés. Sans taskId, utilise la tâche active.", {
+    taskId: { type: "string", description: "Identifiant de la tâche (optionnel si une tâche est active)." },
   }, []),
 
   // ── Outils d'ACTION (proposent, n'exécutent pas) ──────────────────────────
@@ -151,6 +159,9 @@ export const TOOL_SCHEMAS = [
     dueDate: { type: "string", description: "Échéance YYYY-MM-DD." },
     documentId: { type: "number", description: "Document lié (optionnel)." },
   }, ["title"]),
+  fn("propose_complete_task", "Propose de marquer une tâche/action comme terminée. Défaut: tâche active.", {
+    taskId: { type: "string", description: "Identifiant de la tâche (optionnel si une tâche est active)." },
+  }, []),
   fn("propose_draft_mail", "Propose un brouillon de mail (jamais envoyé sans confirmation). Renseigner threadId pour répondre à un mail.", {
     to: { type: "string", description: "Adresse destinataire si connue." },
     contactQuery: { type: "string", description: "Nom du contact/correspondant si l'adresse est inconnue." },
@@ -217,6 +228,10 @@ export async function runTool(
       return searchMailsTool(args.query ? String(args.query) : "in:inbox", num(args.limit) ?? 20);
     case "list_contacts":
       return contactsTool(args.query ? String(args.query) : "");
+    case "list_tasks":
+      return tasksTool(args.status ? String(args.status) : "open");
+    case "get_task":
+      return getTaskTool(args.taskId ? String(args.taskId) : rc.ctx.activeTaskId, rc);
 
     case "propose_assign_folder":
       return propose("assign_folder", rc, idArray(args.documentIds), {
@@ -241,6 +256,10 @@ export async function runTool(
         dueInDays: num(args.dueInDays),
         dueDate: args.dueDate ? String(args.dueDate) : null,
         documentId: num(args.documentId),
+      });
+    case "propose_complete_task":
+      return propose("complete_task", rc, [], {
+        taskId: args.taskId ? String(args.taskId) : rc.ctx.activeTaskId,
       });
     case "propose_draft_mail":
       return propose("draft_mail", rc, idArray(args.documentIds), {
@@ -439,25 +458,69 @@ async function mailForDocumentTool(documentId: number) {
 }
 
 async function searchMailsTool(query: string, limit: number) {
-  let res: Awaited<ReturnType<typeof loadThreads>>;
+  const q = query.trim();
+  const qLower = q.toLowerCase();
+  const isDefault = !qLower || qLower === "in:inbox";
+
+  // 1) Recherche LIVE Gmail (si un compte Gmail est connecté) — la plus riche.
+  let gmail: { connected: boolean; account: string | null; threads: unknown[] } = {
+    connected: false,
+    account: null,
+    threads: [],
+  };
   try {
-    res = await loadThreads(query, Math.min(limit, 40));
-  } catch (e) {
-    return { connected: false, threads: [], note: `Recherche mail indisponible : ${e instanceof Error ? e.message : e}` };
+    const res = await loadThreads(q || "in:inbox", Math.min(limit, 40));
+    if (res.connected) {
+      gmail = {
+        connected: true,
+        account: res.accountEmail,
+        threads: res.threads.slice(0, limit).map((t) => ({
+          threadId: t.id,
+          subject: t.subject,
+          from: t.participants[0] ? (t.participants[0].name ?? t.participants[0].email) : null,
+          snippet: t.snippet,
+          date: t.lastMessageAt,
+          unread: t.unread,
+        })),
+      };
+    }
+  } catch {
+    /* Gmail indisponible : on garde la recherche locale ci-dessous. */
   }
-  if (!res.connected) return { connected: false, threads: [], note: "Boîte mail non connectée." };
+
+  // 2) Recherche LOCALE provider-agnostique (Gmail + IMAP) : mails dont une
+  //    pièce jointe a été importée dans la GED (mail-document-links).
+  const links = await listMailDocumentLinks();
+  const localHits = (isDefault
+    ? links
+    : links.filter(
+        (l) =>
+          (l.filename ?? "").toLowerCase().includes(qLower) ||
+          (l.documentTitle ?? "").toLowerCase().includes(qLower) ||
+          l.mailId.toLowerCase().includes(qLower),
+      )
+  ).slice(0, limit);
+
+  const accounts = await listAccounts().catch(() => []);
+
   return {
-    connected: true,
-    account: res.accountEmail,
-    count: res.threads.length,
-    threads: res.threads.slice(0, limit).map((t) => ({
-      threadId: t.id,
-      subject: t.subject,
-      from: t.participants[0] ? (t.participants[0].name ?? t.participants[0].email) : null,
-      snippet: t.snippet,
-      date: t.lastMessageAt,
-      unread: t.unread,
-    })),
+    accounts: accounts.map((a) => ({ provider: a.provider, email: a.email })),
+    gmail,
+    localImported: {
+      count: localHits.length,
+      mails: localHits.map((l) => ({
+        threadId: l.threadId,
+        mailId: l.mailId,
+        filename: l.filename,
+        documentTitle: l.documentTitle,
+        documentId: l.paperlessDocumentId,
+        accountId: l.accountId,
+      })),
+    },
+    note:
+      !gmail.connected && localHits.length === 0
+        ? "Aucun mail trouvé. La recherche plein-texte live nécessite un compte Gmail connecté ; pour les comptes IMAP, seuls les mails dont une pièce jointe a été importée sont retrouvables."
+        : undefined,
   };
 }
 
@@ -479,6 +542,46 @@ async function contactsTool(query: string) {
       email: c.email ?? c.emails?.[0] ?? null,
       correspondentId: c.correspondentId,
     })),
+  };
+}
+
+/* ── Tâches / actions ────────────────────────────────────────────────────── */
+
+async function tasksTool(status: string) {
+  const opt: ListActionOptions = {};
+  if (status && status !== "all") opt.status = status as ListActionOptions["status"];
+  const list = await listActions(opt);
+  return {
+    count: list.length,
+    tasks: list.slice(0, 30).map((a) => ({
+      id: a.id,
+      title: a.title,
+      status: a.status,
+      priority: a.priority,
+      dueDate: a.dueDate,
+      documentIds: a.documentIds,
+    })),
+  };
+}
+
+async function getTaskTool(taskId: string | null, rc: ToolRunContext) {
+  if (!taskId) return { found: false, note: "Aucune tâche active — précisez un taskId." };
+  const task = await getAction(taskId);
+  if (!task) return { found: false, note: "Tâche introuvable." };
+  const [docs, maps] = await Promise.all([liveDocs(), loadMaps()]);
+  const linked = docs.filter((d) => task.documentIds.includes(d.id));
+  pushRefs(rc.refs, linked);
+  return {
+    found: true,
+    task: {
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      status: task.status,
+      priority: task.priority,
+      dueDate: task.dueDate,
+    },
+    documents: linked.map((d) => compact(d, maps)),
   };
 }
 
@@ -523,6 +626,7 @@ function labelFor(type: ProposedActionType, n: number, p: Record<string, unknown
     case "create_financial_item": return `Créer une ligne budget (${p.label})`;
     case "validate_financial_item": return `Valider une ligne budget`;
     case "create_reminder": return `Créer un rappel : ${p.title}`;
+    case "complete_task": return "Marquer la tâche terminée";
     case "draft_mail": return `Rédiger un mail : ${p.subject}`;
     case "navigate": return `Ouvrir ${p.target}`;
   }
@@ -538,6 +642,7 @@ function describeAction(type: ProposedActionType, n: number, p: Record<string, u
     case "create_financial_item": return `Créer une ligne budget « ${p.label} » de ${p.amount} € depuis le document.`;
     case "validate_financial_item": return `Valider la ligne budget.`;
     case "create_reminder": return `Créer le rappel « ${p.title} »${p.dueDate ? ` pour le ${p.dueDate}` : p.dueInDays ? ` dans ${p.dueInDays} jours` : ""}.`;
+    case "complete_task": return "Marquer la tâche/action comme terminée.";
     case "draft_mail": return `Préparer un brouillon de mail « ${p.subject} »${n > 0 ? ` avec ${n} pièce(s) jointe(s)` : ""}.`;
     case "navigate": return `Ouvrir ${p.target}${p.id ? ` ${p.id}` : ""}.`;
   }

@@ -19,6 +19,7 @@ import {
 import { createFinancialItem, updateFinancialItem } from "@/lib/budget/financial-item-store";
 import { KIND_TO_DIRECTION, type FinancialKind } from "@/lib/budget/financial-item-types";
 import { createReminder } from "@/lib/actions/reminder-store";
+import { completeAction } from "@/lib/actions/action-store";
 import { runDocumentAnalysis } from "@/lib/ai/run-document-analysis";
 import { appendGedLog } from "@/lib/ged/ged-store";
 import type { ExecuteResult, ProposedAction } from "./assistant-types";
@@ -72,6 +73,7 @@ async function dispatch(a: ProposedAction): Promise<ExecuteResult> {
     case "create_financial_item": return createFinance(a);
     case "validate_financial_item": return validateFinance(a);
     case "create_reminder": return makeReminder(a);
+    case "complete_task": return completeTask(a);
     case "draft_mail":
     case "navigate":
       // Actions côté client (compositeur mail / navigation) : pas d'exécution serveur.
@@ -245,6 +247,16 @@ async function makeReminder(a: ProposedAction): Promise<ExecuteResult> {
   const documentId = a.documentIds[0] ?? null;
   await createReminder({ title, remindAt, documentId });
   return { ok: true, message: `Rappel « ${title} » créé pour le ${remindAt.slice(0, 10)}.`, affected: 1 };
+}
+
+/* ── Tâches ──────────────────────────────────────────────────────────────── */
+async function completeTask(a: ProposedAction): Promise<ExecuteResult> {
+  const id = String(a.params.taskId ?? "");
+  if (!id) return { ok: false, message: "Tâche manquante.", affected: 0 };
+  const done = await completeAction(id);
+  return done
+    ? { ok: true, message: `Tâche « ${done.title} » marquée terminée.`, affected: 1 }
+    : { ok: false, message: "Tâche introuvable.", affected: 0 };
 }
 
 function resolveRemindAt(params: Record<string, unknown>): string {

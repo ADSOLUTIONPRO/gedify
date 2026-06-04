@@ -52,6 +52,7 @@ export function clearAssistantOverrides() {
 
 function spaceFromPath(p: string): AssistantSpace {
   if (p.startsWith("/documents")) return "documents";
+  if (p.startsWith("/messagerie/contacts") || p.startsWith("/contacts")) return "contacts";
   if (p.startsWith("/mails") || p.startsWith("/messagerie") || p.startsWith("/emails")) return "mails";
   if (p.startsWith("/finances") || p.startsWith("/budget")) return "finances";
   if (p.startsWith("/organiser") || p.startsWith("/dossiers") || p.startsWith("/projets")) return "dossiers";
@@ -78,6 +79,10 @@ export function useAssistantContext(): GedifyAssistantContext {
     if (fm) base.activeFolderId = fm[1];
     const tm = pathname.match(/^\/messagerie\/thread\/([^/]+)/);
     if (tm) base.activeMailId = decodeURIComponent(tm[1]);
+    const am = pathname.match(/^\/actions\/([^/]+)/);
+    if (am && !["a-faire", "en-cours", "en-retard", "en-attente", "terminees", "automatiques"].includes(am[1])) {
+      base.activeTaskId = decodeURIComponent(am[1]);
+    }
 
     if (typeof window !== "undefined") {
       const sp = new URLSearchParams(window.location.search);

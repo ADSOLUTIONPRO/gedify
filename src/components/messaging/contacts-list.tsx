@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { setAssistantOverrides, clearAssistantOverrides } from "@/components/ai-assistant/assistant-context-provider";
 import { Check, ContactRound, Eye, EyeOff, Link2, Loader2, Pencil, Phone, Unlink, UserPlus, X } from "lucide-react";
 import type { EmailContactRecord } from "@/lib/messaging/email-types";
 
@@ -31,6 +32,12 @@ export function ContactsList({ initialContacts, correspondents }: { initialConta
   const [editFor, setEditFor] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft>({ displayName: "", email: "", phone: "", organization: "" });
   const [msg, setMsg] = useState<string | null>(null);
+
+  // Expose le contact en cours d'édition / de liaison à l'assistant IA contextuel.
+  useEffect(() => {
+    setAssistantOverrides({ activeContactId: editFor ?? pickerFor });
+    return () => clearAssistantOverrides();
+  }, [editFor, pickerFor]);
 
   async function patch(action: string, payload: Record<string, unknown>) {
     setBusy(payload.resourceName as string);

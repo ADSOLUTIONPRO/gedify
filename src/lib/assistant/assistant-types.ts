@@ -71,6 +71,7 @@ export type ProposedActionType =
   | "create_financial_item"
   | "validate_financial_item"
   | "create_reminder"
+  | "complete_task"
   | "draft_mail"
   | "navigate";
 

@@ -5,6 +5,7 @@ import {
   Bell,
   CheckCircle2,
   FolderInput,
+  ListChecks,
   Mail,
   Sparkles,
   Tag,
@@ -26,6 +27,7 @@ const ICONS: Record<ProposedActionType, LucideIcon> = {
   create_financial_item: Wallet,
   validate_financial_item: Wallet,
   create_reminder: Bell,
+  complete_task: ListChecks,
   draft_mail: Mail,
   navigate: ArrowRight,
 };

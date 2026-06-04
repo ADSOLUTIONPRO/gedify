@@ -206,5 +206,18 @@ function suggestionsForSpace(space: string, hasSelection: boolean): QuickSuggest
       { label: "Mails avec PJ", prompt: "Cherche les mails récents qui ont une pièce jointe." },
       ...DEFAULT_SUGGESTIONS.slice(0, 1),
     ];
+  if (space === "contacts")
+    return [
+      { label: "Docs de ce contact", prompt: "Trouve les documents liés au contact actif." },
+      { label: "Préparer un mail", prompt: "Prépare un mail pour ce contact avec les documents sélectionnés." },
+      ...DEFAULT_SUGGESTIONS.slice(0, 2),
+    ];
+  if (space === "actions")
+    return [
+      { label: "Mes tâches à faire", prompt: "Liste mes tâches et actions à faire." },
+      { label: "Docs de cette tâche", prompt: "Montre les documents liés à la tâche active." },
+      { label: "Marquer faite", prompt: "Marque la tâche active comme terminée." },
+      ...DEFAULT_SUGGESTIONS.slice(0, 1),
+    ];
   return DEFAULT_SUGGESTIONS;
 }

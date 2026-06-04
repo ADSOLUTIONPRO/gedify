@@ -16,6 +16,7 @@ const PROPOSE_TO_ACTION: Record<string, ProposedActionType> = {
   propose_analyze: "analyze",
   propose_create_financial_item: "create_financial_item",
   propose_create_reminder: "create_reminder",
+  propose_complete_task: "complete_task",
   propose_draft_mail: "draft_mail",
   propose_navigate: "navigate",
 };

@@ -16,6 +16,7 @@ export type AssistantPermissions = {
   canDeleteDocuments: boolean;
   canManageFolders: boolean;
   canCreateReminders: boolean;
+  canManageTasks: boolean;
   canDraftMail: boolean;
   /** Mode lecture seule global : aucune action d'écriture autorisée. */
   readOnly: boolean;
@@ -38,6 +39,7 @@ export function getAssistantPermissions(): AssistantPermissions {
     canDeleteDocuments: !readOnly && process.env.ASSISTANT_CAN_DELETE?.trim().toLowerCase() === "true",
     canManageFolders: !readOnly && !envFalse("ASSISTANT_CAN_FOLDERS"),
     canCreateReminders: !readOnly && !envFalse("ASSISTANT_CAN_REMINDERS"),
+    canManageTasks: !readOnly && !envFalse("ASSISTANT_CAN_TASKS"),
     canDraftMail: !readOnly && !envFalse("ASSISTANT_CAN_MAIL"),
     readOnly,
   };
@@ -59,6 +61,8 @@ export function permissionForAction(type: ProposedActionType): keyof AssistantPe
       return "canModifyFinance";
     case "create_reminder":
       return "canCreateReminders";
+    case "complete_task":
+      return "canManageTasks";
     case "draft_mail":
       return "canDraftMail";
     case "navigate":
