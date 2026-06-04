@@ -39,6 +39,7 @@ import { DocumentSendMailButton } from "@/components/documents/document-send-mai
 import { SignDocumentButton } from "@/components/documents/sign-document-button";
 import { DocumentInfoCard } from "@/components/documents/document-info-card";
 import { OcrViewerButton } from "@/components/documents/ocr-viewer-button";
+import { DocumentOcrInfo } from "@/components/documents/document-ocr-info";
 import { DocumentNotesEditor } from "@/components/documents/document-notes-editor";
 import { DocumentLinkedActions } from "@/components/documents/document-linked-actions";
 import { DocumentHistory } from "@/components/documents/document-history";
@@ -271,6 +272,13 @@ export default async function DocumentDetailPage({ params }: DocumentPageProps) 
 
             {/* Avancé : données techniques + historique (collapsés par défaut) */}
             <div className="space-y-3">
+              <TechnicalAccordion
+                title="OCR et indexation"
+                description="Moteur, langue, qualité du texte extrait — et relance OCR."
+              >
+                <DocumentOcrInfo documentId={document.id} />
+              </TechnicalAccordion>
+
               <TechnicalAccordion
                 title="Données techniques"
                 description="Métadonnées brutes renvoyées par Gedify."

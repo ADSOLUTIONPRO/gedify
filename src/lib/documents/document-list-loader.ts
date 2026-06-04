@@ -115,6 +115,7 @@ export function matchesEtat(s: DocumentStatusesVM, etat: string): boolean {
     case "ia_none": return s.ai === "none";
     case "ocr_done": return s.ocr === "done";
     case "ocr_error": return s.ocr === "pending";
+    case "ocr_low": return s.ocr === "low";
     case "classified": return s.classified;
     case "unclassified": return !s.classified;
     case "budget_created": return s.budget === "created";
