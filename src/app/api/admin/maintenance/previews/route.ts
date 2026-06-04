@@ -3,6 +3,7 @@ import "server-only";
 import { type NextRequest, NextResponse } from "next/server";
 import path from "node:path";
 import { requireAuth } from "@/lib/auth/require-auth";
+import { requirePermission } from "@/lib/auth/current-user";
 import { jsonError } from "@/lib/api-utils";
 import {
   readStore,
@@ -49,7 +50,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const deny = await requireAuth(request);
+  const deny = await requirePermission(request, "admin.access");
   if (deny) return deny;
 
   let body: { action?: string; limit?: number } = {};
