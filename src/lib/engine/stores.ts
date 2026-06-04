@@ -305,6 +305,16 @@ export type DocumentDerivedStatuses = {
   ai_confidence?: number | null;
   classification_confidence?: number | null;
   needs_review_reason?: string | null;
+  /** Détails OCR (industrialisation Partie 4). */
+  ocr_source?: "native_pdf_text" | "ocr_engine" | "text_file" | "unavailable" | null;
+  ocr_engine?: string | null;
+  ocr_language?: string | null;
+  ocr_text_length?: number | null;
+  ocr_pages_count?: number | null;
+  ocr_quality?: "good" | "low" | null;
+  ocr_started_at?: string | null;
+  ocr_finished_at?: string | null;
+  ocr_attempts?: number | null;
 };
 
 /* ── Modèle interne d'un document (sur-ensemble de PaperlessDocument) ────── */

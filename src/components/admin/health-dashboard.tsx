@@ -50,6 +50,7 @@ type GedHealth = {
   services: { openaiConfigured: boolean };
   lastBackup: { file: string; at: string } | null;
   pipeline: { pending: number; processing: number; failed: number; total: number; lastFinishedAt: string | null };
+  ocr: { ready: number; processing: number; failed: number; withoutOcr: number; low: number; avgTextLength: number; engine: string | null; language: string | null };
   generatedAt: string;
 };
 
@@ -249,6 +250,22 @@ export function HealthDashboard() {
           </div>
         </SectionCard>
       </div>
+
+      {/* OCR et indexation */}
+      <SectionCard icon={ScanText} title="OCR et indexation" description={`Moteur : ${health!.ocr.engine ?? "—"} · Langue : ${health!.ocr.language ?? "fra+eng"}`}>
+        <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <StatCard label="OCR terminés" value={health!.ocr.ready} helper="documents" icon={ScanText} tone="emerald" />
+          <StatCard label="OCR en cours" value={health!.ocr.processing} helper="documents" icon={Cpu} tone={health!.ocr.processing ? "blue" : "slate"} />
+          <StatCard label="OCR en erreur" value={health!.ocr.failed} helper="documents" icon={AlertTriangle} tone={health!.ocr.failed ? "rose" : "emerald"} />
+          <StatCard label="Sans OCR" value={health!.ocr.withoutOcr} helper="texte vide" icon={FileWarning} tone={health!.ocr.withoutOcr ? "amber" : "emerald"} />
+          <StatCard label="OCR faible" value={health!.ocr.low} helper={`moy. ${health!.ocr.avgTextLength} car.`} icon={ScanText} tone={health!.ocr.low ? "amber" : "slate"} />
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <ActionButton onClick={() => void runPipeline("ocr-missing", "o-miss")} busy={busy === "o-miss"} disabled={Boolean(busy)} icon={ScanText} label="Relancer OCR manquants" />
+          <ActionButton onClick={() => void runPipeline("retry-failed", "o-retry")} busy={busy === "o-retry"} disabled={Boolean(busy)} icon={RefreshCw} label="Relancer OCR/jobs en erreur" tone="rose" />
+          <ActionButton onClick={() => void runPipeline("reindex-all", "o-idx")} busy={busy === "o-idx"} disabled={Boolean(busy)} icon={RefreshCw} label="Réindexer les documents" />
+        </div>
+      </SectionCard>
 
       {/* Pipeline documentaire (jobs) */}
       <SectionCard icon={Cpu} title="Pipeline documentaire" description="File de traitement en arrière-plan (OCR, miniatures, aperçus, index).">

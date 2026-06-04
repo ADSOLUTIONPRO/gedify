@@ -50,6 +50,16 @@ export type GedHealth = {
   services: { openaiConfigured: boolean };
   lastBackup: { file: string; at: string } | null;
   pipeline: { pending: number; processing: number; failed: number; total: number; lastFinishedAt: string | null };
+  ocr: {
+    ready: number;
+    processing: number;
+    failed: number;
+    withoutOcr: number;
+    low: number;
+    avgTextLength: number;
+    engine: string | null;
+    language: string | null;
+  };
   generatedAt: string;
 };
 
@@ -164,6 +174,9 @@ export async function computeGedHealth(): Promise<GedHealth> {
   let withoutFolder = 0;
   let aiError = 0;
   let jobsPending = 0;
+  // OCR
+  let ocrReady = 0, ocrFailed = 0, ocrProcessing = 0, ocrLow = 0, ocrTextSum = 0;
+  let ocrEngine: string | null = null, ocrLanguage: string | null = null;
 
   for (const d of docs) {
     if (!thumbIds.has(d.id)) missingThumbnail += 1;
@@ -172,6 +185,14 @@ export async function computeGedHealth(): Promise<GedHealth> {
     if (!(d.content ?? "").trim()) withoutOcr += 1;
     if (!inFolder.has(d.id)) withoutFolder += 1;
     if (d.ai_status === "failed") aiError += 1;
+    // OCR
+    if (d.ocr_status === "ready") ocrReady += 1;
+    else if (d.ocr_status === "failed") ocrFailed += 1;
+    else if (d.ocr_status === "processing") ocrProcessing += 1;
+    if (d.ocr_quality === "low") ocrLow += 1;
+    ocrTextSum += (d.content ?? "").trim().length;
+    if (!ocrEngine && d.ocr_engine && d.ocr_engine !== "—") ocrEngine = d.ocr_engine;
+    if (!ocrLanguage && d.ocr_language) ocrLanguage = d.ocr_language;
     if (
       isPending(d.thumbnail_status) ||
       isPending(d.preview_status) ||
@@ -230,6 +251,16 @@ export async function computeGedHealth(): Promise<GedHealth> {
       failed: jobs.failed,
       total: jobs.total,
       lastFinishedAt: jobs.lastFinishedAt,
+    },
+    ocr: {
+      ready: ocrReady,
+      processing: ocrProcessing,
+      failed: ocrFailed,
+      withoutOcr,
+      low: ocrLow,
+      avgTextLength: docs.length ? Math.round(ocrTextSum / docs.length) : 0,
+      engine: ocrEngine,
+      language: ocrLanguage,
     },
     generatedAt: new Date().toISOString(),
   };

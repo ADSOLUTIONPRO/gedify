@@ -78,9 +78,9 @@ export const TOOL_SCHEMAS = [
   fn("search_documents_by_status", "Documents selon un statut d'organisation.", {
     status: {
       type: "string",
-      enum: ["untagged", "unclassified", "no_folder", "ai_review", "no_ai"],
+      enum: ["untagged", "unclassified", "no_folder", "ai_review", "no_ai", "no_ocr", "ocr_low"],
       description:
-        "untagged=sans tag ; unclassified=sans type ni tag ; no_folder=dans aucun dossier ; ai_review=analyse IA faible/à vérifier ; no_ai=jamais analysé.",
+        "untagged=sans tag ; unclassified=sans type ni tag ; no_folder=dans aucun dossier ; ai_review=analyse IA faible/à vérifier ; no_ai=jamais analysé ; no_ocr=sans texte OCR ; ocr_low=OCR de faible qualité.",
     },
   }, ["status"]),
   fn("search_documents_by_tag", "Documents portant un tag (par nom).", {
@@ -339,6 +339,10 @@ async function statusTool(status: string, rc: ToolRunContext) {
     const inFolder = new Set<number>();
     for (const f of folders) for (const id of f.linkedDocumentIds ?? []) inFolder.add(id);
     result = docs.filter((d) => !inFolder.has(d.id));
+  } else if (status === "no_ocr") {
+    result = docs.filter((d) => !(d.content ?? "").trim());
+  } else if (status === "ocr_low") {
+    result = docs.filter((d) => d.ocr_quality === "low" || (d.ocr_status === "failed"));
   } else if (status === "ai_review" || status === "no_ai") {
     const out: EngineDocument[] = [];
     for (const d of docs.slice(0, 300)) {

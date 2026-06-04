@@ -11,6 +11,7 @@ import {
   type EngineDocument,
 } from "@/lib/engine/stores";
 import { extractText } from "@/lib/engine/ocr";
+import { ocrMetaFields } from "@/lib/engine/ocr-meta";
 import { makeThumbnail } from "@/lib/engine/thumbnails";
 import { makePreview } from "@/lib/engine/previews";
 import { indexDocument } from "@/lib/engine/search";
@@ -51,14 +52,17 @@ async function runOcr(documentId: number, fromImport = false): Promise<void> {
   const orig = await readOriginal(doc.storedFilename);
   if (!orig) throw new Error("fichier original introuvable");
 
-  await patchDoc(documentId, { ocr_status: "processing" });
-  const { text, pageCount, confidence } = await extractText(orig, mimeOf(doc), extOf(doc));
+  const startedIso = new Date().toISOString();
+  await patchDoc(documentId, { ocr_status: "processing", ocr_started_at: startedIso });
+  const r = await extractText(orig, mimeOf(doc), extOf(doc));
+  const text = r.text;
   const ocrStatus: EngineDocument["ocr_status"] = text.trim() ? "ready" : "skipped";
   await patchDoc(documentId, {
     content: text,
-    page_count: pageCount ?? doc.page_count ?? null,
+    page_count: r.pageCount ?? doc.page_count ?? null,
     ocr_status: ocrStatus,
-    ocr_confidence: confidence,
+    ...ocrMetaFields(r, startedIso),
+    ocr_attempts: (doc.ocr_attempts ?? 0) + 1,
     index_status: "processing",
   });
 

@@ -14,6 +14,7 @@ import {
   type EngineDocument,
 } from "./stores";
 import { extractText } from "./ocr";
+import { ocrMetaFields } from "./ocr-meta";
 import { makeThumbnail } from "./thumbnails";
 import { makePreview } from "./previews";
 import { indexDocument } from "./search";
@@ -128,14 +129,15 @@ export async function consume(input: ConsumeInput): Promise<PaperlessTask> {
     // OCR : inline (défaut, comportement historique inchangé) OU différé au
     // worker en file de jobs quand GEDIFY_ASYNC_IMPORT=1 (import non bloquant).
     const asyncMode = asyncImportEnabled();
+    const ocrStartIso = new Date().toISOString();
     let text = "";
     let pageCount: number | null = null;
-    let ocrConfidence: number | null = null;
+    let ocrMeta: Partial<EngineDocument> = {};
     if (!asyncMode) {
       const r = await extractText(input.buffer, mime, ext);
       text = r.text;
       pageCount = r.pageCount;
-      ocrConfidence = r.confidence;
+      ocrMeta = ocrMetaFields(r, ocrStartIso);
     }
 
     const nowIso = new Date().toISOString();
@@ -173,7 +175,8 @@ export async function consume(input: ConsumeInput): Promise<PaperlessTask> {
       classification_status:
         (input.correspondent ?? null) != null && (input.document_type ?? null) != null ? "ready" : "pending",
       archive_status: "skipped",
-      ocr_confidence: ocrConfidence,
+      ...ocrMeta,
+      ocr_attempts: asyncMode ? 0 : 1,
       last_processed_at: nowIso,
     };
     await mutateList<EngineDocument>(STORE.documents, (list) => [doc, ...list]);

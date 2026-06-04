@@ -15,7 +15,14 @@ import { extractPdfText, loadPdf, renderPdfPageToPng, type PdfDoc } from "./pdf"
    Tout est best-effort : en cas d'échec, le document est stocké sans texte.
    ──────────────────────────────────────────────────────────────────────── */
 
-export type ExtractResult = { text: string; pageCount: number | null; confidence: number | null };
+export type OcrSource = "native_pdf_text" | "ocr_engine" | "text_file" | "unavailable";
+export type ExtractResult = {
+  text: string;
+  pageCount: number | null;
+  confidence: number | null;
+  /** D'où vient le texte : texte natif du PDF, OCR Tesseract, fichier texte, ou indisponible. */
+  source: OcrSource;
+};
 
 const IMAGE_EXT = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tif", ".tiff"];
 const TEXT_EXT = [".txt", ".md", ".csv", ".log", ".json", ".xml", ".html", ".htm"];
@@ -175,10 +182,11 @@ async function ocrPdf(doc: PdfDoc): Promise<OcrResult> {
 
 async function extractPdf(buf: Buffer): Promise<ExtractResult> {
   const doc = await loadPdf(buf);
-  if (!doc) return { text: "", pageCount: null, confidence: null };
+  if (!doc) return { text: "", pageCount: null, confidence: null, source: "unavailable" };
   const pageCount = doc.numPages;
   let text = await extractPdfText(doc);
   let confidence: number | null = null;
+  let source: OcrSource = text.replace(/\s+/g, "").length > 0 ? "native_pdf_text" : "unavailable";
   // Couche texte absente/maigre (scan) → OCR de secours.
   const sparse = text.replace(/\s+/g, "").length < pageCount * 16;
   if (sparse) {
@@ -186,30 +194,31 @@ async function extractPdf(buf: Buffer): Promise<ExtractResult> {
     if (ocr.text.length > text.length) {
       text = ocr.text;
       confidence = ocr.confidence;
+      source = "ocr_engine";
     }
   }
   await doc.destroy?.().catch(() => {});
-  return { text, pageCount, confidence };
+  return { text, pageCount, confidence, source };
 }
 
 export async function extractText(buf: Buffer, mime: string, ext: string): Promise<ExtractResult> {
   const lower = ext.toLowerCase();
   try {
     if (mime.startsWith("text/") || TEXT_EXT.includes(lower)) {
-      return { text: safeUtf8(buf), pageCount: null, confidence: null };
+      return { text: safeUtf8(buf), pageCount: null, confidence: null, source: "text_file" };
     }
     if (mime === "application/pdf" || lower === ".pdf") {
       return await extractPdf(buf);
     }
     if (mime.startsWith("image/") || IMAGE_EXT.includes(lower)) {
       const r = await ocrImage(buf);
-      return { text: r.text, pageCount: 1, confidence: r.confidence };
+      return { text: r.text, pageCount: 1, confidence: r.confidence, source: "ocr_engine" };
     }
   } catch (e) {
     console.error("[engine/ocr] extraction échouée :", e instanceof Error ? e.message : e);
   }
   // docx/xlsx/autres : pas d'extraction pur-JS en v1.
-  return { text: "", pageCount: null, confidence: null };
+  return { text: "", pageCount: null, confidence: null, source: "unavailable" };
 }
 
 /** Libère les workers Tesseract (optionnel, ex. arrêt propre). */
