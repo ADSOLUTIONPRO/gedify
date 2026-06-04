@@ -359,6 +359,8 @@ export type EngineUser = {
   is_superuser: boolean;
   is_staff: boolean;
   is_active: boolean;
+  /** Rôle applicatif (permissions). Optionnel : déduit de is_superuser/is_staff si absent. */
+  role?: "admin" | "manager" | "editor" | "viewer";
 };
 
 /* ── Noms des stores (clés de fichiers JSON sous engine/) ───────────────── */

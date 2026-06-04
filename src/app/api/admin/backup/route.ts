@@ -2,6 +2,8 @@ import "server-only";
 
 import { type NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth/require-auth";
+import { requirePermission } from "@/lib/auth/current-user";
+import { recordAudit } from "@/lib/audit/audit-store";
 import { jsonError } from "@/lib/api-utils";
 import { createServerBackup, listServerBackups } from "@/lib/transfer/backup";
 
@@ -34,8 +36,9 @@ function hasValidCronToken(request: NextRequest): boolean {
 }
 
 export async function POST(request: NextRequest) {
-  if (!hasValidCronToken(request)) {
-    const deny = await requireAuth(request);
+  const viaCron = hasValidCronToken(request);
+  if (!viaCron) {
+    const deny = await requirePermission(request, "backup.manage");
     if (deny) return deny;
   }
 
@@ -48,6 +51,12 @@ export async function POST(request: NextRequest) {
 
   try {
     const report = await createServerBackup({ includeFiles: body.includeFiles });
+    await recordAudit({
+      action: "backup.create",
+      target: report.filename,
+      details: `${report.bytes} octets`,
+      user: viaCron ? "cron" : undefined,
+    });
     return NextResponse.json(report);
   } catch (error) {
     return jsonError("Échec de la sauvegarde", error);

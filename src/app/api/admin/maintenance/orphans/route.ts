@@ -3,7 +3,8 @@ import "server-only";
 import { type NextRequest, NextResponse } from "next/server";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { requireAuth } from "@/lib/auth/require-auth";
+import { requirePermission } from "@/lib/auth/current-user";
+import { recordAudit } from "@/lib/audit/audit-store";
 import { jsonError } from "@/lib/api-utils";
 import {
   readStore,
@@ -50,7 +51,7 @@ async function orphanFilesIn(dir: string, active: Set<number>): Promise<string[]
 }
 
 export async function POST(request: NextRequest) {
-  const deny = await requireAuth(request);
+  const deny = await requirePermission(request, "admin.access");
   if (deny) return deny;
 
   try {
@@ -70,6 +71,7 @@ export async function POST(request: NextRequest) {
         /* ignore */
       }
     }
+    await recordAudit({ action: "maintenance.cleanup-orphans", details: `${deleted} fichier(s) supprimé(s)` });
     return NextResponse.json({ deleted, scanned: targets.length });
   } catch (error) {
     return jsonError("Échec du nettoyage des fichiers orphelins", error);

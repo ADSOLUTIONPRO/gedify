@@ -303,6 +303,22 @@ export default async function AdministrationPage() {
         </Link>
       </SectionCard>
 
+      {/* Rôles & permissions */}
+      <SectionCard
+        icon={ShieldCheck}
+        title="Rôles & permissions"
+        description="Attribuez un rôle à chaque utilisateur (administrateur, gestionnaire, éditeur, lecteur) et consultez le journal d'audit."
+      >
+        <Link
+          href="/administration/roles"
+          className="inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-white transition hover:opacity-90"
+          style={{ background: "var(--blue-600)" }}
+        >
+          <ShieldCheck className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+          Ouvrir Rôles & permissions
+        </Link>
+      </SectionCard>
+
       {/* Sauvegarde & migration */}
       <SectionCard
         icon={Database}

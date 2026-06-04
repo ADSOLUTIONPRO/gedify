@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { jsonError } from "@/lib/api-utils";
+import { requirePermission } from "@/lib/auth/current-user";
+import { recordAudit } from "@/lib/audit/audit-store";
 import { getGedWorkflow, markGedWorkflowRun } from "@/lib/ged/ged-store";
 import { runWorkflowOverAll } from "@/lib/automation/workflow-engine";
 
@@ -11,7 +13,9 @@ type WorkflowContext = {
   params: Promise<{ id: string }>;
 };
 
-export async function POST(_request: NextRequest, { params }: WorkflowContext) {
+export async function POST(request: NextRequest, { params }: WorkflowContext) {
+  const deny = await requirePermission(request, "automation.manage");
+  if (deny) return deny;
   try {
     const { id } = await params;
     const workflow = await getGedWorkflow(id);
@@ -22,6 +26,11 @@ export async function POST(_request: NextRequest, { params }: WorkflowContext) {
     // Application RÉELLE de la règle à tous les documents existants qui matchent.
     const { matched, applied, sample } = await runWorkflowOverAll(workflow, { dryRun: false });
     const updated = await markGedWorkflowRun(id);
+    await recordAudit({
+      action: "workflow.run",
+      target: `${workflow.name}`,
+      details: `${applied} document(s) modifié(s) sur ${matched}`,
+    });
 
     return NextResponse.json({
       ok: true,

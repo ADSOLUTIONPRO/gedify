@@ -209,6 +209,12 @@ export const administrationDropdownNavigation: NavigationSection[] = [
         description: "Stockage, miniatures, OCR, base et maintenance.",
       },
       {
+        label: "Rôles & permissions",
+        href: "/administration/roles",
+        icon: ShieldCheck,
+        description: "Rôles utilisateurs, permissions et journal d'audit.",
+      },
+      {
         label: "Sauvegarde & migration",
         href: "/administration/sauvegarde",
         icon: DatabaseZap,

@@ -2,6 +2,7 @@ import "server-only";
 
 import bcrypt from "bcryptjs";
 import { mutateList, nextId, readStore, STORE, type EngineUser } from "./stores";
+import { roleOf, type Role } from "@/lib/auth/permissions";
 import type { PaperlessProfile } from "@/lib/paperless-types";
 
 /* ────────────────────────────────────────────────────────────────────────
@@ -17,6 +18,7 @@ export type CreateUserInput = {
   last_name?: string;
   is_superuser?: boolean;
   is_staff?: boolean;
+  role?: Role;
 };
 
 /** Au moins un utilisateur enregistré ? Sinon → écran de 1ʳᵉ connexion (/installation). */
@@ -65,6 +67,7 @@ export async function createUser(input: CreateUserInput): Promise<EngineUser> {
     is_superuser: input.is_superuser ?? false,
     is_staff: input.is_staff ?? input.is_superuser ?? false,
     is_active: true,
+    ...(input.role ? { role: input.role } : {}),
   };
   await mutateList<EngineUser>(STORE.users, (list) => [...list, user]);
   return user;
@@ -85,6 +88,7 @@ export async function updateUser(id: number, patch: Partial<CreateUserInput> & {
           is_superuser: patch.is_superuser ?? u.is_superuser,
           is_staff: patch.is_staff ?? u.is_staff,
           is_active: patch.is_active ?? u.is_active,
+          role: patch.role ?? u.role,
           passwordHash: patch.password ? await bcrypt.hash(patch.password, 10) : u.passwordHash,
         };
         return updated;
@@ -130,5 +134,7 @@ export function publicUser(u: EngineUser) {
     is_superuser: u.is_superuser,
     is_staff: u.is_staff,
     is_active: u.is_active,
+    /** Rôle effectif (explicite ou déduit). */
+    role: roleOf(u),
   };
 }
