@@ -1,9 +1,10 @@
-import { Database, Download, Upload, ShieldCheck } from "lucide-react";
+import { Database, Download, HardDriveDownload, Upload, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
 import { SectionCard } from "@/components/ui/section-card";
 import { ExportButton } from "@/components/admin/export-button";
 import { ImportPanel } from "@/components/admin/import-panel";
+import { BackupNowPanel } from "@/components/admin/backup-now-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,14 @@ export default function SauvegardePage() {
         title="Sauvegarde & migration"
         description="Importez une archive .zip Gedify (depuis l'ancienne surcouche ou nopp), ou exportez vos données."
       />
+
+      <SectionCard
+        icon={HardDriveDownload}
+        title="Sauvegarde serveur"
+        description="Crée une archive complète côté serveur (documents, fichiers et base PostgreSQL si active), restaurable via l'import ci-dessous."
+      >
+        <BackupNowPanel />
+      </SectionCard>
 
       <SectionCard
         icon={Upload}

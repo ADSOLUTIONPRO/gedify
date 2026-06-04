@@ -26,6 +26,8 @@ import {
 import { mimeFromExt } from "@/lib/engine/helpers";
 import { makeThumbnail } from "@/lib/engine/thumbnails";
 import { makePreview } from "@/lib/engine/previews";
+import { pgStorageActive } from "@/lib/db/pg-store";
+import { restorePostgres, type PgDump } from "@/lib/transfer/pg-backup";
 import { reindexAll } from "@/lib/engine/search";
 import { EXPORT_FORMAT } from "./export";
 import type { PaperlessDocument, PaperlessNote } from "@/lib/paperless-types";
@@ -375,6 +377,21 @@ export async function importFromZip(
 
   // 4) Couche surcouche (.data)
   const dataFiles = await restoreOverlay(zip);
+
+  // 4 bis) Restauration du dump PostgreSQL (mode postgres) : source de vérité des
+  // domaines en base (projets, budget, mails…). Écrase les tables avec le dump,
+  // donc à exécuter AVANT la réindexation pour refléter l'état final.
+  if (pgStorageActive()) {
+    const dump = await readZipJson<PgDump>(zip, "postgres/dump.json");
+    if (dump?.tables) {
+      try {
+        const { errors: pgErrors } = await restorePostgres(dump);
+        for (const e of pgErrors) errors.push(`PostgreSQL : ${e}`);
+      } catch (e) {
+        errors.push(`Restauration PostgreSQL : ${e instanceof Error ? e.message : e}`);
+      }
+    }
+  }
 
   // 5) Réindexation plein-texte
   let indexStatus: EngineDocument["index_status"] = "ready";

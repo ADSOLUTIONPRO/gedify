@@ -5,6 +5,8 @@ import path from "node:path";
 import JSZip from "jszip";
 import { getDataDir } from "@/lib/storage/data-dir";
 import { paperlessFetch, paperlessFetchRaw } from "@/lib/paperless";
+import { pgStorageActive } from "@/lib/db/pg-store";
+import { dumpPostgres } from "@/lib/transfer/pg-backup";
 import type { PaperlessDocument, PaperlessListResponse } from "@/lib/paperless-types";
 
 /* ────────────────────────────────────────────────────────────────────────
@@ -44,6 +46,8 @@ export type ExportCounts = {
   custom_fields: number;
   saved_views: number;
   dataFiles: number;
+  /** Lignes dumpées par table PostgreSQL (mode postgres uniquement). */
+  postgres?: Record<string, number>;
 };
 
 export type ExportResult = {
@@ -208,6 +212,19 @@ export async function buildExportZip(options: ExportOptions = {}): Promise<Expor
   // 4) Couche surcouche (.data)
   const dataFiles = await addOverlayTree(zip, getDataDir());
 
+  // 4 bis) Dump logique PostgreSQL (mode postgres) — source de vérité des
+  // domaines en base, là où l'overlay JSON n'est plus à jour.
+  let postgres: Record<string, number> | undefined;
+  if (pgStorageActive()) {
+    try {
+      const dump = await dumpPostgres();
+      zip.file("postgres/dump.json", JSON.stringify(dump));
+      postgres = dump.counts;
+    } catch (e) {
+      errors.push(`Dump PostgreSQL : ${e instanceof Error ? e.message : e}`);
+    }
+  }
+
   // 5) Manifeste
   const counts: ExportCounts = {
     documents: documents.length,
@@ -219,6 +236,7 @@ export async function buildExportZip(options: ExportOptions = {}): Promise<Expor
     custom_fields: custom_fields.length,
     saved_views: saved_views.length,
     dataFiles,
+    ...(postgres ? { postgres } : {}),
   };
   zip.file(
     "manifest.json",
