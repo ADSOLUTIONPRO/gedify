@@ -8,9 +8,10 @@ RUN apk add --no-cache libc6-compat
 COPY package.json package-lock.json* ./
 RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
 # `npm ci` peut omettre les optionalDependencies spécifiques à la plateforme
-# (binaire natif @img/sharp-linuxmusl-*) quand le lockfile vient d'un autre OS
-# (bug npm connu) → réinstallation ciblée pour la plateforme courante (Alpine/musl).
-RUN npm install --include=optional --no-save sharp
+# (binaires natifs @img/sharp-linuxmusl-* et @napi-rs/canvas-linux-*-musl) quand
+# le lockfile vient d'un autre OS (bug npm connu) → réinstallation ciblée pour la
+# plateforme courante (Alpine/musl). sharp = vignettes ; canvas = rendu page PDF.
+RUN npm install --include=optional --no-save sharp @napi-rs/canvas
 
 # 2. Build (Next standalone) + données OCR
 FROM node:20-alpine AS builder
@@ -56,9 +57,12 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules/sharp ./node_modules
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@img ./node_modules/@img
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/pdfjs-dist ./node_modules/pdfjs-dist
 
-# Auto-test : échoue le build si sharp ne se charge pas réellement dans l'image
-# finale (musl). Évite de livrer une image aux vignettes silencieusement cassées.
+# Auto-tests : échouent le build si un binaire natif ne se charge pas dans
+# l'image finale (musl). Évite de livrer une image aux vignettes cassées.
+#  - sharp  : génération des vignettes (et du placeholder)
+#  - canvas : rendu raster de la 1ʳᵉ page PDF
 RUN node -e "require('sharp')({create:{width:4,height:4,channels:3,background:'#ffffff'}}).webp().toBuffer().then(b=>console.log('[build] sharp OK',b.length,'octets')).catch(e=>{console.error('[build] sharp KO:',e.message);process.exit(1)})"
+RUN node -e "try{const{createCanvas}=require('@napi-rs/canvas');const c=createCanvas(8,8);c.getContext('2d').fillRect(0,0,8,8);console.log('[build] canvas OK',c.toBuffer('image/png').length,'octets')}catch(e){console.error('[build] canvas KO:',e.message);process.exit(1)}"
 
 # Répertoire de données persistant (point de montage du volume Coolify).
 RUN mkdir -p /app/.data && chown -R nextjs:nodejs /app/.data
