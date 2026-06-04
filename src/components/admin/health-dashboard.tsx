@@ -20,8 +20,11 @@ import {
   Loader2,
   RefreshCw,
   ScanText,
+  ShieldCheck,
   Sparkles,
   Trash2,
+  Unlink,
+  FileX,
 } from "lucide-react";
 import { SectionCard } from "@/components/ui/section-card";
 import { StatCard } from "@/components/ui/stat-card";
@@ -59,6 +62,16 @@ type GedHealth = {
   generatedAt: string;
 };
 
+type IntegrityReport = {
+  documents: number;
+  docsWithoutOriginal: number;
+  orphanOriginals: number;
+  docsWithoutOcr: number;
+  brokenBudgetLinks: number;
+  brokenMailLinks: number;
+  generatedAt: string;
+};
+
 function formatBytes(n: number): string {
   if (!n) return "0 o";
   const units = ["o", "Ko", "Mo", "Go", "To"];
@@ -70,6 +83,7 @@ type BatchResult = { generated?: number; remaining?: number; deleted?: number };
 
 export function HealthDashboard() {
   const [health, setHealth] = useState<GedHealth | null>(null);
+  const [integrity, setIntegrity] = useState<IntegrityReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -84,6 +98,14 @@ export function HealthDashboard() {
       const data = (await res.json()) as GedHealth | { error: string };
       if (!res.ok || "error" in data) throw new Error("error" in data ? data.error : `HTTP ${res.status}`);
       setHealth(data as GedHealth);
+      // Intégrité : diagnostic complémentaire (non bloquant — n'empêche pas la santé de s'afficher).
+      try {
+        const ir = await fetch("/api/admin/integrity", { credentials: "include", cache: "no-store" });
+        const idata = (await ir.json()) as IntegrityReport | { error: string };
+        if (ir.ok && !("error" in idata)) setIntegrity(idata as IntegrityReport);
+      } catch {
+        /* intégrité indisponible : ignorée */
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur inconnue");
     } finally {
@@ -255,6 +277,25 @@ export function HealthDashboard() {
           </div>
         </SectionCard>
       </div>
+
+      {/* Intégrité fichiers et liens */}
+      {integrity ? (
+        <SectionCard
+          icon={ShieldCheck}
+          title="Intégrité des fichiers et liens"
+          description="Cohérence documents ↔ fichiers ↔ budget ↔ mails — diagnostic 100 % lecture seule."
+        >
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard label="Documents sans original" value={integrity.docsWithoutOriginal} helper="fichier introuvable" icon={FileWarning} tone={integrity.docsWithoutOriginal ? "rose" : "emerald"} />
+            <StatCard label="Originaux orphelins" value={integrity.orphanOriginals} helper="aucun document actif" icon={FileX} tone={integrity.orphanOriginals ? "amber" : "emerald"} />
+            <StatCard label="Liens budget cassés" value={integrity.brokenBudgetLinks} helper="document supprimé" icon={Unlink} tone={integrity.brokenBudgetLinks ? "rose" : "emerald"} />
+            <StatCard label="Liens mail cassés" value={integrity.brokenMailLinks} helper="document supprimé" icon={Unlink} tone={integrity.brokenMailLinks ? "rose" : "emerald"} />
+          </div>
+          <p className="mt-3 text-[11px]" style={{ color: "var(--text-muted)" }}>
+            Aucune modification effectuée. Détail des éléments concernés : <code>npm run gedify:integrity:inspect</code> (options <code>--missing</code> · <code>--orphans</code>). Ne supprimez jamais un document signalé « sans original » : restaurez-le depuis une sauvegarde.
+          </p>
+        </SectionCard>
+      ) : null}
 
       {/* Classement documentaire */}
       <SectionCard icon={FolderTree} title="Classement documentaire" description="Tags, types, correspondants, dossiers — et documents à classer.">
