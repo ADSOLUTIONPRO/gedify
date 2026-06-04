@@ -86,7 +86,11 @@ n'est pas changé — **le comportement actuel n'est pas modifié**.
 `document_correspondents`, `budget_entries`, `budget_payments`, `mails`,
 `mail_attachments`, `mail_document_links`, `reminders`, `tasks`, `signatures`,
 `learned_templates`, `assistant_action_logs`, `activity_logs`, `settings`,
-`users`, `counters`, `document_title_overrides`.
+`users`, `counters`, `document_title_overrides`, `email_contacts`,
+`mail_accounts`, `mail_oauth_tokens` (tokens déjà chiffrés, jamais loggés),
+`saved_signatures`, `hidden_senders`, `custom_fields`. Les correspondants
+secondaires vont dans `document_correspondents` avec `role="secondary"` (le
+principal n'est jamais écrasé).
 
 Chaque table conserve une colonne `raw`/`raw_payload`/`metadata` (JSON intégral
 d'origine) → **migration sans perte**, même pour les champs non encore mappés.

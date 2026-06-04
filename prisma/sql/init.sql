@@ -1,5 +1,5 @@
 -- Gedify — schéma PostgreSQL (généré depuis prisma/schema.prisma, idempotent).
--- Appliqué par: npm run gedify:db:push  (scripts/db-push.ts → init.sql via pg).
+-- Régénérer après modif du schéma : npm run prisma:sql
 
 -- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";
@@ -361,6 +361,104 @@ CREATE TABLE IF NOT EXISTS "document_title_overrides" (
 );
 
 -- CreateTable
+CREATE TABLE IF NOT EXISTS "email_contacts" (
+    "id" TEXT NOT NULL,
+    "name" TEXT,
+    "email" TEXT,
+    "display_name" TEXT,
+    "source" TEXT,
+    "last_seen_at" TIMESTAMP(3),
+    "metadata" JSONB,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMP(3),
+
+    CONSTRAINT "email_contacts_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE IF NOT EXISTS "mail_accounts" (
+    "id" TEXT NOT NULL,
+    "provider" TEXT,
+    "email" TEXT,
+    "display_name" TEXT,
+    "status" TEXT,
+    "scopes" JSONB,
+    "metadata" JSONB,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMP(3),
+
+    CONSTRAINT "mail_accounts_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE IF NOT EXISTS "mail_oauth_tokens" (
+    "id" TEXT NOT NULL,
+    "account_id" TEXT,
+    "provider" TEXT,
+    "email" TEXT,
+    "access_token_encrypted" TEXT,
+    "refresh_token_encrypted" TEXT,
+    "expiry_date" TIMESTAMP(3),
+    "scope" TEXT,
+    "token_type" TEXT,
+    "metadata" JSONB,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMP(3),
+
+    CONSTRAINT "mail_oauth_tokens_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE IF NOT EXISTS "saved_signatures" (
+    "id" TEXT NOT NULL,
+    "label" TEXT,
+    "type" TEXT,
+    "image_path" TEXT,
+    "image_data" TEXT,
+    "width" INTEGER,
+    "height" INTEGER,
+    "metadata" JSONB,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMP(3),
+
+    CONSTRAINT "saved_signatures_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE IF NOT EXISTS "hidden_senders" (
+    "id" TEXT NOT NULL,
+    "email" TEXT,
+    "domain" TEXT,
+    "reason" TEXT,
+    "metadata" JSONB,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMP(3),
+
+    CONSTRAINT "hidden_senders_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE IF NOT EXISTS "custom_fields" (
+    "id" INTEGER NOT NULL,
+    "name" TEXT,
+    "label" TEXT,
+    "type" TEXT,
+    "options" JSONB,
+    "required" BOOLEAN NOT NULL DEFAULT false,
+    "metadata" JSONB,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMP(3),
+
+    CONSTRAINT "custom_fields_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE IF NOT EXISTS "settings" (
     "key" TEXT NOT NULL,
     "value" JSONB NOT NULL,
@@ -454,4 +552,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS "users_username_key" ON "users"("username");
 
 -- CreateIndex
 CREATE UNIQUE INDEX IF NOT EXISTS "users_email_key" ON "users"("email");
+
+-- CreateIndex
+CREATE INDEX IF NOT EXISTS "email_contacts_email_idx" ON "email_contacts"("email");
+
+-- CreateIndex
+CREATE INDEX IF NOT EXISTS "mail_oauth_tokens_account_id_idx" ON "mail_oauth_tokens"("account_id");
+
+-- CreateIndex
+CREATE INDEX IF NOT EXISTS "hidden_senders_email_idx" ON "hidden_senders"("email");
 

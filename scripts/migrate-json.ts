@@ -449,6 +449,164 @@ const MIGRATORS: Migrator[] = [
     },
   },
   {
+    table: "email_contacts",
+    file: "email-contacts.json",
+    async run({ root, prisma, dry, stat }) {
+      for (const c of loadArray(root, "email-contacts.json")) {
+        stat.read++;
+        const id = str(c.resourceName) ?? str(c.id);
+        if (!id) { stat.skipped++; continue; }
+        if (!dry && prisma) {
+          const emails = Array.isArray(c.emails) ? (c.emails as unknown[]) : [];
+          const data = {
+            name: str(c.displayName),
+            email: str(c.email) ?? (emails[0] != null ? String(emails[0]) : null),
+            displayName: str(c.displayName),
+            source: str(c.source),
+            metadata: jsonVal(c),
+          };
+          await prisma.emailContact.upsert({ where: { id }, create: { id, ...data }, update: data });
+        }
+        stat.migrated++;
+      }
+    },
+  },
+  {
+    table: "mail_accounts",
+    file: "accounts.json",
+    async run({ root, prisma, dry, stat }) {
+      for (const a of loadArray(root, "accounts.json")) {
+        stat.read++;
+        const id = str(a.id);
+        if (!id) { stat.skipped++; continue; }
+        if (!dry && prisma) {
+          // metadata conserve le compte complet (mot de passe déjà chiffré) — jamais loggé.
+          const data = {
+            provider: str(a.provider),
+            email: str(a.email),
+            displayName: str(a.name),
+            status: str(a.status),
+            scopes: a.scopes != null ? jsonVal(a.scopes) : null,
+            metadata: jsonVal(a),
+          };
+          await prisma.mailAccount.upsert({ where: { id }, create: { id, ...data }, update: data });
+        }
+        stat.migrated++;
+      }
+    },
+  },
+  {
+    table: "mail_oauth_tokens",
+    file: "gmail-tokens.json",
+    async run({ root, prisma, dry, stat }) {
+      for (const t of loadArray(root, "gmail-tokens.json")) {
+        stat.read++;
+        const id = str(t.accountId);
+        if (!id) { stat.skipped++; continue; }
+        if (!dry && prisma) {
+          // Tokens : refresh DÉJÀ chiffré (encryptedRefreshToken). Jamais loggés.
+          const scopes = Array.isArray(t.scopes) ? (t.scopes as unknown[]).join(" ") : null;
+          const expiry = typeof t.accessTokenExpiresAt === "number" ? new Date(t.accessTokenExpiresAt) : null;
+          const data = {
+            accountId: id,
+            provider: "gmail",
+            email: str(t.email),
+            accessTokenEncrypted: str(t.cachedAccessToken),
+            refreshTokenEncrypted: str(t.encryptedRefreshToken),
+            expiryDate: expiry,
+            scope: scopes,
+            tokenType: "Bearer",
+            metadata: jsonVal(t),
+          };
+          await prisma.mailOauthToken.upsert({ where: { id }, create: { id, ...data }, update: data });
+        }
+        stat.migrated++;
+      }
+    },
+  },
+  {
+    table: "saved_signatures",
+    file: "document-saved-signatures.json",
+    async run({ root, prisma, dry, stat }) {
+      for (const s of loadArray(root, "document-saved-signatures.json")) {
+        stat.read++;
+        const id = str(s.id);
+        if (!id) { stat.skipped++; continue; }
+        if (!dry && prisma) {
+          const data = { label: str(s.name), type: str(s.kind), imageData: str(s.dataUrl), metadata: jsonVal(s) };
+          await prisma.savedSignature.upsert({ where: { id }, create: { id, ...data }, update: data });
+        }
+        stat.migrated++;
+      }
+    },
+  },
+  {
+    table: "hidden_senders",
+    file: "hidden-senders.json",
+    async run({ root, prisma, dry, stat }) {
+      for (const h of loadArray(root, "hidden-senders.json")) {
+        stat.read++;
+        const id = str(h.id) ?? str(h.email);
+        if (!id) { stat.skipped++; continue; }
+        if (!dry && prisma) {
+          const email = str(h.email);
+          const domain = email && email.includes("@") ? email.split("@")[1] : null;
+          const data = { email, domain, reason: str(h.reason), metadata: jsonVal(h) };
+          await prisma.hiddenSender.upsert({ where: { id }, create: { id, ...data }, update: data });
+        }
+        stat.migrated++;
+      }
+    },
+  },
+  {
+    table: "custom_fields",
+    file: "custom_fields.json",
+    async run({ root, prisma, dry, stat }) {
+      for (const f of loadArray(root, "custom_fields.json")) {
+        stat.read++;
+        const id = num(f.id);
+        if (id == null) { stat.skipped++; continue; }
+        if (!dry && prisma) {
+          const data = {
+            name: str(f.name),
+            label: str(f.label) ?? str(f.name),
+            type: str(f.data_type) ?? str(f.type),
+            options: f.extra_data != null ? jsonVal(f.extra_data) : null,
+            required: f.required === true,
+            metadata: jsonVal(f),
+          };
+          await prisma.customField.upsert({ where: { id }, create: { id, ...data }, update: data });
+        }
+        stat.migrated++;
+      }
+    },
+  },
+  {
+    table: "document_correspondents (secondaires)",
+    file: "document-secondary-correspondents.json",
+    async run({ root, prisma, dry, stat }) {
+      for (const e of loadArray(root, "document-secondary-correspondents.json")) {
+        const did = num(e.documentId);
+        const ids = Array.isArray(e.correspondentIds) ? (e.correspondentIds as unknown[]) : [];
+        if (did == null) { stat.skipped++; continue; }
+        for (const cidRaw of ids) {
+          const cid = num(cidRaw);
+          if (cid == null) continue;
+          stat.read++;
+          if (!dry && prisma) {
+            // update:{} → ne PAS écraser un rôle existant (correspondant principal préservé).
+            await prisma.documentCorrespondent.upsert({
+              where: { documentId_correspondentId: { documentId: did, correspondentId: cid } },
+              create: { documentId: did, correspondentId: cid, role: "secondary" },
+              update: {},
+            });
+          }
+          stat.migrated++;
+        }
+      }
+    },
+  },
+  {
     table: "settings",
     file: "assistant-settings.json",
     async run({ root, prisma, dry, stat }) {
@@ -475,19 +633,14 @@ const COVERED = new Set<string>([
   "email-signatures.json", // lu par signatures
 ]);
 
-type Importance = "critique" | "important" | "mineur" | "éphémère" | "ignoré" | "à examiner";
+type Importance = "critique" | "important" | "mineur" | "éphémère" | "ignoré" | "vide" | "à examiner";
 const CLASSIFY: Record<string, { level: Importance; reason: string }> = {
   "tasks.json": { level: "éphémère", reason: "tâches de traitement moteur (OCR/ingestion) — volontairement non migré" },
-  "email-contacts.json": { level: "important", reason: "contacts mail (table non prévue)" },
   "document-notes.json": { level: "important", reason: "notes utilisateur sur documents" },
-  "gmail-tokens.json": { level: "important", reason: "jetons OAuth Gmail (reconnexion possible)" },
   "categories.json": { level: "mineur", reason: "catégories budget" },
   "ged-views.json": { level: "mineur", reason: "vues sauvegardées" },
   "document-events.json": { level: "mineur", reason: "événements documents" },
-  "document-saved-signatures.json": { level: "mineur", reason: "signatures enregistrées" },
-  "document-secondary-correspondents.json": { level: "mineur", reason: "correspondants secondaires" },
   "correction-memory.json": { level: "mineur", reason: "mémoire de corrections IA" },
-  "hidden-senders.json": { level: "mineur", reason: "expéditeurs masqués" },
   "mail-suppressed-attachments.json": { level: "mineur", reason: "pièces jointes supprimées" },
   "scheduled-emails.json": { level: "mineur", reason: "emails programmés" },
 };
@@ -501,10 +654,15 @@ function scanUncovered(root: string): Uncovered[] {
     if (COVERED.has(base)) continue;
     const res = loadJson(f);
     const entries = res.ok ? entryCount(res.data) : 0;
-    const c = CLASSIFY[base] ?? { level: "à examiner" as Importance, reason: "non mappé — à classer" };
-    out.push({ file: path.relative(root, f), entries, level: c.level, reason: c.reason });
+    let { level, reason } = CLASSIFY[base] ?? { level: "à examiner" as Importance, reason: "non mappé — à classer" };
+    // Un fichier vide est ignorable quel que soit son classement (remontera si données plus tard).
+    if (entries === 0) {
+      level = "vide";
+      reason = "fichier vide — ignoré volontairement";
+    }
+    out.push({ file: path.relative(root, f), entries, level, reason });
   }
-  const order: Importance[] = ["critique", "important", "à examiner", "mineur", "éphémère", "ignoré"];
+  const order: Importance[] = ["critique", "important", "à examiner", "mineur", "vide", "éphémère", "ignoré"];
   return out.sort((a, b) => order.indexOf(a.level) - order.indexOf(b.level));
 }
 
@@ -556,13 +714,21 @@ async function main() {
 
   // Couverture : fichiers JSON présents mais non migrés, classés par importance.
   const uncovered = scanUncovered(root);
-  const blocking = uncovered.filter((u) => u.level === "critique");
+  const SAFE = (u: Uncovered) => u.level === "éphémère" || u.level === "ignoré" || u.level === "vide";
+  const voluntarilyIgnored = uncovered.filter(SAFE);
+  const needsAttention = uncovered.filter((u) => !SAFE(u)); // critique / important / à examiner / mineur (avec données)
+  const blocking = needsAttention.filter((u) => u.level === "critique" || u.level === "important");
+
   console.log(`\n🔢 Counters migrés : ${Object.entries(countersSnapshot).map(([k, v]) => `${k}=${v}`).join(", ") || "(aucun)"}`);
-  if (uncovered.length) {
-    console.log(`\n🔎 Fichiers JSON NON couverts (${uncovered.length}) :`);
-    for (const u of uncovered) console.log(`   [${u.level.padEnd(11)}] ${u.file} (${u.entries})  — ${u.reason}`);
+  if (needsAttention.length) {
+    console.log(`\n⚠️  Fichiers NON couverts AVEC données (${needsAttention.length}) — à traiter avant la migration réelle :`);
+    for (const u of needsAttention) console.log(`   [${u.level.padEnd(11)}] ${u.file} (${u.entries})  — ${u.reason}`);
   } else {
-    console.log("\n🔎 Aucun fichier JSON avec données importantes laissé de côté. ✅");
+    console.log("\n✅ Aucun fichier important / à examiner avec données laissé de côté.");
+  }
+  if (voluntarilyIgnored.length) {
+    console.log(`\nℹ️  Ignorés volontairement (${voluntarilyIgnored.length}) :`);
+    for (const u of voluntarilyIgnored) console.log(`   [${u.level.padEnd(11)}] ${u.file} (${u.entries})  — ${u.reason}`);
   }
 
   const reportObj = {
@@ -573,10 +739,11 @@ async function main() {
     totals,
     counters: countersSnapshot,
     tables: report,
-    voluntarilyIgnored: uncovered.filter((u) => u.level === "éphémère" || u.level === "ignoré"),
-    uncovered: uncovered.filter((u) => u.level !== "éphémère" && u.level !== "ignoré"),
+    voluntarilyIgnored,
+    uncovered: needsAttention,
     dataLoss: false,
-    note: "Upsert idempotent (réexécutable sans doublon). Aucun JSON source supprimé.",
+    readyForRealMigration: needsAttention.length === 0,
+    note: "Upsert idempotent (réexécutable sans doublon). Aucun JSON source supprimé. Tokens/secrets jamais loggés.",
   };
   const dir = path.join(root, "backups");
   mkdirSync(dir, { recursive: true });
@@ -585,7 +752,11 @@ async function main() {
 
   console.log(`\n📊 Total : lu ${totals.read}, ${DRY ? "à migrer" : "migré"} ${totals.migrated}, ignoré ${totals.skipped}, erreurs ${totals.errors}, perte de données : non`);
   console.log(`📄 Rapport : ${reportFile}`);
-  if (blocking.length) console.log(`\n⛔ ${blocking.length} fichier(s) CRITIQUE(s) non couvert(s) — à traiter avant la migration réelle.`);
+  if (needsAttention.length === 0 && totals.errors === 0) {
+    console.log("\n✅ PRÊT pour la migration réelle (aucun fichier important/à examiner non couvert).");
+  } else {
+    console.log(`\n⛔ PAS prêt : ${blocking.length} important(s)/critique(s) + ${needsAttention.length - blocking.length} à examiner/mineur(s) avec données. À couvrir d'abord.`);
+  }
   console.log("\nLes JSON sources n'ont PAS été supprimés.\n");
 
   if (prisma) await disconnectPrisma();

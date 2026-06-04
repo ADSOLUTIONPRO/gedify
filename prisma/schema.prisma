@@ -395,6 +395,101 @@ model DocumentTitleOverride {
   @@map("document_title_overrides")
 }
 
+model EmailContact {
+  id          String    @id
+  name        String?
+  email       String?
+  displayName String?   @map("display_name")
+  source      String?
+  lastSeenAt  DateTime? @map("last_seen_at")
+  metadata    Json?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  @@index([email])
+  @@map("email_contacts")
+}
+
+model MailAccount {
+  id          String    @id
+  provider    String?
+  email       String?
+  displayName String?   @map("display_name")
+  status      String?
+  scopes      Json?
+  metadata    Json?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  @@map("mail_accounts")
+}
+
+model MailOauthToken {
+  id                    String    @id
+  accountId             String?   @map("account_id")
+  provider              String?
+  email                 String?
+  accessTokenEncrypted  String?   @map("access_token_encrypted") @db.Text
+  refreshTokenEncrypted String?   @map("refresh_token_encrypted") @db.Text
+  expiryDate            DateTime? @map("expiry_date")
+  scope                 String?   @db.Text
+  tokenType             String?   @map("token_type")
+  metadata              Json?
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @default(now()) @updatedAt @map("updated_at")
+  deletedAt             DateTime? @map("deleted_at")
+
+  @@index([accountId])
+  @@map("mail_oauth_tokens")
+}
+
+model SavedSignature {
+  id        String    @id
+  label     String?
+  type      String?
+  imagePath String?   @map("image_path")
+  imageData String?   @map("image_data") @db.Text
+  width     Int?
+  height    Int?
+  metadata  Json?
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("saved_signatures")
+}
+
+model HiddenSender {
+  id        String    @id
+  email     String?
+  domain    String?
+  reason    String?
+  metadata  Json?
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([email])
+  @@map("hidden_senders")
+}
+
+model CustomField {
+  id        Int       @id
+  name      String?
+  label     String?
+  type      String?
+  options   Json?
+  required  Boolean   @default(false)
+  metadata  Json?
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("custom_fields")
+}
+
 model Setting {
   key   String @id
   value Json
