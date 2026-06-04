@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
 import { getDataDir } from "@/lib/storage/data-dir";
-import { filesSubdir } from "@/lib/storage/ged-paths";
+import { filesSubdir, resolveExistingFilePath } from "@/lib/storage/ged-paths";
 import {
   postgresEngineEnabled,
   engineCollectionSupported,
@@ -217,14 +217,15 @@ export async function deleteThumbnail(id: number): Promise<void> {
   await fs.rm(path.join(thumbnailsDir(), `${id}.webp`), { force: true });
 }
 
-/** Présence d'une miniature sur disque (stat rapide, sans charger les octets). */
+/** Présence d'une miniature sur disque (nouvelle arbo files/ ou héritée media/). */
 export async function thumbnailExists(id: number): Promise<boolean> {
-  try {
-    await fs.stat(path.join(thumbnailsDir(), `${id}.webp`));
-    return true;
-  } catch {
-    return false;
-  }
+  return resolveExistingFilePath("thumbnails", `${id}.webp`) != null;
+}
+
+/** Présence du fichier original sur disque (nouvelle arbo files/ ou héritée). */
+export async function originalExists(filename: string): Promise<boolean> {
+  if (!filename) return false;
+  return resolveExistingFilePath("originals", filename) != null;
 }
 
 /* ── Aperçus (previews) — image moyenne résolution, files/previews/<id>.webp ── */

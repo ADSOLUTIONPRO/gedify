@@ -14,6 +14,7 @@ import {
   FileType2,
   FolderKanban,
   FolderTree,
+  HeartPulse,
   Inbox,
   KeyRound,
   LayoutDashboard,
@@ -200,6 +201,12 @@ export const administrationDropdownNavigation: NavigationSection[] = [
         href: "/statut",
         icon: Server,
         description: "Santé des services.",
+      },
+      {
+        label: "Santé GED",
+        href: "/administration/sante",
+        icon: HeartPulse,
+        description: "Stockage, miniatures, OCR, base et maintenance.",
       },
       {
         label: "Sauvegarde & migration",

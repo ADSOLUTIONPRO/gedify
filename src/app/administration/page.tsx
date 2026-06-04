@@ -6,6 +6,7 @@ import {
   Database,
   ExternalLink,
   Gauge,
+  HeartPulse,
   KeyRound,
   Mail,
   RefreshCw,
@@ -285,6 +286,22 @@ export default async function AdministrationPage() {
           </ul>
         </SectionCard>
       </div>
+
+      {/* Santé GED */}
+      <SectionCard
+        icon={HeartPulse}
+        title="Santé GED"
+        description="Diagnostic du stockage, des miniatures/aperçus, de l'OCR, de la base et des sauvegardes — avec les outils de maintenance."
+      >
+        <Link
+          href="/administration/sante"
+          className="inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-white transition hover:opacity-90"
+          style={{ background: "var(--blue-600)" }}
+        >
+          <HeartPulse className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+          Ouvrir la Santé GED
+        </Link>
+      </SectionCard>
 
       {/* Sauvegarde & migration */}
       <SectionCard
