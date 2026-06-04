@@ -18,6 +18,7 @@ import { uploadAttachmentToPaperless } from "./paperless-upload";
 import { buildOutcome, findMatchingRule, type MailContext } from "./rule-engine";
 import { listRules } from "./rule-store";
 import type { MailSyncResult } from "./types";
+import { upsertEmailMessage } from "@/lib/messaging/email-message-store";
 
 const REASON_LABEL: Record<MailIgnoredReason, string> = {
   "folder-excluded": "Dossier exclu",
@@ -145,6 +146,20 @@ export async function syncMailAccount(accountId: string): Promise<MailSyncResult
             ? toField.map((entry) => entry.text).join(", ")
             : (toField?.text ?? null);
           const subject = parsed.subject ?? null;
+
+          // Index plein-texte best-effort (recherche assistant), tous providers.
+          void upsertEmailMessage({
+            id: `${account.id}:${message.uid}`,
+            accountId: account.id,
+            uid: String(message.uid),
+            messageId: parsed.messageId ?? null,
+            from: fromAddress,
+            to: toAddress,
+            subject,
+            date: parsed.date ? parsed.date.toISOString() : null,
+            text: parsed.text ?? "",
+            hasAttachments: (parsed.attachments?.length ?? 0) > 0,
+          }).catch(() => {});
 
           const senderDecision = evaluateSender(fromAddress, account.senderFilter);
           if (!senderDecision.allow) {

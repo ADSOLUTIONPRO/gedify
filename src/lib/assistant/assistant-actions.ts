@@ -74,9 +74,11 @@ async function dispatch(a: ProposedAction): Promise<ExecuteResult> {
     case "validate_financial_item": return validateFinance(a);
     case "create_reminder": return makeReminder(a);
     case "complete_task": return completeTask(a);
+    case "create_folder": return makeFolder(a);
+    case "apply_filter":
     case "draft_mail":
     case "navigate":
-      // Actions côté client (compositeur mail / navigation) : pas d'exécution serveur.
+      // Actions côté client (filtre/navigation/compositeur mail) : pas d'exécution serveur.
       return { ok: false, message: "Action gérée côté client.", affected: 0 };
   }
 }
@@ -247,6 +249,20 @@ async function makeReminder(a: ProposedAction): Promise<ExecuteResult> {
   const documentId = a.documentIds[0] ?? null;
   await createReminder({ title, remindAt, documentId });
   return { ok: true, message: `Rappel « ${title} » créé pour le ${remindAt.slice(0, 10)}.`, affected: 1 };
+}
+
+/* ── Dossiers ────────────────────────────────────────────────────────────── */
+async function makeFolder(a: ProposedAction): Promise<ExecuteResult> {
+  const name = String(a.params.name ?? "").trim();
+  if (!name) return { ok: false, message: "Nom de dossier manquant.", affected: 0 };
+  const parentName = a.params.parentName ? String(a.params.parentName) : null;
+  let parentId: string | null = null;
+  if (parentName) {
+    const folders = await listProjectFolders();
+    parentId = folders.find((f) => f.name.toLowerCase() === parentName.toLowerCase())?.id ?? null;
+  }
+  await createProject({ name, parentId });
+  return { ok: true, message: `Dossier « ${name} » créé${parentName ? ` dans « ${parentName} »` : ""}.`, affected: 1 };
 }
 
 /* ── Tâches ──────────────────────────────────────────────────────────────── */

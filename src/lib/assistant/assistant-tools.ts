@@ -13,6 +13,7 @@ import { listEmailLinks } from "@/lib/messaging/email-ged-link-store";
 import { listEmailContacts } from "@/lib/messaging/email-contact-store";
 import { loadThreads } from "@/lib/messaging/load-threads";
 import { listAccounts } from "@/lib/mail-connector/account-store";
+import { searchEmailMessages } from "@/lib/messaging/email-message-store";
 import type {
   DocumentRef,
   GedifyAssistantContext,
@@ -162,6 +163,17 @@ export const TOOL_SCHEMAS = [
   fn("propose_complete_task", "Propose de marquer une tâche/action comme terminée. Défaut: tâche active.", {
     taskId: { type: "string", description: "Identifiant de la tâche (optionnel si une tâche est active)." },
   }, []),
+  fn("propose_apply_filter", "Filtre l'espace Documents et y navigue (comme si l'utilisateur appliquait le filtre lui-même).", {
+    query: { type: "string", description: "Recherche plein-texte (optionnel)." },
+    typeName: { type: "string", description: "Nom du type de document, ex: Facture." },
+    tagName: { type: "string", description: "Nom du tag." },
+    correspondentName: { type: "string", description: "Nom du correspondant." },
+    etat: { type: "string", description: "État: a_traiter | classes | a_valider (optionnel)." },
+  }, []),
+  fn("propose_create_folder", "Crée un dossier (ou sous-dossier) dans Organiser.", {
+    name: { type: "string" },
+    parentName: { type: "string", description: "Dossier parent (optionnel)." },
+  }, ["name"]),
   fn("propose_draft_mail", "Propose un brouillon de mail (jamais envoyé sans confirmation). Renseigner threadId pour répondre à un mail.", {
     to: { type: "string", description: "Adresse destinataire si connue." },
     contactQuery: { type: "string", description: "Nom du contact/correspondant si l'adresse est inconnue." },
@@ -260,6 +272,13 @@ export async function runTool(
     case "propose_complete_task":
       return propose("complete_task", rc, [], {
         taskId: args.taskId ? String(args.taskId) : rc.ctx.activeTaskId,
+      });
+    case "propose_apply_filter":
+      return proposeApplyFilter(args, rc);
+    case "propose_create_folder":
+      return propose("create_folder", rc, [], {
+        name: String(args.name ?? ""),
+        parentName: args.parentName ? String(args.parentName) : null,
       });
     case "propose_draft_mail":
       return propose("draft_mail", rc, idArray(args.documentIds), {
@@ -501,11 +520,28 @@ async function searchMailsTool(query: string, limit: number) {
       )
   ).slice(0, limit);
 
+  // 3) Recherche plein-texte LOCALE (index alimenté par la synchro IMAP) :
+  //    couvre TOUT le contenu des mails synchronisés, pas seulement les PJ.
+  const mailboxHits = await searchEmailMessages(isDefault ? "" : qLower, limit);
+
   const accounts = await listAccounts().catch(() => []);
+  const totalFound = gmail.threads.length + localHits.length + mailboxHits.length;
 
   return {
     accounts: accounts.map((a) => ({ provider: a.provider, email: a.email })),
     gmail,
+    mailbox: {
+      count: mailboxHits.length,
+      mails: mailboxHits.map((m) => ({
+        id: m.id,
+        from: m.from,
+        to: m.to,
+        subject: m.subject,
+        date: m.date,
+        snippet: m.text.slice(0, 160),
+        hasAttachments: m.hasAttachments,
+      })),
+    },
     localImported: {
       count: localHits.length,
       mails: localHits.map((l) => ({
@@ -518,8 +554,8 @@ async function searchMailsTool(query: string, limit: number) {
       })),
     },
     note:
-      !gmail.connected && localHits.length === 0
-        ? "Aucun mail trouvé. La recherche plein-texte live nécessite un compte Gmail connecté ; pour les comptes IMAP, seuls les mails dont une pièce jointe a été importée sont retrouvables."
+      totalFound === 0
+        ? "Aucun mail trouvé. La recherche live nécessite un compte Gmail connecté ; pour l'IMAP, l'index plein-texte ne couvre que les mails déjà synchronisés."
         : undefined,
   };
 }
@@ -616,6 +652,53 @@ function propose(
   return { proposed: true, actionId: action.id, summary: action.description };
 }
 
+/** Construit une action « filtrer Documents » : résout les noms→ids et l'URL. */
+async function proposeApplyFilter(args: Record<string, unknown>, rc: ToolRunContext) {
+  const maps = await loadMaps();
+  const params = new URLSearchParams();
+  const query = args.query ? String(args.query).trim() : "";
+  if (query) params.set("query", query);
+
+  const findId = (m: Map<number, string>, name: string) =>
+    [...m.entries()].find(([, n]) => n.toLowerCase() === name.toLowerCase())?.[0];
+
+  const typeName = args.typeName ? String(args.typeName).trim() : "";
+  if (typeName) {
+    const id = findId(maps.types, typeName);
+    if (id != null) params.set("document_type", String(id));
+    else if (!query) params.set("query", typeName);
+  }
+  const tagName = args.tagName ? String(args.tagName).trim() : "";
+  if (tagName) {
+    const id = findId(maps.tags, tagName);
+    if (id != null) params.set("tag", String(id));
+  }
+  const corrName = args.correspondentName ? String(args.correspondentName).trim() : "";
+  if (corrName) {
+    const id = findId(maps.correspondents, corrName);
+    if (id != null) params.set("correspondent", String(id));
+  }
+  if (args.etat) params.set("etat", String(args.etat));
+  params.set("view", "grid");
+
+  const url = `/documents?${params.toString()}`;
+  const labelParts = [query, typeName, tagName, corrName].filter(Boolean).join(", ") || "tous";
+  const action: ProposedAction = {
+    id: randomUUID(),
+    type: "apply_filter",
+    label: `Filtrer : ${labelParts}`,
+    description: `Appliquer le filtre dans l'espace Documents (${labelParts}).`,
+    documentIds: [],
+    params: { url },
+    sensitive: false,
+    requiresConfirmation: false,
+    confidencePct: null,
+    clientSide: true,
+  };
+  rc.proposals.push(action);
+  return { proposed: true, actionId: action.id, url, summary: action.description };
+}
+
 function labelFor(type: ProposedActionType, n: number, p: Record<string, unknown>): string {
   switch (type) {
     case "assign_folder": return `Classer ${n} doc. dans « ${p.folderName} »`;
@@ -627,6 +710,8 @@ function labelFor(type: ProposedActionType, n: number, p: Record<string, unknown
     case "validate_financial_item": return `Valider une ligne budget`;
     case "create_reminder": return `Créer un rappel : ${p.title}`;
     case "complete_task": return "Marquer la tâche terminée";
+    case "create_folder": return `Créer le dossier « ${p.name} »`;
+    case "apply_filter": return "Filtrer les documents";
     case "draft_mail": return `Rédiger un mail : ${p.subject}`;
     case "navigate": return `Ouvrir ${p.target}`;
   }
@@ -643,6 +728,8 @@ function describeAction(type: ProposedActionType, n: number, p: Record<string, u
     case "validate_financial_item": return `Valider la ligne budget.`;
     case "create_reminder": return `Créer le rappel « ${p.title} »${p.dueDate ? ` pour le ${p.dueDate}` : p.dueInDays ? ` dans ${p.dueInDays} jours` : ""}.`;
     case "complete_task": return "Marquer la tâche/action comme terminée.";
+    case "create_folder": return `Créer le dossier « ${p.name} »${p.parentName ? ` dans « ${p.parentName} »` : ""}.`;
+    case "apply_filter": return "Appliquer le filtre dans l'espace Documents.";
     case "draft_mail": return `Préparer un brouillon de mail « ${p.subject} »${n > 0 ? ` avec ${n} pièce(s) jointe(s)` : ""}.`;
     case "navigate": return `Ouvrir ${p.target}${p.id ? ` ${p.id}` : ""}.`;
   }

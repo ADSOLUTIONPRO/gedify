@@ -3,7 +3,8 @@ import { emptyAssistantContext } from "./assistant-types";
 
 const ACTION_TYPES: ProposedActionType[] = [
   "assign_folder", "add_tags", "remove_tags", "set_type", "analyze",
-  "create_financial_item", "validate_financial_item", "create_reminder", "complete_task", "draft_mail", "navigate",
+  "create_financial_item", "validate_financial_item", "create_reminder", "complete_task",
+  "create_folder", "apply_filter", "draft_mail", "navigate",
 ];
 
 const SPACES = new Set([

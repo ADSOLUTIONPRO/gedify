@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { openComposer } from "@/lib/messaging/mail-composer-store";
 import type { ProposedAction, QuickSuggestion } from "@/lib/assistant/assistant-types";
@@ -22,6 +22,8 @@ const DEFAULT_SUGGESTIONS: QuickSuggestion[] = [
   { label: "Documents sans dossier", prompt: "Trouve les documents qui ne sont rangés dans aucun dossier." },
 ];
 
+type AssistantSettingsState = { actionsEnabled: boolean; autoApplySafe: boolean };
+
 let counter = 0;
 const uid = () => `m${Date.now()}_${counter++}`;
 
@@ -42,9 +44,31 @@ function AssistantWidget() {
   const [loading, setLoading] = useState(false);
   const [configured, setConfigured] = useState(true);
   const [actionStates, setActionStates] = useState<Record<string, ActionRuntimeState>>({});
+  const [settings, setSettings] = useState<AssistantSettingsState | null>(null);
+  const confirmRef = useRef<(a: ProposedAction) => void>(() => {});
 
   const setActionState = useCallback((id: string, state: ActionRuntimeState["state"], message?: string) => {
     setActionStates((prev) => ({ ...prev, [id]: { state, message } }));
+  }, []);
+
+  // Charge les réglages à la première ouverture (setState dans un callback async → OK).
+  useEffect(() => {
+    if (open && !settings) {
+      fetch("/api/assistant/settings", { credentials: "include" })
+        .then((r) => r.json())
+        .then((s) => setSettings({ actionsEnabled: s?.actionsEnabled !== false, autoApplySafe: s?.autoApplySafe === true }))
+        .catch(() => setSettings({ actionsEnabled: true, autoApplySafe: false }));
+    }
+  }, [open, settings]);
+
+  const toggleSetting = useCallback(async (key: keyof AssistantSettingsState, value: boolean) => {
+    setSettings((prev) => ({ actionsEnabled: true, autoApplySafe: false, ...(prev ?? {}), [key]: value }));
+    await fetch("/api/assistant/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ [key]: value }),
+    }).catch(() => {});
   }, []);
 
   const suggestions = suggestionsForSpace(context.currentSpace, context.selectedDocumentIds.length > 0);
@@ -66,16 +90,21 @@ function AssistantWidget() {
         });
         const data = await res.json();
         if (data?.error === "not_configured") setConfigured(false);
+        const actions: ProposedAction[] = Array.isArray(data?.proposedActions) ? data.proposedActions : [];
         setMessages((prev) => [
           ...prev,
           {
             id: uid(),
             role: "assistant",
             content: typeof data?.reply === "string" ? data.reply : "Réponse vide.",
-            proposedActions: Array.isArray(data?.proposedActions) ? data.proposedActions : [],
+            proposedActions: actions,
             documentRefs: Array.isArray(data?.documentRefs) ? data.documentRefs : [],
           },
         ]);
+        // Mode auto : exécute immédiatement les actions sûres (sans confirmation).
+        if (data?.autoApplySafe) {
+          for (const a of actions) if (a.requiresConfirmation === false) confirmRef.current(a);
+        }
       } catch {
         setMessages((prev) => [
           ...prev,
@@ -90,6 +119,12 @@ function AssistantWidget() {
 
   const runClientAction = useCallback(
     (action: ProposedAction) => {
+      if (action.type === "apply_filter") {
+        router.push(String(action.params.url ?? "/documents"));
+        setActionState(action.id, "done", "Filtre appliqué.");
+        setOpen(false);
+        return;
+      }
       if (action.type === "navigate") {
         router.push(navTarget(action));
         setActionState(action.id, "done", "Ouvert.");
@@ -134,6 +169,9 @@ function AssistantWidget() {
     },
     [router, runClientAction, setActionState],
   );
+  useEffect(() => {
+    confirmRef.current = confirm;
+  }, [confirm]);
 
   const cancel = useCallback((action: ProposedAction) => setActionState(action.id, "done", "Annulé."), [setActionState]);
 
@@ -159,6 +197,8 @@ function AssistantWidget() {
           configured={configured}
           suggestions={suggestions}
           actionStates={actionStates}
+          settings={settings}
+          onToggleSetting={toggleSetting}
           onSend={send}
           onConfirm={confirm}
           onCancel={cancel}

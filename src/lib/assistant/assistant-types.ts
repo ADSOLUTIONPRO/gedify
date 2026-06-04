@@ -72,6 +72,8 @@ export type ProposedActionType =
   | "validate_financial_item"
   | "create_reminder"
   | "complete_task"
+  | "create_folder"
+  | "apply_filter"
   | "draft_mail"
   | "navigate";
 
@@ -105,6 +107,8 @@ export type ChatResult = {
   requiresConfirmation: boolean;
   usedTools: string[];
   documentRefs: DocumentRef[];
+  /** L'utilisateur a activé l'exécution auto des actions sûres (cf. réglages). */
+  autoApplySafe: boolean;
   error?: string;
 };
 

@@ -4,7 +4,9 @@ import {
   ArrowRight,
   Bell,
   CheckCircle2,
+  Filter,
   FolderInput,
+  FolderPlus,
   ListChecks,
   Mail,
   Sparkles,
@@ -28,6 +30,8 @@ const ICONS: Record<ProposedActionType, LucideIcon> = {
   validate_financial_item: Wallet,
   create_reminder: Bell,
   complete_task: ListChecks,
+  create_folder: FolderPlus,
+  apply_filter: Filter,
   draft_mail: Mail,
   navigate: ArrowRight,
 };
@@ -100,7 +104,7 @@ export function AiAssistantActionCard({
             className="inline-flex h-8 items-center gap-1 rounded-lg px-3 text-[12px] font-bold text-white transition hover:opacity-90"
             style={{ background: "var(--accent)" }}
           >
-            {action.clientSide && action.type === "navigate" ? "Ouvrir" : "Confirmer"}
+            {action.type === "navigate" ? "Ouvrir" : action.type === "apply_filter" ? "Appliquer le filtre" : "Confirmer"}
           </button>
           {action.documentIds.length > 0 ? (
             <button

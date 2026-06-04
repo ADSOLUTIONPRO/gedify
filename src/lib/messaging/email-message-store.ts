@@ -1,0 +1,82 @@
+import "server-only";
+
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { getDataDir } from "@/lib/storage/data-dir";
+
+/* ────────────────────────────────────────────────────────────────────────
+   Index local des messages mail (pour la recherche plein-texte de l'assistant).
+   Alimenté best-effort par la synchro IMAP (mailparser fournit subject/from/text).
+   Permet une recherche plein-texte indépendante du provider (Gmail OU IMAP),
+   là où l'API Gmail live ne couvre que les comptes Google.
+   ──────────────────────────────────────────────────────────────────────── */
+
+export type EmailMessageRecord = {
+  id: string; // `${accountId}:${uid}`
+  accountId: string;
+  uid: string;
+  messageId: string | null;
+  from: string | null;
+  to: string | null;
+  subject: string | null;
+  date: string | null; // ISO
+  text: string; // corps (tronqué)
+  hasAttachments: boolean;
+  createdAt: string;
+};
+
+const FILE = () => path.join(getDataDir(), "email-messages.json");
+const MAX = 3000;
+const MAX_TEXT = 4000;
+
+async function readAll(): Promise<EmailMessageRecord[]> {
+  try {
+    const raw = await readFile(FILE(), "utf8");
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? (parsed as EmailMessageRecord[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+async function writeAll(items: EmailMessageRecord[]): Promise<void> {
+  await mkdir(path.dirname(FILE()), { recursive: true });
+  await writeFile(FILE(), JSON.stringify(items, null, 2), "utf8");
+}
+
+// Sérialise les écritures : la synchro appelle upsert en parallèle (fire-and-forget),
+// sans cette file d'attente, des writeFile concurrents corrompraient le JSON.
+let writeChain: Promise<void> = Promise.resolve();
+
+export function upsertEmailMessage(rec: Omit<EmailMessageRecord, "createdAt">): Promise<void> {
+  writeChain = writeChain.then(() => doUpsert(rec)).catch(() => {});
+  return writeChain;
+}
+
+async function doUpsert(rec: Omit<EmailMessageRecord, "createdAt">): Promise<void> {
+  const all = await readAll();
+  const full: EmailMessageRecord = {
+    ...rec,
+    text: (rec.text ?? "").replace(/\s+/g, " ").slice(0, MAX_TEXT),
+    createdAt: new Date().toISOString(),
+  };
+  const idx = all.findIndex((m) => m.id === rec.id);
+  if (idx >= 0) all[idx] = full;
+  else all.unshift(full);
+  await writeAll(all.slice(0, MAX));
+}
+
+export async function searchEmailMessages(query: string, limit = 20): Promise<EmailMessageRecord[]> {
+  const all = await readAll();
+  const q = query.trim().toLowerCase();
+  const matches = q
+    ? all.filter(
+        (m) =>
+          (m.subject ?? "").toLowerCase().includes(q) ||
+          (m.from ?? "").toLowerCase().includes(q) ||
+          (m.to ?? "").toLowerCase().includes(q) ||
+          m.text.toLowerCase().includes(q),
+      )
+    : all;
+  return matches.slice(0, limit);
+}

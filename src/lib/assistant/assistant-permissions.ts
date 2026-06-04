@@ -63,6 +63,10 @@ export function permissionForAction(type: ProposedActionType): keyof AssistantPe
       return "canCreateReminders";
     case "complete_task":
       return "canManageTasks";
+    case "create_folder":
+      return "canManageFolders";
+    case "apply_filter":
+      return "canReadDocuments";
     case "draft_mail":
       return "canDraftMail";
     case "navigate":
