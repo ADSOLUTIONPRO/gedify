@@ -35,6 +35,9 @@
     "gedify:integrity:inspect": "node scripts/gedify-integrity-doctor.mjs",
     "gedify:integrity:missing": "node scripts/gedify-integrity-doctor.mjs --missing",
     "gedify:integrity:orphans": "node scripts/gedify-integrity-doctor.mjs --orphans",
+    "gedify:backup:list": "node scripts/gedify-backup-doctor.mjs",
+    "gedify:backup:verify": "node scripts/gedify-backup-doctor.mjs --verify",
+    "gedify:restore:dry-run": "node scripts/gedify-backup-doctor.mjs --dry-run",
     "gedify:backup-json": "node scripts/gedify-backup-json.mjs",
     "gedify:migrate-json:dry-run": "node scripts/gedify-migrate-json.mjs --dry-run",
     "gedify:migrate-json": "node scripts/gedify-migrate-json.mjs"
