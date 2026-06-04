@@ -87,6 +87,17 @@ export async function POST(request: NextRequest) {
       case "reindex-all":
         await enqueueFor("index", () => true, 120);
         break;
+      case "ai-unclassified":
+        // Documents avec OCR mais non classés (sans correspondant OU sans type).
+        await enqueueFor(
+          "ai",
+          (d) => Boolean((d.content ?? "").trim()) && (d.correspondent == null || d.document_type == null),
+          70,
+        );
+        break;
+      case "ai-all":
+        await enqueueFor("ai", (d) => Boolean((d.content ?? "").trim()), 90);
+        break;
       default:
         return jsonError("Action inconnue", `action=${action}`, 400);
     }

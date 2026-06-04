@@ -15,7 +15,13 @@ import { makeThumbnail } from "@/lib/engine/thumbnails";
 import { makePreview } from "@/lib/engine/previews";
 import { indexDocument } from "@/lib/engine/search";
 import { loadNameMaps, mimeFromExt } from "@/lib/engine/helpers";
-import type { PipelineJob } from "@/lib/jobs/job-store";
+import { enqueueJob, type PipelineJob } from "@/lib/jobs/job-store";
+
+/** Analyse IA automatique après OCR : activée par GEDIFY_AI_AUTO=1 (coût OpenAI). */
+function aiAutoEnabled(): boolean {
+  const v = process.env.GEDIFY_AI_AUTO?.trim().toLowerCase();
+  return v === "1" || v === "true" || v === "on";
+}
 
 /* Handlers du pipeline : réutilisent les fonctions moteur existantes. Chaque
    handler agit sur un documentId et met à jour le document de façon ciblée. */
@@ -72,7 +78,38 @@ async function runOcr(documentId: number, fromImport = false): Promise<void> {
     } catch {
       /* moteur de règles indisponible → ignoré */
     }
+    // Chaîne OCR → IA (si activée) : analyse en arrière-plan après l'OCR.
+    if (ocrStatus === "ready" && aiAutoEnabled()) {
+      await enqueueJob("ai", documentId, { priority: 70 }).catch(() => null);
+    }
   }
+}
+
+/** Analyse IA d'un document via le service existant (lock + auto-apply sûr). */
+async function runAi(documentId: number): Promise<void> {
+  const doc = await loadDoc(documentId);
+  if (!doc) throw new Error("document introuvable");
+  await patchDoc(documentId, { ai_status: "processing" });
+
+  const { runDocumentAnalysis } = await import("@/lib/ai/run-document-analysis");
+  const { withDocumentAnalysisLock } = await import("@/lib/ai/analysis-lock");
+  const lock = await withDocumentAnalysisLock(documentId, () =>
+    runDocumentAnalysis(documentId, { force: false, createFinancialItems: true, autoApply: true }),
+  );
+  if (!lock.acquired) {
+    await patchDoc(documentId, { ai_status: "pending" }); // déjà en cours ailleurs
+    return;
+  }
+  const outcome = lock.result;
+  if (outcome.status === "no-ocr") {
+    await patchDoc(documentId, { ai_status: "pending" }); // attendra un OCR
+    return;
+  }
+  if (outcome.status === "error") {
+    await patchDoc(documentId, { ai_status: "failed" });
+    throw new Error(outcome.message);
+  }
+  await patchDoc(documentId, { ai_status: "ready" });
 }
 
 async function runThumbnail(documentId: number): Promise<void> {
@@ -120,8 +157,7 @@ export async function runJob(job: PipelineJob): Promise<void> {
     case "index":
       return runIndex(job.documentId);
     case "ai":
-      // Analyse IA : branchée ultérieurement (coût OpenAI). Job ignoré pour l'instant.
-      throw new Error("type de job 'ai' non encore branché");
+      return runAi(job.documentId);
     default:
       throw new Error(`type de job inconnu : ${job.type}`);
   }

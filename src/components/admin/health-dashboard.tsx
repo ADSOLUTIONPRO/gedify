@@ -258,6 +258,7 @@ export function HealthDashboard() {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <ActionButton onClick={() => void runPipeline("ocr-missing", "p-ocr")} busy={busy === "p-ocr"} disabled={Boolean(busy)} icon={ScanText} label="Relancer l'OCR manquant" />
+          <ActionButton onClick={() => void runPipeline("ai-unclassified", "p-ai")} busy={busy === "p-ai"} disabled={Boolean(busy)} icon={Brain} label="Analyser les non classés (IA)" />
           <ActionButton onClick={() => void runPipeline("reindex-all", "p-index")} busy={busy === "p-index"} disabled={Boolean(busy)} icon={RefreshCw} label="Réindexer tout" />
           <ActionButton onClick={() => void runPipeline("retry-failed", "p-retry")} busy={busy === "p-retry"} disabled={Boolean(busy)} icon={RefreshCw} label="Relancer les jobs échoués" tone="rose" />
         </div>

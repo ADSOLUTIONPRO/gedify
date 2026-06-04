@@ -77,6 +77,12 @@ function asyncImportEnabled(): boolean {
   return v === "1" || v === "true" || v === "on";
 }
 
+/** Analyse IA automatique après l'import (coût OpenAI). GEDIFY_AI_AUTO=1. */
+function aiAutoEnabled(): boolean {
+  const v = process.env.GEDIFY_AI_AUTO?.trim().toLowerCase();
+  return v === "1" || v === "true" || v === "on";
+}
+
 export async function consume(input: ConsumeInput): Promise<PaperlessTask> {
   const taskId = randomUUID();
   try {
@@ -190,6 +196,18 @@ export async function consume(input: ConsumeInput): Promise<PaperlessTask> {
         await runWorkflowsForDocument(id);
       } catch {
         /* moteur de règles indisponible → ignoré */
+      }
+
+      // Chaîne OCR → IA (si activée) : analyse en arrière-plan via la file de jobs.
+      if (text.trim() && aiAutoEnabled()) {
+        try {
+          const { enqueueJob } = await import("@/lib/jobs/job-store");
+          const { kickJobWorker } = await import("@/lib/jobs/job-worker");
+          await enqueueJob("ai", id, { priority: 70 });
+          kickJobWorker();
+        } catch {
+          /* worker indisponible → analyse relançable via Santé GED */
+        }
       }
     }
 
