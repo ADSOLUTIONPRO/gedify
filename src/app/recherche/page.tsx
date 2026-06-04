@@ -7,9 +7,9 @@ import { ErrorState } from "@/components/ui/error-state";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { PageHeader } from "@/components/ui/page-header";
 import { Pagination } from "@/components/ui/pagination";
-import { SearchInput } from "@/components/ui/search-input";
 import { SectionCard } from "@/components/ui/section-card";
 import { SavedSearchesBar } from "@/components/search/saved-searches-bar";
+import { SearchAutocomplete } from "@/components/search/search-autocomplete";
 import { cleanSearchParams, firstParam, numberParam, type PageSearchParams } from "@/lib/page-params";
 import {
   getCorrespondents,
@@ -147,7 +147,7 @@ export default async function RecherchePage({
 
         <form action="/recherche" className="mb-6">
           <FilterBar resetHref="/recherche">
-            <SearchInput
+            <SearchAutocomplete
               defaultValue={firstParam(params, "query")}
               placeholder="Rechercher dans le titre et le contenu OCR"
               label="Texte"
