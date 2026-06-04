@@ -16,6 +16,7 @@ const entries = [
   ["scripts/backup-json.ts", "scripts/gedify-backup-json.mjs"],
   ["scripts/migrate-json.ts", "scripts/gedify-migrate-json.mjs"],
   ["scripts/db-push.ts", "scripts/gedify-db-push.mjs"],
+  ["scripts/db-check.ts", "scripts/gedify-db-check.mjs"],
 ];
 
 for (const [entry, outfile] of entries) {

@@ -11,6 +11,7 @@
     "prisma:generate": "prisma generate",
     "prisma:sql": "node scripts/gen-sql.mjs",
     "build:scripts": "node scripts/build-scripts.mjs",
+    "gedify:db:check": "node scripts/gedify-db-check.mjs",
     "gedify:db:push": "node scripts/gedify-db-push.mjs",
     "gedify:storage:inspect": "node scripts/gedify-storage-inspect.mjs",
     "gedify:backup-json": "node scripts/gedify-backup-json.mjs",
