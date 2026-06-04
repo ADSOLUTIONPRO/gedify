@@ -8,6 +8,7 @@ import {
   CalendarRange,
   CheckSquare,
   Coins,
+  CopyCheck,
   DatabaseZap,
   ExternalLink,
   FileText,
@@ -213,6 +214,12 @@ export const administrationDropdownNavigation: NavigationSection[] = [
         href: "/administration/roles",
         icon: ShieldCheck,
         description: "Rôles utilisateurs, permissions et journal d'audit.",
+      },
+      {
+        label: "Doublons",
+        href: "/administration/doublons",
+        icon: CopyCheck,
+        description: "Détection et fusion des documents en double.",
       },
       {
         label: "Sauvegarde & migration",
