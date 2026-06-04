@@ -7,8 +7,9 @@ import { getDataDir } from "@/lib/storage/data-dir";
 import {
   checksum,
   engineDir,
-  mediaDir,
   originalsDir,
+  pagesDir,
+  previewsDir,
   readStore,
   saveOriginal,
   savePreview,
@@ -134,13 +135,17 @@ async function wipeForReplace(): Promise<void> {
   await writeStore(STORE.custom_fields, []);
   await writeStore(STORE.saved_views, []);
 
-  // Médias : on vide originals/ et thumbnails/.
+  // Médias : table rase des binaires dérivés (nouvelle arbo files/ + ancienne
+  // media/). Originaux/miniatures/aperçus/pages sont reconstruits depuis le zip.
   await fs.rm(originalsDir(), { recursive: true, force: true });
   await fs.rm(thumbnailsDir(), { recursive: true, force: true });
+  await fs.rm(previewsDir(), { recursive: true, force: true });
+  await fs.rm(pagesDir(), { recursive: true, force: true });
+  await fs.rm(path.join(getDataDir(), "media"), { recursive: true, force: true }); // héritée
   await ensureDir(originalsDir());
   await ensureDir(thumbnailsDir());
 
-  // Overlay .data : tout SAUF engine/ et media/.
+  // Overlay .data : tout SAUF engine/, media/ (héritée) et files/ (binaires).
   const root = getDataDir();
   let entries: string[] = [];
   try {
@@ -149,7 +154,7 @@ async function wipeForReplace(): Promise<void> {
     entries = [];
   }
   for (const name of entries) {
-    if (name === "engine" || name === "media") continue;
+    if (name === "engine" || name === "media" || name === "files") continue;
     await fs.rm(path.join(root, name), { recursive: true, force: true }).catch(() => {});
   }
 }
@@ -219,7 +224,7 @@ export async function importFromZip(
   }
 
   await ensureDir(engineDir());
-  await ensureDir(mediaDir());
+  await ensureDir(originalsDir());
 
   if (mode === "replace") await wipeForReplace();
 

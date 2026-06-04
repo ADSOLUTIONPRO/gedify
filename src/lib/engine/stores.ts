@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
 import { getDataDir } from "@/lib/storage/data-dir";
-import { filesSubdir, resolveExistingFilePath } from "@/lib/storage/ged-paths";
+import { filesSubdir, legacyMediaSubdir, resolveExistingFilePath } from "@/lib/storage/ged-paths";
 import {
   postgresEngineEnabled,
   engineCollectionSupported,
@@ -27,17 +27,19 @@ import type { PaperlessNote } from "@/lib/paperless-types";
 export function engineDir() {
   return path.join(getDataDir(), "engine");
 }
+/** Ancienne arbo des binaires (avant le chantier stockage). Conservée pour le
+ *  repli en lecture et le nettoyage ; plus aucune écriture neuve n'y va. */
 export function mediaDir() {
   return path.join(getDataDir(), "media");
 }
+/* Binaires sous la nouvelle arbo files/ (cf. ged-paths). Les écritures neuves
+   vont ici ; les lectures replient sur l'ancienne media/ (resolveExistingFilePath). */
 export function originalsDir() {
-  return path.join(mediaDir(), "originals");
+  return filesSubdir("originals");
 }
 export function thumbnailsDir() {
-  return path.join(mediaDir(), "thumbnails");
+  return filesSubdir("thumbnails");
 }
-/* Aperçus moyenne résolution + pages PDF rendues : nouvelle arborescence files/
-   (cf. ged-paths). N'entre pas en conflit avec l'ancien media/. */
 export function previewsDir() {
   return filesSubdir("previews");
 }
@@ -189,8 +191,11 @@ export async function saveOriginal(id: number, ext: string, buf: Buffer): Promis
 }
 
 export async function readOriginal(filename: string): Promise<Buffer | null> {
+  // Nouvelle arbo files/ en priorité, repli sur l'ancienne media/.
+  const p = resolveExistingFilePath("originals", filename);
+  if (!p) return null;
   try {
-    return await fs.readFile(path.join(originalsDir(), filename));
+    return await fs.readFile(p);
   } catch {
     return null;
   }
@@ -198,6 +203,7 @@ export async function readOriginal(filename: string): Promise<Buffer | null> {
 
 export async function deleteOriginal(filename: string): Promise<void> {
   await fs.rm(path.join(originalsDir(), filename), { force: true });
+  await fs.rm(path.join(legacyMediaSubdir("originals"), filename), { force: true });
 }
 
 export async function saveThumbnail(id: number, buf: Buffer): Promise<void> {
@@ -206,8 +212,10 @@ export async function saveThumbnail(id: number, buf: Buffer): Promise<void> {
 }
 
 export async function readThumbnail(id: number): Promise<Buffer | null> {
+  const p = resolveExistingFilePath("thumbnails", `${id}.webp`);
+  if (!p) return null;
   try {
-    return await fs.readFile(path.join(thumbnailsDir(), `${id}.webp`));
+    return await fs.readFile(p);
   } catch {
     return null;
   }
@@ -215,6 +223,7 @@ export async function readThumbnail(id: number): Promise<Buffer | null> {
 
 export async function deleteThumbnail(id: number): Promise<void> {
   await fs.rm(path.join(thumbnailsDir(), `${id}.webp`), { force: true });
+  await fs.rm(path.join(legacyMediaSubdir("thumbnails"), `${id}.webp`), { force: true });
 }
 
 /** Présence d'une miniature sur disque (nouvelle arbo files/ ou héritée media/). */
@@ -250,6 +259,25 @@ export async function previewExists(id: number): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/* ── Pages PDF rendues — files/pages/<id>/<n>.webp ─────────────────────────── */
+function pageDirFor(id: number) {
+  return path.join(pagesDir(), String(id));
+}
+export async function savePage(id: number, pageNumber: number, buf: Buffer): Promise<void> {
+  await ensureDir(pageDirFor(id));
+  await fs.writeFile(path.join(pageDirFor(id), `${pageNumber}.webp`), buf);
+}
+export async function readPage(id: number, pageNumber: number): Promise<Buffer | null> {
+  try {
+    return await fs.readFile(path.join(pageDirFor(id), `${pageNumber}.webp`));
+  } catch {
+    return null;
+  }
+}
+export async function deletePages(id: number): Promise<void> {
+  await fs.rm(pageDirFor(id), { recursive: true, force: true });
 }
 
 /* ── Statuts de traitement par étape du pipeline documentaire ──────────────

@@ -15,6 +15,8 @@
     "gedify:db:push": "node scripts/gedify-db-push.mjs",
     "gedify:storage:inspect": "node scripts/gedify-storage-inspect.mjs",
     "gedify:storage:doctor": "node scripts/gedify-storage-doctor.mjs",
+    "gedify:previews:inspect": "node scripts/gedify-previews-doctor.mjs",
+    "gedify:previews:cleanup-orphans": "node scripts/gedify-previews-doctor.mjs --clean",
     "gedify:backup-json": "node scripts/gedify-backup-json.mjs",
     "gedify:migrate-json:dry-run": "node scripts/gedify-migrate-json.mjs --dry-run",
     "gedify:migrate-json": "node scripts/gedify-migrate-json.mjs"

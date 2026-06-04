@@ -54,9 +54,10 @@ export type ExportResult = {
 };
 
 /* ── Répertoires .data exclus de la copie « overlay » ───────────────────────
-   engine/ et media/ sont reconstruits depuis documents/ + taxonomies/ ; on ne
-   les duplique donc pas. .DS_Store est du bruit macOS. */
-const OVERLAY_EXCLUDED_DIRS = new Set(["engine", "media"]);
+   engine/, media/ (héritée) et files/ (binaires) sont reconstruits depuis
+   documents/ + taxonomies/ ; on ne les duplique donc pas dans l'overlay. Les
+   originaux partent via documents/files/. .DS_Store est du bruit macOS. */
+const OVERLAY_EXCLUDED_DIRS = new Set(["engine", "media", "files"]);
 const NOISE_FILES = new Set([".DS_Store", ".write-test"]);
 
 /* ── Fichiers mail-connector porteurs de secrets (exclus / expurgés) ──────── */
