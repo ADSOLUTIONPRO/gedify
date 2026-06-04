@@ -108,12 +108,60 @@ export async function removeFromIndex(id: number): Promise<void> {
   }
 }
 
-/** Recherche plein-texte → ids classés par pertinence décroissante. */
-export async function searchIds(query: string): Promise<{ id: number; score: number }[]> {
+/** Recherche plein-texte → ids classés par pertinence décroissante (+ termes). */
+export async function searchIds(
+  query: string,
+): Promise<{ id: number; score: number; terms: string[] }[]> {
   const q = query.trim();
   if (!q) return [];
   const idx = await ensureIndex();
-  return idx.search(q).map((r) => ({ id: Number(r.id), score: r.score }));
+  return idx
+    .search(q)
+    .map((r) => ({ id: Number(r.id), score: r.score, terms: (r.terms ?? []) as string[] }));
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Construit un extrait OCR surligné autour du 1ᵉʳ terme trouvé. Renvoie du HTML
+ * SÛR (contenu échappé ; seules les balises <mark> sont injectées) ou null.
+ */
+export function buildSnippet(content: string, terms: string[], maxLen = 220): string | null {
+  const text = (content ?? "").replace(/\s+/g, " ").trim();
+  const clean = terms.filter(Boolean);
+  if (!text || clean.length === 0) return null;
+
+  const lower = text.toLowerCase();
+  let pos = -1;
+  for (const t of clean) {
+    const i = lower.indexOf(t.toLowerCase());
+    if (i >= 0 && (pos < 0 || i < pos)) pos = i;
+  }
+  if (pos < 0) return null;
+
+  const start = Math.max(0, pos - 60);
+  const excerpt = text.slice(start, start + maxLen);
+  const prefix = start > 0 ? "… " : "";
+  const suffix = start + maxLen < text.length ? " …" : "";
+
+  // Alternance de tous les termes (les plus longs d'abord) → un seul passage,
+  // pas d'imbrication de <mark>.
+  const alt = clean
+    .map((t) => escapeRegex(escapeHtml(t)))
+    .sort((a, b) => b.length - a.length)
+    .join("|");
+  let html = escapeHtml(excerpt);
+  try {
+    html = html.replace(new RegExp(`(${alt})`, "gi"), "<mark>$1</mark>");
+  } catch {
+    /* regex pathologique → extrait non surligné */
+  }
+  return `${prefix}${html}${suffix}`;
 }
 
 /** Documents voisins (« plus comme celui-ci ») via les termes du titre + extrait. */

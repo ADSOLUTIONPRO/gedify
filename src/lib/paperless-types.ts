@@ -12,6 +12,8 @@ export type PaperlessSearchHit = {
   score?: number;
   highlights?: string;
   rank?: number;
+  /** Extrait OCR surligné (HTML avec <mark>) autour des termes recherchés. */
+  snippet?: string;
 };
 
 export type PaperlessNote = {

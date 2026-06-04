@@ -17,7 +17,7 @@ import {
   type EngineDocument,
   type EngineObject,
 } from "./stores";
-import { indexDocument, moreLikeIds, removeFromIndex, searchIds } from "./search";
+import { buildSnippet, indexDocument, moreLikeIds, removeFromIndex, searchIds } from "./search";
 import { loadDocCounts, loadNameMaps, mimeFromExt, serializeDocument } from "./helpers";
 import { makeThumbnail } from "./thumbnails";
 import { consume, type ConsumeInput } from "./consume";
@@ -93,11 +93,13 @@ async function listDocuments(query: URLSearchParams): Promise<Response> {
   const maps = await loadNameMaps();
   let docs = all;
   let scoreById: Map<number, number> | null = null;
+  let termsById: Map<number, string[]> | null = null;
 
   const q = query.get("query");
   if (q && q.trim()) {
     const hits = await searchIds(q);
     scoreById = new Map(hits.map((h) => [h.id, h.score]));
+    termsById = new Map(hits.map((h) => [h.id, h.terms]));
     docs = docs.filter((d) => scoreById!.has(d.id));
   }
 
@@ -183,7 +185,10 @@ async function listDocuments(query: URLSearchParams): Promise<Response> {
   const pageItems = docs.slice(start, start + pageSize);
   const results = pageItems.map((d) => {
     const s = serializeDocument(d, maps);
-    if (scoreById) s.__search_hit__ = { score: scoreById.get(d.id) };
+    if (scoreById) {
+      const snippet = termsById ? buildSnippet(d.content ?? "", termsById.get(d.id) ?? []) : null;
+      s.__search_hit__ = { score: scoreById.get(d.id), ...(snippet ? { snippet } : {}) };
+    }
     return s;
   });
 

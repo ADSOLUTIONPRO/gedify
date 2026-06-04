@@ -20,10 +20,17 @@ import {
 } from "@/lib/paperless";
 import { listProjectFolders } from "@/lib/projects/project-store";
 import { projectMatchesQuery } from "@/lib/projects/project-utils";
+import { resolveCrossDomainDocumentIds } from "@/lib/search/cross-domain";
 
 export const dynamic = "force-dynamic";
 
 const pageSize = 18;
+
+function numberOrNull(v: string | undefined): number | null {
+  if (!v) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
 
 function labelClass() {
   return "mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500";
@@ -70,8 +77,23 @@ export default async function RecherchePage({
   const includeProjects = firstParam(params, "include_projects") === "on";
 
   try {
+    const apiParams = buildSearchApiParams(params);
+
+    // Filtres transverses (montant / échéance d'une ligne budget liée, mail lié)
+    // → ensemble de documentId passé au moteur via id__in.
+    const crossIds = await resolveCrossDomainDocumentIds({
+      amountMin: numberOrNull(firstParam(params, "amount_min")),
+      amountMax: numberOrNull(firstParam(params, "amount_max")),
+      dueFrom: firstParam(params, "due_from") || null,
+      dueTo: firstParam(params, "due_to") || null,
+      hasMail: firstParam(params, "has_mail") === "on",
+    });
+    if (crossIds !== null) {
+      apiParams.id__in = crossIds.length > 0 ? crossIds.join(",") : "-1";
+    }
+
     const [documentsData, correspondentsData, typesData, tagsData, projects] = await Promise.all([
-      getDocuments(buildSearchApiParams(params)),
+      getDocuments(apiParams),
       getCorrespondents(),
       getDocumentTypes(),
       getTags(),
@@ -91,6 +113,11 @@ export default async function RecherchePage({
       "created_to",
       "untagged",
       "no_correspondent",
+      "amount_min",
+      "amount_max",
+      "due_from",
+      "due_to",
+      "has_mail",
       "ordering",
       "include_projects",
     ]);
@@ -198,6 +225,56 @@ export default async function RecherchePage({
                 <option value="created">Date document ancienne</option>
               </select>
             </label>
+            <label>
+              <span className={labelClass()}>Montant ≥ (ligne budget)</span>
+              <input
+                type="number"
+                step="0.01"
+                name="amount_min"
+                defaultValue={firstParam(params, "amount_min")}
+                placeholder="ex. 100"
+                className={fieldClass()}
+              />
+            </label>
+            <label>
+              <span className={labelClass()}>Montant ≤</span>
+              <input
+                type="number"
+                step="0.01"
+                name="amount_max"
+                defaultValue={firstParam(params, "amount_max")}
+                placeholder="ex. 500"
+                className={fieldClass()}
+              />
+            </label>
+            <label>
+              <span className={labelClass()}>Échéance — du</span>
+              <input
+                type="date"
+                name="due_from"
+                defaultValue={firstParam(params, "due_from")}
+                className={fieldClass()}
+              />
+            </label>
+            <label>
+              <span className={labelClass()}>Échéance — au</span>
+              <input
+                type="date"
+                name="due_to"
+                defaultValue={firstParam(params, "due_to")}
+                className={fieldClass()}
+              />
+            </label>
+            <label className="flex min-h-11 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700">
+              <input
+                type="checkbox"
+                name="has_mail"
+                value="on"
+                defaultChecked={firstParam(params, "has_mail") === "on"}
+                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              />
+              Avec mail lié
+            </label>
             <label className="flex min-h-11 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700">
               <input
                 type="checkbox"
@@ -299,6 +376,7 @@ export default async function RecherchePage({
                   types={types}
                   tags={tags}
                   paperlessUrl={paperlessUrl}
+                  snippet={document.__search_hit__?.snippet ?? null}
                 />
               ))}
             </div>

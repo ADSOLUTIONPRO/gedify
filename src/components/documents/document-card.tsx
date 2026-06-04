@@ -27,6 +27,8 @@ type DocumentCardProps = {
   tags: PaperlessTag[];
   paperlessUrl: string | null;
   resolvedTitle?: ResolvedDocumentTitle;
+  /** Extrait OCR surligné (HTML sûr avec <mark>) issu de la recherche. */
+  snippet?: string | null;
 };
 
 export function DocumentCard({
@@ -36,6 +38,7 @@ export function DocumentCard({
   tags,
   paperlessUrl,
   resolvedTitle,
+  snippet,
 }: DocumentCardProps) {
   const documentTags = getTagsForDocument(tags, document);
   const subtitle = getDocumentSubtitle(document, correspondents, types);
@@ -124,6 +127,13 @@ export function DocumentCard({
           </dl>
         </div>
       </div>
+
+      {snippet ? (
+        <p
+          className="mt-3 line-clamp-3 rounded-lg bg-slate-50 px-3 py-2 text-xs leading-relaxed text-slate-600 [&_mark]:rounded [&_mark]:bg-amber-200 [&_mark]:px-0.5 [&_mark]:text-slate-900"
+          dangerouslySetInnerHTML={{ __html: snippet }}
+        />
+      ) : null}
 
       <div className="mt-4 flex flex-wrap gap-1.5">
         {documentTags.length > 0 ? (
