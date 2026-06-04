@@ -2,6 +2,7 @@ import "server-only";
 
 import fs from "node:fs";
 import path from "node:path";
+import { ensureGedStorage } from "./ged-paths";
 
 /**
  * Répertoire de données UNIQUE et PERSISTANT de la surcouche Gedify.
@@ -100,6 +101,13 @@ function migrateOnce(root: string): void {
         `Les données NE SERONT PAS persistées. Vérifiez que le volume Coolify est monté sur ce chemin ` +
         `et qu'il appartient à l'utilisateur applicatif (chown -R 1001:1001 ${root}).`,
       );
+    }
+
+    // ── Arborescence fichiers GED (files/, ocr/, ai/, cache/, logs/, backups/) ──
+    try {
+      ensureGedStorage();
+    } catch (e) {
+      console.error("[DATA_DIR] création de l'arborescence GED échouée :", e instanceof Error ? e.message : e);
     }
   } catch (e) {
     console.error("[DATA_DIR] initialisation du répertoire de données échouée :", e instanceof Error ? e.message : e);

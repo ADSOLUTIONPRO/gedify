@@ -13,6 +13,7 @@ import { build } from "esbuild";
 // Sortie COMMITTÉE dans scripts/ (exécutable en prod sans build, sans tsx).
 const entries = [
   ["scripts/storage-inspect.ts", "scripts/gedify-storage-inspect.mjs"],
+  ["scripts/storage-doctor.ts", "scripts/gedify-storage-doctor.mjs"],
   ["scripts/backup-json.ts", "scripts/gedify-backup-json.mjs"],
   ["scripts/migrate-json.ts", "scripts/gedify-migrate-json.mjs"],
   ["scripts/db-push.ts", "scripts/gedify-db-push.mjs"],
