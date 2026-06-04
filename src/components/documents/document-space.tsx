@@ -27,6 +27,8 @@ type Option = { id: number | string; name: string };
 
 type DocumentSpaceProps = {
   docs: DocumentVM[];
+  /** Nombre total de documents de la collection (tous les pages confondues). */
+  totalCount: number;
   view: "grid" | "table";
   filterValues: DocumentFilterValues;
   correspondents: Option[];
@@ -45,6 +47,7 @@ type DocumentSpaceProps = {
 
 export function DocumentSpace({
   docs,
+  totalCount,
   view,
   filterValues,
   correspondents,
@@ -245,19 +248,24 @@ export function DocumentSpace({
 
           {docs.length > 0 ? (
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <button
-                type="button"
-                onClick={toggleAll}
-                title="Tout sélectionner — astuce : Maj + clic sur une case pour sélectionner une plage"
-                className="inline-flex h-9 items-center gap-1.5 rounded-xl border px-3 text-[12.5px] font-bold transition hover:bg-[var(--bg-card-soft)]"
-                style={{ borderColor: "var(--border-strong)", color: "var(--gedify-navy)" }}
-              >
-                {allSelected ? <CheckSquare className="h-4 w-4" strokeWidth={2} aria-hidden="true" /> : <Square className="h-4 w-4" strokeWidth={2} aria-hidden="true" />}
-                {allSelected ? "Tout désélectionner" : "Tout sélectionner"}
-                {selectedIds.size > 0 ? (
-                  <span className="rounded-full px-1.5 text-[11px] font-bold" style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>{selectedIds.size}</span>
-                ) : null}
-              </button>
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={toggleAll}
+                  title="Tout sélectionner — astuce : Maj + clic sur une case pour sélectionner une plage"
+                  className="inline-flex h-9 items-center gap-1.5 rounded-xl border px-3 text-[12.5px] font-bold transition hover:bg-[var(--bg-card-soft)]"
+                  style={{ borderColor: "var(--border-strong)", color: "var(--gedify-navy)" }}
+                >
+                  {allSelected ? <CheckSquare className="h-4 w-4" strokeWidth={2} aria-hidden="true" /> : <Square className="h-4 w-4" strokeWidth={2} aria-hidden="true" />}
+                  {allSelected ? "Tout désélectionner" : "Tout sélectionner"}
+                  {selectedIds.size > 0 ? (
+                    <span className="rounded-full px-1.5 text-[11px] font-bold" style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>{selectedIds.size}</span>
+                  ) : null}
+                </button>
+                <span className="text-[12.5px] font-semibold" style={{ color: "var(--text-muted)" }}>
+                  {totalCount.toLocaleString("fr-FR")} document{totalCount > 1 ? "s" : ""}
+                </span>
+              </div>
               <button
                 type="button"
                 onClick={openBulkAnalyze}

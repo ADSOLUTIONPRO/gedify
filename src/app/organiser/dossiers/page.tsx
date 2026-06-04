@@ -103,6 +103,7 @@ export default async function OrganiserDossiersPage({ searchParams }: { searchPa
 
             <DocumentSpace
               docs={visibleDocs}
+              totalCount={visibleDocs.length}
               view={view}
               filterValues={filterValues}
               correspondents={correspondents.map((c) => ({ id: c.id, name: c.name }))}

@@ -115,6 +115,11 @@ export async function renderPdfPageToPng(
     const viewport = page.getViewport({ scale });
     const canvas = createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
     const ctx = canvas.getContext("2d");
+    // Fond blanc : pdfjs dessine sur un canvas transparent. Les PDF sans fond
+    // explicite (scans, calques) ressortent alors avec des zones vides/noires
+    // (« partiellement reconstitué »). On peint blanc avant le rendu.
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     await page.render({ canvasContext: ctx as any, viewport, canvas }).promise;
     return canvas.toBuffer("image/png");
   } catch (e) {

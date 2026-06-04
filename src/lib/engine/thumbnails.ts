@@ -29,6 +29,7 @@ export async function makeThumbnail(buf: Buffer, mime: string, ext: string): Pro
     if (mime.startsWith("image/") || IMAGE_EXT.includes(lower)) {
       return await sharp(buf, { failOn: "none" })
         .rotate()
+        .flatten({ background: "#ffffff" }) // images transparentes → fond blanc
         .resize(W, H, { fit: "inside", withoutEnlargement: true })
         .webp({ quality: 72 })
         .toBuffer();

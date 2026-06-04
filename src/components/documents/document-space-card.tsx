@@ -94,6 +94,30 @@ export function DocumentSpaceCard({ doc, checked, active, onToggle, onActivate, 
           </span>
         ) : null}
 
+        {/* Tags (chips colorés) */}
+        {doc.tags.length > 0 ? (
+          <div className="mt-2 flex flex-wrap items-center gap-1">
+            {doc.tags.slice(0, 4).map((t, i) => (
+              <span
+                key={t.id ?? i}
+                className="inline-flex max-w-[130px] items-center truncate rounded-full px-2 py-0.5 text-[10.5px] font-semibold"
+                style={{
+                  background: t.color ?? "#EEF2F7",
+                  color: t.color ? (t.text_color ?? "#ffffff") : "#475569",
+                }}
+                title={t.name}
+              >
+                {t.name}
+              </span>
+            ))}
+            {doc.tags.length > 4 ? (
+              <span className="text-[10.5px] font-semibold" style={{ color: "var(--text-muted)" }}>
+                +{doc.tags.length - 4}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+
         {/* Statut + badges OCR / IA */}
         <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
           <StatusPill tone={status.tone} dot>

@@ -173,6 +173,7 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pa
       >
         <DocumentSpace
           docs={visibleDocs}
+          totalCount={etat ? visibleDocs.length : documentsData.count}
           view={view}
           filterValues={filterValues}
           correspondents={correspondents.map((c) => ({ id: c.id, name: c.name }))}
