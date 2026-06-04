@@ -4,6 +4,14 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
 import { getDataDir } from "@/lib/storage/data-dir";
+import {
+  postgresEngineEnabled,
+  engineCollectionSupported,
+  jsonFallbackEnabled,
+  readCollectionPg,
+  writeCollectionPg,
+  nextIdPg,
+} from "@/lib/db/engine-pg";
 import type { PaperlessNote } from "@/lib/paperless-types";
 
 /* ────────────────────────────────────────────────────────────────────────
@@ -55,8 +63,8 @@ async function writeJsonAtomic(file: string, data: unknown) {
   await fs.rename(tmp, file);
 }
 
-/** Lecture d'un store JSON (renvoie `fallback` s'il n'existe pas encore). */
-export async function readStore<T>(name: string, fallback: T): Promise<T> {
+/** Lecture JSON brute (interne — chemin par défaut, inchangé). */
+async function readStoreJson<T>(name: string, fallback: T): Promise<T> {
   try {
     const raw = await fs.readFile(storePath(name), "utf8");
     return JSON.parse(raw) as T;
@@ -65,8 +73,30 @@ export async function readStore<T>(name: string, fallback: T): Promise<T> {
   }
 }
 
-/** Écriture atomique d'un store JSON (sérialisée par verrou). */
+/**
+ * Lecture d'un store. En mode `postgres` et pour une collection moteur prise en
+ * charge (documents, tags, types, correspondants, custom_fields, counters), lit
+ * depuis Postgres en préservant la forme JSON ; sinon (ou si repli activé en cas
+ * d'erreur) lit le JSON. Comportement par défaut (mode json) : identique à avant.
+ */
+export async function readStore<T>(name: string, fallback: T): Promise<T> {
+  if (postgresEngineEnabled() && engineCollectionSupported(name)) {
+    try {
+      return (await readCollectionPg(name)) as T;
+    } catch (e) {
+      if (jsonFallbackEnabled()) return readStoreJson(name, fallback);
+      throw e;
+    }
+  }
+  return readStoreJson(name, fallback);
+}
+
+/** Écriture atomique d'un store (Postgres en mode postgres, sinon JSON). */
 export async function writeStore<T>(name: string, data: T): Promise<void> {
+  if (postgresEngineEnabled() && engineCollectionSupported(name)) {
+    await writeCollectionPg(name, data);
+    return;
+  }
   await withLock(`store:${name}`, () => writeJsonAtomic(storePath(name), data));
 }
 
@@ -75,8 +105,16 @@ export async function writeStore<T>(name: string, data: T): Promise<void> {
  * pour éviter les pertes lors d'écritures concurrentes (création/patch/suppr.).
  */
 export async function mutateList<T>(name: string, mutate: (list: T[]) => T[] | Promise<T[]>): Promise<T[]> {
+  if (postgresEngineEnabled() && engineCollectionSupported(name)) {
+    return withLock(`pg:${name}`, async () => {
+      const current = (await readCollectionPg(name)) as T[];
+      const updated = await mutate(current);
+      await writeCollectionPg(name, updated);
+      return updated;
+    });
+  }
   return withLock(`store:${name}`, async () => {
-    const current = await readStore<T[]>(name, []);
+    const current = await readStoreJson<T[]>(name, []);
     const updated = await mutate(current);
     await writeJsonAtomic(storePath(name), updated);
     return updated;
@@ -85,14 +123,27 @@ export async function mutateList<T>(name: string, mutate: (list: T[]) => T[] | P
 
 /* ── Compteurs d'identifiants (entiers auto-incrémentés façon Paperless) ── */
 type Counters = Record<string, number>;
-export async function nextId(seq: string): Promise<number> {
+
+async function nextIdJson(seq: string): Promise<number> {
   return withLock("counters", async () => {
-    const counters = await readStore<Counters>("counters", {});
+    const counters = await readStoreJson<Counters>("counters", {});
     const id = (counters[seq] ?? 0) + 1;
     counters[seq] = id;
     await writeJsonAtomic(storePath("counters"), counters);
     return id;
   });
+}
+
+export async function nextId(seq: string): Promise<number> {
+  if (postgresEngineEnabled()) {
+    try {
+      return await nextIdPg(seq);
+    } catch (e) {
+      if (jsonFallbackEnabled()) return nextIdJson(seq);
+      throw e;
+    }
+  }
+  return nextIdJson(seq);
 }
 
 /* ── Médias (fichiers originaux + miniatures) ───────────────────────────── */

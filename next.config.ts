@@ -15,6 +15,8 @@ const nextConfig: NextConfig = {
   },
 
   // Moteur documentaire local : libs natives / lourdes laissées hors-bundle.
+  // pg N'EST PAS ici : on le laisse bundler par Next (pur JS) → embarqué dans la
+  // sortie standalone sans dépendre de node_modules au runtime.
   serverExternalPackages: [
     "sharp",
     "@napi-rs/canvas",

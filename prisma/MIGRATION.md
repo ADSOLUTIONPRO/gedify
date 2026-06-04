@@ -105,3 +105,30 @@ migré** (tâches de traitement moteur, éphémères).
 Le rapport de migration liste les fichiers **non couverts** classés par
 importance (`critique` / `important` / `mineur` / `éphémère` / `ignoré` /
 `à examiner`), avec `dataLoss: false`.
+
+## Phase 2 — l'app lit/écrit Postgres (round 1 : cœur moteur)
+
+En **`GEDIFY_STORAGE_MODE=postgres`**, le cœur moteur (`documents`, `tags`,
+`document_types`, `correspondents`, `custom_fields`, `counters`) est lu/écrit
+**depuis Postgres**, en préservant la forme JSON exacte (colonne `raw`) → aucun
+écran de l'app à modifier. `pg` brut (pas Prisma) côté app, donc pas de WASM.
+
+- Les **autres domaines** (finances, mails, rappels, dossiers…) restent encore
+  en JSON tant que leur round n'est pas fait → en mode postgres, ils lisent le
+  JSON (miroir synchronisé par la migration). Round 1 = tester la bascule du cœur.
+- **Repli JSON** : si une lecture Postgres échoue (pg indisponible, table absente)
+  et `ENABLE_JSON_FALLBACK=true`, l'app retombe sur le JSON → la bascule ne peut
+  pas casser l'affichage.
+- Le **mode `json` (défaut) est inchangé** (chemin code identique).
+
+### Tester la bascule
+
+1. Migration faite + `gedify:db:check` au vert.
+2. Coolify : passe `GEDIFY_STORAGE_MODE=postgres`, **redéploie**.
+3. Ouvre l'app : la liste des documents/tags/types/correspondants doit s'afficher
+   (servie depuis Postgres). Crée/édite un document → vérifie qu'il persiste.
+4. Pour revenir : repasse `GEDIFY_STORAGE_MODE=json` (réversible, JSON intacts).
+
+> ⚠️ En mode postgres, les écritures du cœur vont en Postgres et **plus** dans
+> les JSON → les JSON du cœur deviennent un instantané figé. Les domaines encore
+> en JSON, eux, continuent d'écrire en JSON. Bascule par étapes domaine par domaine.
