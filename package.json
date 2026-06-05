@@ -38,6 +38,8 @@
     "gedify:backup:list": "node scripts/gedify-backup-doctor.mjs",
     "gedify:backup:verify": "node scripts/gedify-backup-doctor.mjs --verify",
     "gedify:restore:dry-run": "node scripts/gedify-backup-doctor.mjs --dry-run",
+    "gedify:health:inspect": "node scripts/gedify-diagnostic-doctor.mjs",
+    "gedify:diagnostic:full": "node scripts/gedify-diagnostic-doctor.mjs --json --save",
     "gedify:backup-json": "node scripts/gedify-backup-json.mjs",
     "gedify:migrate-json:dry-run": "node scripts/gedify-migrate-json.mjs --dry-run",
     "gedify:migrate-json": "node scripts/gedify-migrate-json.mjs"
