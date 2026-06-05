@@ -54,7 +54,7 @@
     "gedify:migrate-json": "node scripts/gedify-migrate-json.mjs"
   },
   "engines": {
-    "node": ">=20.9.0"
+    "node": ">=22.13.0"
   },
   "dependencies": {
     "@napi-rs/canvas": "^0.1.65",
