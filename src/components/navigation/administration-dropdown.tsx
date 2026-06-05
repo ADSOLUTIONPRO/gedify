@@ -20,6 +20,23 @@ type AdministrationDropdownProps = {
   paperlessUrl: string | null;
 };
 
+/**
+ * Pages techniques masquées du menu Administration pour offrir une interface
+ * « utilisateur final » épurée (tokens, journaux, utilisateurs/groupes, statut
+ * système, workflows non finalisés, rôles…). Masquées sur l'app de BUREAU ET sur
+ * le WEB. Rien n'est supprimé : les pages restent accessibles par URL directe.
+ */
+const HIDDEN_TECHNICAL = new Set<string>([
+  "/workflows",
+  "/journaux",
+  "/activite",
+  "/utilisateurs",
+  "/groupes",
+  "/tokens",
+  "/statut",
+  "/administration/roles",
+]);
+
 function resolveItemHref(item: NavigationItem, paperlessUrl: string | null): string | null {
   if (item.external) {
     if (item.label === "Ouvrir Gedify") {
@@ -37,6 +54,11 @@ export function AdministrationDropdown({ paperlessUrl }: AdministrationDropdownP
   const panelRef = useRef<HTMLDivElement | null>(null);
   const panelId = useId();
   const isActiveRoute = isAdministrationRoute(pathname);
+
+  // Filtre les pages techniques (web ET bureau) ; supprime les sections vides.
+  const sections = administrationDropdownNavigation
+    .map((s) => ({ ...s, items: s.items.filter((i) => !HIDDEN_TECHNICAL.has(i.href)) }))
+    .filter((s) => s.items.length > 0);
 
   // Close on Escape + click outside
   useEffect(() => {
@@ -152,7 +174,7 @@ export function AdministrationDropdown({ paperlessUrl }: AdministrationDropdownP
             </div>
 
             <div className="space-y-5">
-              {administrationDropdownNavigation.map((section) => (
+              {sections.map((section) => (
                 <div key={section.section}>
                   <p
                     className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]"

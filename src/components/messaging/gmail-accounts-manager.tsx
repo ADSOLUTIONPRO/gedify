@@ -44,7 +44,7 @@ export function GmailAccountsManager({ accounts }: { accounts: GmailAccountSumma
   return (
     <div className="space-y-3">
       {accounts.length === 0 ? (
-        <p className="text-sm" style={{ color: "var(--text-muted)" }}>Aucun compte Gmail connecté.</p>
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>Aucun compte mail connecté.</p>
       ) : (
         <ul className="space-y-2">
           {accounts.map((a, i) => {

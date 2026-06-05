@@ -46,31 +46,25 @@ export default async function ConnectMailPage({
 
       <SectionCard
         icon={Mail}
-        title="Méthode rapide : OAuth Google"
-        description="Connectez votre compte Gmail en quelques clics. Cette méthode ne stocke pas votre mot de passe."
+        title="Connexion Google"
+        description="Connectez votre compte Gmail ou Google Workspace en quelques clics. Votre mot de passe n'est jamais stocké."
         className="mb-6"
       >
         <div className="flex flex-wrap items-center gap-3">
           <GoogleConnectButton
             returnTo="/messagerie"
             disabledMessage={
-              gmailReady
-                ? undefined
-                : !gmailConfig
-                  ? "OAuth Google à connecter : définissez GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET et GOOGLE_REDIRECT_URI côté serveur."
-                  : "Stockage sécurisé à connecter : définissez CONNECTOR_SECRET_KEY (16+ caractères)."
+              gmailReady ? undefined : "La connexion Google n'est pas disponible pour le moment. Vous pouvez connecter une boîte IMAP ci-dessous."
             }
           />
           {gmailReady ? (
             <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700">
               <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
-              OAuth Google prêt — scope demandé : <code className="rounded bg-emerald-100 px-1 font-mono">gmail.readonly</code>
+              Prêt à connecter
             </span>
           ) : (
             <span className="text-xs text-amber-700">
-              {!gmailConfig
-                ? "OAuth Google à connecter (variables d'environnement manquantes)."
-                : "Définissez CONNECTOR_SECRET_KEY pour chiffrer le refresh_token."}
+              Connexion Google momentanément indisponible — utilisez une boîte IMAP.
             </span>
           )}
         </div>

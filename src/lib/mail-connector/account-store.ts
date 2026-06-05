@@ -69,7 +69,20 @@ function publicAccount(account: MailAccount): MailAccount {
     attachmentRules: account.attachmentRules ?? null,
     connector: account.connector ?? "imap",
     gmailEmail: account.gmailEmail ?? null,
+    // Legacy : comptes créés avant l'ajout du SMTP.
+    smtpHost: account.smtpHost ?? null,
+    smtpPort: account.smtpPort ?? null,
+    smtpEncryption: account.smtpEncryption ?? null,
+    smtpUsername: account.smtpUsername ?? null,
   };
+}
+
+/** Déduit un hôte SMTP plausible d'un hôte IMAP (imap.→smtp., mail.→mail.). */
+function deriveSmtpHost(imapHost: string): string {
+  const h = (imapHost ?? "").trim();
+  if (!h) return "";
+  if (/^imap\./i.test(h)) return h.replace(/^imap\./i, "smtp.");
+  return h; // mail.<domaine> / autres : SMTP souvent identique
 }
 
 function applyDefaults(input: MailAccountInput): Partial<MailAccount> {
@@ -85,6 +98,12 @@ function applyDefaults(input: MailAccountInput): Partial<MailAccount> {
     imapPort: input.imapPort ?? provider?.defaultImapPort ?? 993,
     encryption: (input.encryption ?? provider?.defaultEncryption ?? "tls") as MailEncryption,
     username: input.username ?? input.email ?? "",
+    // SMTP (envoi) : déduit de l'IMAP si non fourni (imap.→smtp., 465 SSL). Le mot
+    // de passe SMTP réutilise celui de l'IMAP (cas courant des fournisseurs).
+    smtpHost: input.smtpHost ?? deriveSmtpHost(input.imapHost ?? provider?.defaultImapHost ?? ""),
+    smtpPort: input.smtpPort ?? 465,
+    smtpEncryption: (input.smtpEncryption ?? "tls") as MailEncryption,
+    smtpUsername: input.smtpUsername ?? input.username ?? input.email ?? "",
     watchedFolder: input.watchedFolder ?? "INBOX",
     isActive: input.isActive ?? false,
     syncIntervalMinutes: input.syncIntervalMinutes ?? 30,
@@ -146,6 +165,10 @@ export async function createAccount(input: MailAccountInput): Promise<MailAccoun
     imapPort: defaults.imapPort!,
     encryption: defaults.encryption!,
     username: defaults.username!,
+    smtpHost: defaults.smtpHost ?? null,
+    smtpPort: defaults.smtpPort ?? null,
+    smtpEncryption: defaults.smtpEncryption ?? null,
+    smtpUsername: defaults.smtpUsername ?? null,
     encryptedPassword,
     hasPassword: Boolean(encryptedPassword),
     watchedFolder: defaults.watchedFolder!,

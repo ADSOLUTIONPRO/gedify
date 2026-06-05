@@ -1,20 +1,23 @@
 import Link from "next/link";
-import { Mail, ShieldCheck, Sparkles } from "lucide-react";
+import { Mail, Sparkles, Server } from "lucide-react";
 
 type NoGmailStateProps = {
-  oauthConfigured: boolean;
-  /** Le compte existe mais son token est expiré/révoqué → reconnexion. */
+  /** Conservé pour compat d'appel ; n'affiche plus d'info technique. */
+  oauthConfigured?: boolean;
+  /** Le compte existe mais sa session a expiré → reconnexion. */
   needsReconnect?: boolean;
 };
 
-export function NoGmailState({ oauthConfigured, needsReconnect }: NoGmailStateProps) {
+/**
+ * État « aucune boîte mail connectée » — NEUTRE (aucun fournisseur n'est présenté
+ * comme prioritaire ou supérieur). Deux choix : Google ou autre boîte IMAP.
+ * Aucune information technique (client_id, scope, redirect…) exposée à l'utilisateur.
+ */
+export function NoGmailState({ needsReconnect }: NoGmailStateProps) {
   return (
     <div
       className="rounded-2xl bg-white p-6"
-      style={{
-        border: "1px solid var(--border)",
-        boxShadow: "0 2px 16px -8px rgba(8,18,37,0.08)",
-      }}
+      style={{ border: "1px solid var(--border)", boxShadow: "0 2px 16px -8px rgba(8,18,37,0.08)" }}
     >
       <div className="mx-auto max-w-xl text-center">
         <span
@@ -24,46 +27,32 @@ export function NoGmailState({ oauthConfigured, needsReconnect }: NoGmailStatePr
           <Mail className="h-6 w-6" strokeWidth={1.75} aria-hidden="true" />
         </span>
         <p className="text-base font-extrabold" style={{ color: "var(--text-main)" }}>
-          {needsReconnect ? "Reconnectez votre compte Google" : "Ajoutez une boîte mail pour activer la messagerie"}
+          {needsReconnect ? "Reconnectez votre boîte mail" : "Aucune boîte mail connectée"}
         </p>
         <p className="mt-2 text-sm" style={{ color: "var(--text-muted)" }}>
           {needsReconnect
-            ? "Votre session Google a expiré ou a été révoquée. Reconnectez le compte pour retrouver vos messages et pièces jointes — vos données GED restent intactes."
-            : "Connectez un compte Google (OAuth, en 1 clic) ou un compte IMAP (détection automatique du serveur). Les identifiants restent chiffrés côté serveur."}
+            ? "Votre session a expiré. Reconnectez la boîte pour retrouver vos messages et pièces jointes — vos données restent intactes."
+            : "Connectez une boîte mail pour synchroniser vos messages et envoyer des emails depuis Gedify."}
         </p>
 
-        {/* Toujours proposer l'ajout : l'écran suivant offre Google ET IMAP manuel. */}
-        <Link
-          href="/emails/connecter"
-          className="mt-4 inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-white transition hover:opacity-90"
-          style={{ background: "var(--blue-600)" }}
-        >
-          <Sparkles className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-          {needsReconnect ? "Reconnecter / ajouter une boîte" : "Ajouter une boîte mails"}
-        </Link>
-
-        {!oauthConfigured && !needsReconnect ? (
-          <div
-            className="mt-4 rounded-xl p-3 text-left text-xs"
-            style={{
-              background: "rgba(245,158,11,0.08)",
-              border: "1px solid rgba(245,158,11,0.25)",
-              color: "#78350F",
-            }}
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
+          <Link
+            href="/emails/connecter?provider=google"
+            className="inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-white transition hover:opacity-90"
+            style={{ background: "var(--blue-600)" }}
           >
-            <p className="flex items-center gap-2 font-bold">
-              <ShieldCheck className="h-4 w-4" strokeWidth={2} />
-              Connexion Google en 1 clic non configurée
-            </p>
-            <p className="mt-1 leading-snug">
-              Vous pouvez ajouter une boîte <b>IMAP manuellement</b> dès maintenant. Pour activer
-              <b> Google OAuth</b>, définissez sur le serveur <code className="font-mono">GOOGLE_CLIENT_ID</code>,{" "}
-              <code className="font-mono">GOOGLE_CLIENT_SECRET</code>,{" "}
-              <code className="font-mono">GOOGLE_REDIRECT_URI</code> et{" "}
-              <code className="font-mono">CONNECTOR_SECRET_KEY</code>.
-            </p>
-          </div>
-        ) : null}
+            <Sparkles className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+            Connecter Google
+          </Link>
+          <Link
+            href="/emails/connecter?provider=imap"
+            className="inline-flex h-10 items-center gap-2 rounded-xl border px-4 text-sm font-semibold transition hover:bg-slate-50"
+            style={{ borderColor: "var(--border)", color: "var(--text-main)" }}
+          >
+            <Server className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+            Connecter une boîte IMAP
+          </Link>
+        </div>
       </div>
     </div>
   );

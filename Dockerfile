@@ -2,7 +2,7 @@
 # Moteur documentaire local embarqué + OCR hors-ligne (Tesseract fra+eng).
 
 # 1. Dépendances
-FROM node:20-alpine AS deps
+FROM node:22.13-alpine AS deps
 WORKDIR /app
 RUN apk add --no-cache libc6-compat
 COPY package.json package-lock.json* ./
@@ -14,7 +14,7 @@ RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
 RUN npm install --include=optional --no-save sharp @napi-rs/canvas
 
 # 2. Build (Next standalone) + données OCR
-FROM node:20-alpine AS builder
+FROM node:22.13-alpine AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN apk add --no-cache wget ca-certificates
@@ -27,7 +27,7 @@ RUN mkdir -p tessdata \
 RUN npm run build
 
 # 3. Runtime
-FROM node:20-alpine AS runner
+FROM node:22.13-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \

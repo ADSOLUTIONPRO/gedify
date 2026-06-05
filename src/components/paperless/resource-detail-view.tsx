@@ -67,7 +67,14 @@ export function ResourceDetailView({
       ) : null}
 
       {!result.ok ? (
-        <ErrorState title="Fonctionnalité Gedify à connecter" message={result.error} />
+        <ErrorState
+          title="Fonction bientôt disponible"
+          message={
+            /\b(40\d|50\d|endpoint|moteur|\/api\/|implémenté|token|scope|undefined)\b/i.test(result.error ?? "")
+              ? "Cette fonctionnalité n'est pas encore disponible dans cette version."
+              : result.error
+          }
+        />
       ) : (
         <>
           <section className="mb-6 grid gap-4 md:grid-cols-3">

@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { FileSearch, Folder, Loader2, Search, Sparkles } from "lucide-react";
 import { StatusPill } from "@/components/ui/status-pill";
 import { STATUS_META, formatAmount, type DocumentVM } from "@/components/documents/types";
 import { DocumentStatusBadges } from "@/components/documents/document-status-badges";
 import { DocumentActionMenu, type DocActionHandlers } from "@/components/documents/document-action-menu";
+import { GedifyErrorHint } from "@/components/ui/gedify-error-hint";
 
 type DocumentSpaceCardProps = {
   doc: DocumentVM;
@@ -27,6 +29,24 @@ type DocumentSpaceCardProps = {
  */
 export function DocumentSpaceCard({ doc, checked, active, onToggle, onActivate, onPreview, actions, aiBusy }: DocumentSpaceCardProps) {
   const status = STATUS_META[doc.status];
+
+  // Miniature en erreur (placeholder) : badge GedifyErrorHint + régénération locale.
+  const [bust, setBust] = useState(0);
+  const [retrying, setRetrying] = useState(false);
+  const thumbSrc = bust ? `${doc.thumbUrl}${doc.thumbUrl.includes("?") ? "&" : "?"}rb=${bust}` : doc.thumbUrl;
+  async function retryThumbnail() {
+    if (retrying) return;
+    setRetrying(true);
+    try {
+      await fetch(`/api/documents/${doc.id}/regenerate-thumbnail`, { method: "POST", credentials: "include" });
+      await new Promise((r) => setTimeout(r, 3500)); // laisse le job se terminer
+      setBust(Date.now());
+    } catch {
+      /* l'erreur reste visible via le badge */
+    } finally {
+      setRetrying(false);
+    }
+  }
 
   return (
     <div
@@ -58,7 +78,23 @@ export function DocumentSpaceCard({ doc, checked, active, onToggle, onActivate, 
 
       <div className="group/thumb relative flex h-32 items-center justify-center overflow-hidden bg-[#F4F0E8]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={doc.thumbUrl} alt="" loading="lazy" className="h-full w-full object-cover object-top" />
+        <img src={thumbSrc} alt="" loading="lazy" className="h-full w-full object-cover object-top" />
+
+        {/* Miniature non rendue (placeholder) → cause + « Régénérer » */}
+        {doc.statuses.thumbnailError ? (
+          <div className="absolute right-2 top-2 z-20" onClick={(e) => e.stopPropagation()}>
+            {retrying ? (
+              <Loader2 className="h-4 w-4 animate-spin text-rose-600" />
+            ) : (
+              <GedifyErrorHint
+                code={doc.statuses.thumbnailError}
+                label="Vignette"
+                onRetry={() => void retryThumbnail()}
+                retryLabel="Régénérer"
+              />
+            )}
+          </div>
+        ) : null}
         {/* Overlay + loupe : ouvre la Lightbox (et non la sidebar résumé) */}
         <button
           type="button"

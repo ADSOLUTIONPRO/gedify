@@ -103,7 +103,16 @@ export function deriveStatuses(
   const src = analysis?.classificationSource ?? null;
   const learned: DocumentStatusesVM["learned"] = src === "learned_template" ? "template" : src === "similar" ? "similar" : null;
 
-  return { ocr, ai, confidencePct: confidencePctOf(analysis), budget, classified, learned, matchedLabel: analysis?.matchedTemplateLabel ?? null };
+  return {
+    ocr,
+    ai,
+    confidencePct: confidencePctOf(analysis),
+    budget,
+    classified,
+    learned,
+    matchedLabel: analysis?.matchedTemplateLabel ?? null,
+    thumbnailError: (document as { thumbnail_error?: string | null }).thumbnail_error ?? null,
+  };
 }
 
 /** Prédicat de filtrage par état dérivé (filtre « État »). */

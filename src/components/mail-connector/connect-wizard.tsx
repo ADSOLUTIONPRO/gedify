@@ -34,6 +34,9 @@ type Draft = {
   imapHost: string;
   imapPort: number;
   encryption: MailEncryption;
+  smtpHost: string;
+  smtpPort: number;
+  smtpEncryption: MailEncryption;
   watchedFolder: string;
   syncIntervalMinutes: number;
   markAsRead: boolean;
@@ -92,13 +95,26 @@ export function ConnectMailWizard({
         credentials: "include",
         cache: "no-store",
       });
-      const body = (await res.json()) as { detect?: { imapHost: string; imapPort: number; encryption: MailEncryption; source: string } };
+      const body = (await res.json()) as {
+        detect?: {
+          imapHost: string; imapPort: number; encryption: MailEncryption;
+          smtpHost?: string; smtpPort?: number; smtpEncryption?: MailEncryption;
+          source: string;
+        };
+      };
       if (res.ok && body.detect) {
-        updateDraft({ imapHost: body.detect.imapHost, imapPort: body.detect.imapPort, encryption: body.detect.encryption });
+        updateDraft({
+          imapHost: body.detect.imapHost,
+          imapPort: body.detect.imapPort,
+          encryption: body.detect.encryption,
+          ...(body.detect.smtpHost ? { smtpHost: body.detect.smtpHost } : {}),
+          ...(body.detect.smtpPort ? { smtpPort: body.detect.smtpPort } : {}),
+          ...(body.detect.smtpEncryption ? { smtpEncryption: body.detect.smtpEncryption } : {}),
+        });
         setDetectMsg(
           body.detect.source === "guess"
-            ? "Réglages estimés (imap.<domaine>) — vérifiez puis testez la connexion."
-            : "Serveur IMAP détecté automatiquement.",
+            ? "Réglages estimés (imap./smtp.<domaine>) — vérifiez puis testez la connexion."
+            : "Serveurs IMAP et SMTP détectés automatiquement.",
         );
       }
     } catch {
@@ -118,6 +134,9 @@ export function ConnectMailWizard({
       imapHost: provider.defaultImapHost ?? "",
       imapPort: provider.defaultImapPort,
       encryption: provider.defaultEncryption,
+      smtpHost: provider.defaultImapHost ? provider.defaultImapHost.replace(/^imap\./i, "smtp.") : "",
+      smtpPort: 465,
+      smtpEncryption: "tls",
       watchedFolder: "INBOX",
       syncIntervalMinutes: 30,
       markAsRead: true,
@@ -186,6 +205,10 @@ export function ConnectMailWizard({
           imapHost: draft.imapHost,
           imapPort: draft.imapPort,
           encryption: draft.encryption,
+          smtpHost: draft.smtpHost,
+          smtpPort: draft.smtpPort,
+          smtpEncryption: draft.smtpEncryption,
+          smtpUsername: draft.username || draft.email,
           username: draft.username || draft.email,
           password: secureStorageReady ? draft.password : null,
           watchedFolder: draft.watchedFolder,
@@ -413,6 +436,41 @@ export function ConnectMailWizard({
                     <option value="none">Aucun (déconseillé)</option>
                   </select>
                 </FormField>
+
+                {/* SMTP (envoi) — prérempli par la détection, modifiable. */}
+                <div className="sm:col-span-2 mt-1 text-[12px] font-semibold" style={{ color: "var(--text-muted)" }}>
+                  Envoi (SMTP)
+                </div>
+                <FormField label="Serveur SMTP">
+                  <input
+                    value={draft.smtpHost}
+                    onChange={(e) => updateDraft({ smtpHost: e.target.value })}
+                    className={formInputClass()}
+                  />
+                </FormField>
+                <FormField label="Port SMTP">
+                  <input
+                    type="number"
+                    value={draft.smtpPort}
+                    onChange={(e) => updateDraft({ smtpPort: Number(e.target.value) })}
+                    className={formInputClass()}
+                  />
+                </FormField>
+                <FormField label="Chiffrement SMTP">
+                  <select
+                    value={draft.smtpEncryption}
+                    onChange={(e) => updateDraft({ smtpEncryption: e.target.value as MailEncryption })}
+                    className={formInputClass()}
+                  >
+                    <option value="tls">SSL / TLS</option>
+                    <option value="starttls">STARTTLS</option>
+                    <option value="none">Aucun (déconseillé)</option>
+                  </select>
+                </FormField>
+                <div className="sm:col-span-2 text-[11.5px]" style={{ color: "var(--text-muted)" }}>
+                  Ces informations sont dans les paramètres de votre fournisseur. Le mot de passe d’envoi
+                  réutilise celui de la réception (un mot de passe d’application peut être requis).
+                </div>
               </div>
             </form>
           </FormCard>
@@ -606,6 +664,9 @@ function buildInitialDraft(provider: MailProvider | null): Draft {
     imapHost: provider?.defaultImapHost ?? "",
     imapPort: provider?.defaultImapPort ?? 993,
     encryption: provider?.defaultEncryption ?? "tls",
+    smtpHost: provider?.defaultImapHost ? provider.defaultImapHost.replace(/^imap\./i, "smtp.") : "",
+    smtpPort: 465,
+    smtpEncryption: "tls",
     watchedFolder: "INBOX",
     syncIntervalMinutes: 30,
     markAsRead: true,

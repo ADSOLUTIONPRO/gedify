@@ -45,6 +45,12 @@ export type MailAccount = {
   imapPort: number;
   encryption: MailEncryption;
   username: string;
+  /** SMTP (envoi). null pour les comptes legacy / OAuth. Le mot de passe SMTP
+   *  réutilise par défaut le mot de passe IMAP (cas courant des fournisseurs). */
+  smtpHost: string | null;
+  smtpPort: number | null;
+  smtpEncryption: MailEncryption | null;
+  smtpUsername: string | null;
   /** Ciphertext (AES-256-GCM) encoded as `iv:tag:ciphertext` in base64. Never returned by the API. */
   encryptedPassword: string | null;
   hasPassword: boolean;

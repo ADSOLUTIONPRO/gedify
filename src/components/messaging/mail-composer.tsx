@@ -24,6 +24,9 @@ type Att =
   | { key: string; kind: "ged"; documentId: number; name: string }
   | { key: string; kind: "local"; name: string; filename: string; mimeType: string; contentBase64: string; gedStatus: "importing" | "imported" | "error" };
 
+/** Boîte mail connectée (Google ou IMAP), pour le sélecteur « Expéditeur ». */
+type SendableAcct = { id: string; email: string; name?: string; type: "gmail" | "imap"; canSend: boolean };
+
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -51,7 +54,8 @@ function ComposerWindow({ initial, minimized }: { initial: ComposerInitial; mini
   const [selectedSig, setSelectedSig] = useState("");
   const [editorKey, setEditorKey] = useState(0);
   const appliedSigRef = useRef("");
-  const [sender, setSender] = useState<string | null>(null);
+  const [accounts, setAccounts] = useState<SendableAcct[]>([]);
+  const [accountId, setAccountId] = useState<string>("");
   const [draftId, setDraftId] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [sending, setSending] = useState(false);
@@ -68,9 +72,16 @@ function ComposerWindow({ initial, minimized }: { initial: ComposerInitial; mini
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/messaging/gmail/status", { credentials: "include" })
+    // Toutes les boîtes connectées (Google + IMAP), aucun fournisseur prioritaire.
+    fetch("/api/messaging/accounts", { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (!cancelled && d) setSender(d.email ?? d.account?.email ?? d.account?.emailAddress ?? null); })
+      .then((d) => {
+        if (cancelled || !d?.accounts) return;
+        const list = d.accounts as SendableAcct[];
+        setAccounts(list);
+        const def = list.find((a) => a.canSend) ?? list[0];
+        if (def) setAccountId(def.id);
+      })
       .catch(() => {});
     return () => {
       cancelled = true;
@@ -203,6 +214,7 @@ function ComposerWindow({ initial, minimized }: { initial: ComposerInitial; mini
         credentials: "include",
         body: JSON.stringify({
           to: toStr,
+          accountId: accountId || undefined,
           cc: cc.trim() || undefined,
           bcc: bcc.trim() || undefined,
           subject: subject.trim() || "(sans objet)",
@@ -293,7 +305,25 @@ function ComposerWindow({ initial, minimized }: { initial: ComposerInitial; mini
       {/* Corps */}
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-3">
         <Field label="Expéditeur">
-          <span className="text-[13px]" style={{ color: "var(--text-muted)" }}>{sender ?? "Compte Gmail connecté"}</span>
+          {accounts.length === 0 ? (
+            <span className="text-[13px]" style={{ color: "var(--text-muted)" }}>Aucune boîte mail connectée</span>
+          ) : accounts.length === 1 ? (
+            <span className="text-[13px]" style={{ color: "var(--text-main)" }}>{accounts[0].email}</span>
+          ) : (
+            <select
+              value={accountId}
+              onChange={(e) => setAccountId(e.target.value)}
+              className="w-full bg-transparent text-[13px] outline-none"
+              style={{ color: "var(--text-main)" }}
+            >
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.email}
+                  {a.canSend ? "" : " — envoi non configuré"}
+                </option>
+              ))}
+            </select>
+          )}
         </Field>
         <Field label="À">
           <div className="flex items-start gap-2">

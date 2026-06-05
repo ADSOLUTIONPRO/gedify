@@ -2,6 +2,7 @@ import "server-only";
 
 import sharp from "sharp";
 import { loadPdf, renderPdfPageToPng } from "./pdf";
+import { dlog } from "./desktop-log";
 
 /* ────────────────────────────────────────────────────────────────────────
    Miniatures (remplace la génération de vignettes de Paperless).
@@ -25,6 +26,7 @@ async function placeholder(ext: string): Promise<Buffer> {
 
 export async function makeThumbnail(buf: Buffer, mime: string, ext: string): Promise<Buffer> {
   const lower = ext.toLowerCase();
+  dlog(`source=${mime || lower || "?"} bytes=${buf.length}`);
   try {
     if (mime.startsWith("image/") || IMAGE_EXT.includes(lower)) {
       return await sharp(buf, { failOn: "none" })

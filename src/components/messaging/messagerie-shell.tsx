@@ -211,7 +211,7 @@ export function MessagerieShell({ children, email }: Props) {
           {!email && (
             <Link href="/messagerie/parametres" className="flex items-center gap-2 text-[12px] font-semibold" style={{ color: BLUE }}>
               <Mail className="h-4 w-4" strokeWidth={1.75} />
-              Connecter Gmail →
+              Connecter une boîte mail →
             </Link>
           )}
         </div>

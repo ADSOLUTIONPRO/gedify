@@ -90,10 +90,9 @@ export default async function MessagerieParametresPage() {
         <aside className="space-y-5">
           <RightRailCard title="Sécurité" icon={ShieldCheck} iconTone="emerald">
             <ul className="space-y-2 text-xs" style={{ color: "var(--text-muted)" }}>
-              <li>Tokens chiffrés AES-256-GCM côté serveur.</li>
-              <li>Aucune clé Google côté client.</li>
-              <li>Phase 1 : scope `gmail.readonly` uniquement.</li>
-              <li>Phase 3 : scopes `compose` / `send` à activer explicitement.</li>
+              <li>Identifiants chiffrés côté serveur.</li>
+              <li>Aucun mot de passe stocké en clair.</li>
+              <li>Vos données mail restent privées.</li>
             </ul>
           </RightRailCard>
         </aside>

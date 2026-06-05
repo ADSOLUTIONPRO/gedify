@@ -15,7 +15,7 @@ type Props = {
 export function GoogleConnectButton({
   returnTo = "/emails/comptes",
   accountId,
-  label = "Connecter Gmail",
+  label = "Connecter Google",
   variant = "primary",
   disabledMessage,
 }: Props) {

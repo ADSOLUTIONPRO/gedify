@@ -10,6 +10,7 @@ import {
   saveOriginal,
   savePreview,
   saveThumbnail,
+  thumbnailsDir,
   STORE,
   type EngineDocument,
 } from "./stores";
@@ -17,6 +18,8 @@ import { extractText } from "./ocr";
 import { ocrMetaFields } from "./ocr-meta";
 import { makeThumbnail } from "./thumbnails";
 import { makePreview } from "./previews";
+import { takePdfRenderError } from "./pdf";
+import { dlog } from "./desktop-log";
 import { indexDocument } from "./search";
 import { baseName, loadNameMaps, mimeFromExt } from "./helpers";
 import type { PaperlessTask } from "@/lib/paperless-types";
@@ -105,12 +108,18 @@ export async function consume(input: ConsumeInput): Promise<PaperlessTask> {
     // Miniature + aperçu : rapides, pour un visuel immédiat dans la grille
     // (dans les deux modes — l'OCR est la seule étape lourde, voir plus bas).
     let thumbnailStatus: EngineDocument["thumbnail_status"] = "failed";
+    let thumbnailError: string | null = null;
     try {
+      dlog(`import documentId=${id} source=${mime || ext}`);
       const thumb = await makeThumbnail(input.buffer, mime, ext);
+      thumbnailError = takePdfRenderError(); // null si rendu OK ; code si placeholder
+      dlog(`write thumbnail path=${path.join(thumbnailsDir(), `${id}.webp`)}`);
       await saveThumbnail(id, thumb);
+      dlog(`write ok documentId=${id}${thumbnailError ? ` (placeholder, error=${thumbnailError})` : ""}`);
       thumbnailStatus = "ready";
-    } catch {
-      /* miniature best-effort */
+    } catch (e) {
+      thumbnailError = "thumbnail_write_failed";
+      dlog(`error=thumbnail_write_failed ${e instanceof Error ? e.message : e}`);
     }
 
     let previewStatus: EngineDocument["preview_status"] = "failed";
@@ -168,6 +177,7 @@ export async function consume(input: ConsumeInput): Promise<PaperlessTask> {
       import_status: "ready",
       thumbnail_status: thumbnailStatus,
       preview_status: previewStatus,
+      thumbnail_error: thumbnailError,
       pages_status: "pending",
       ocr_status: asyncMode ? "pending" : text.trim() ? "ready" : "skipped",
       ai_status: "pending",

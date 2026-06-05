@@ -14,6 +14,8 @@ import { extractText } from "@/lib/engine/ocr";
 import { ocrMetaFields } from "@/lib/engine/ocr-meta";
 import { makeThumbnail } from "@/lib/engine/thumbnails";
 import { makePreview } from "@/lib/engine/previews";
+import { takePdfRenderError } from "@/lib/engine/pdf";
+import { dlog } from "@/lib/engine/desktop-log";
 import { indexDocument } from "@/lib/engine/search";
 import { loadNameMaps, mimeFromExt } from "@/lib/engine/helpers";
 import { enqueueJob, type PipelineJob } from "@/lib/jobs/job-store";
@@ -139,9 +141,28 @@ async function runThumbnail(documentId: number): Promise<void> {
   if (!doc) throw new Error("document introuvable");
   const orig = await readOriginal(doc.storedFilename);
   if (!orig) throw new Error("fichier original introuvable");
+  dlog(`import documentId=${documentId} source=${mimeOf(doc) || extOf(doc)}`);
   const thumb = await makeThumbnail(orig, mimeOf(doc), extOf(doc));
-  await saveThumbnail(documentId, thumb);
-  await patchDoc(documentId, { thumbnail_status: "ready" });
+  const errCode = takePdfRenderError(); // null si rendu OK ; code si placeholder
+
+  // Panne INFRA dure (canvas/worker absent du build) → on fait ÉCHOUER le job pour
+  // que ce soit visible dans Santé GED (GedifyErrorHint), pas juste un placeholder.
+  if (errCode === "canvas_native_missing" || errCode === "pdf_worker_missing") {
+    await patchDoc(documentId, { thumbnail_status: "ready", thumbnail_error: errCode });
+    dlog(`error=${errCode} documentId=${documentId}`);
+    throw new Error(errCode);
+  }
+
+  try {
+    dlog(`write thumbnail path=files/thumbnails/${documentId}.webp`);
+    await saveThumbnail(documentId, thumb);
+    dlog(`write ok documentId=${documentId}${errCode ? ` (placeholder, error=${errCode})` : ""}`);
+  } catch (e) {
+    await patchDoc(documentId, { thumbnail_status: "failed", thumbnail_error: "thumbnail_write_failed" });
+    dlog(`error=thumbnail_write_failed ${e instanceof Error ? e.message : e}`);
+    throw e instanceof Error ? e : new Error("thumbnail_write_failed");
+  }
+  await patchDoc(documentId, { thumbnail_status: "ready", thumbnail_error: errCode ?? null });
 }
 
 async function runPreview(documentId: number): Promise<void> {

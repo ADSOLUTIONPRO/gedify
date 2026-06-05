@@ -10,6 +10,65 @@ import path from "node:path";
    ──────────────────────────────────────────────────────────────────────── */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
+/* ── Diagnostic bureau (Electron) ────────────────────────────────────────
+   Logs détaillés UNIQUEMENT en app de bureau (process.versions.electron) ;
+   jamais de bruit sur le serveur web. */
+const IS_DESKTOP = Boolean((process as { versions?: { electron?: string } }).versions?.electron);
+function dlog(...args: unknown[]) {
+  if (IS_DESKTOP) console.log("[desktop/thumbnails]", ...args);
+}
+
+/* ── Codes d'erreur de rendu (remontés à GedifyErrorHint) ────────────────── */
+export type PdfErrorCode =
+  | "canvas_native_missing"
+  | "pdf_worker_missing"
+  | "pdf_standard_fonts_missing"
+  | "pdf_render_failed";
+let lastPdfError: PdfErrorCode | null = null;
+function setPdfError(code: PdfErrorCode) {
+  lastPdfError = code;
+  dlog("error=" + code);
+}
+/** Récupère ET efface le dernier code d'erreur de rendu PDF (diagnostic vignette). */
+export function takePdfRenderError(): PdfErrorCode | null {
+  const c = lastPdfError;
+  lastPdfError = null;
+  return c;
+}
+
+/**
+ * Résout un asset pdf.js (worker, standard_fonts…) en testant PLUSIEURS
+ * emplacements — on ne dépend PAS uniquement de process.cwd() (cassé en app
+ * packagée). `rel` = chemin sous `pdfjs-dist/`.
+ */
+function pdfjsCandidates(rel: string): string[] {
+  const rp = (process as { resourcesPath?: string }).resourcesPath;
+  const out: (string | null)[] = [
+    path.join(process.cwd(), "node_modules", "pdfjs-dist", rel),
+    rp ? path.join(rp, "gedify-runtime", "node_modules", "pdfjs-dist", rel) : null,
+    rp ? path.join(rp, "app", "node_modules", "pdfjs-dist", rel) : null,
+    rp ? path.join(rp, "app.asar.unpacked", "node_modules", "pdfjs-dist", rel) : null,
+  ];
+  // Relatif au fichier courant si disponible (dev / certaines arbos).
+  try {
+    if (typeof __dirname === "string") out.push(path.join(__dirname, "..", "..", "..", "node_modules", "pdfjs-dist", rel));
+  } catch {
+    /* __dirname indéfini en ESM pur → ignoré */
+  }
+  return out.filter((c): c is string => Boolean(c));
+}
+function firstExisting(paths: (string | null | undefined)[]): string | undefined {
+  for (const p of paths) {
+    if (!p) continue;
+    try {
+      if (fs.existsSync(p)) return p;
+    } catch {
+      /* ignore */
+    }
+  }
+  return undefined;
+}
 type PdfPage = {
   getViewport(opts: { scale: number }): { width: number; height: number };
   getTextContent(): Promise<{ items: Array<{ str?: string }> }>;
@@ -34,7 +93,12 @@ let canvasMod: any = null;
  */
 async function canvasLib(): Promise<any> {
   if (!canvasMod) {
-    canvasMod = await import("@napi-rs/canvas");
+    try {
+      canvasMod = await import("@napi-rs/canvas");
+    } catch (e) {
+      setPdfError("canvas_native_missing");
+      throw e instanceof Error ? e : new Error(String(e));
+    }
     const g = globalThis as any;
     g.Path2D ??= canvasMod.Path2D;
     g.DOMMatrix ??= canvasMod.DOMMatrix;
@@ -43,6 +107,41 @@ async function canvasLib(): Promise<any> {
     g.DOMRect ??= canvasMod.DOMRect;
   }
   return canvasMod;
+}
+
+/**
+ * CanvasFactory pdf.js basée sur @napi-rs/canvas — INDISPENSABLE sous Electron.
+ * Là `isNodeJS=false`, pdf.js choisit `DOMCanvasFactory` qui fait
+ * `document.createElement('canvas')` ; `document` étant indéfini en Node, le
+ * rendu plante (« Cannot read properties of undefined (reading 'createElement') »)
+ * dès qu'un PDF contient une IMAGE (scans, logos, photos…) — les canvas
+ * SECONDAIRES des XObjects image. On fournit une fabrique Node. Hors Electron
+ * (web/serveur Node), pdf.js utilise SA NodeCanvasFactory → on n'override PAS.
+ */
+function makeNapiCanvasFactory(): any {
+  const createCanvas = canvasMod?.createCanvas;
+  if (!createCanvas) return undefined;
+  return class NapiCanvasFactory {
+    create(width: number, height: number) {
+      const canvas = createCanvas(Math.max(1, width || 1), Math.max(1, height || 1));
+      return { canvas, context: canvas.getContext("2d") };
+    }
+    reset(cc: any, width: number, height: number) {
+      if (!cc?.canvas) throw new Error("CanvasFactory.reset : canvas absent");
+      cc.canvas.width = Math.max(1, width || 1);
+      cc.canvas.height = Math.max(1, height || 1);
+    }
+    destroy(cc: any) {
+      if (cc?.canvas) {
+        cc.canvas.width = 0;
+        cc.canvas.height = 0;
+      }
+      if (cc) {
+        cc.canvas = null;
+        cc.context = null;
+      }
+    }
+  };
 }
 
 /**
@@ -55,25 +154,37 @@ async function canvasLib(): Promise<any> {
 let standardFontDataUrl: string | undefined;
 function resolveStandardFonts(): string | undefined {
   if (standardFontDataUrl !== undefined) return standardFontDataUrl || undefined;
-  // process.cwd() = racine projet (dev) ou /app (conteneur standalone) ; dans les
-  // deux cas node_modules/pdfjs-dist/standard_fonts est présent (copié au build).
-  const candidates = [
-    process.env.PDFJS_STANDARD_FONTS?.trim() || null,
-    path.join(process.cwd(), "node_modules", "pdfjs-dist", "standard_fonts"),
-  ].filter((c): c is string => Boolean(c));
-  for (const c of candidates) {
-    try {
-      if (fs.existsSync(path.join(c, "FoxitDingbats.pfb"))) {
-        standardFontDataUrl = c.endsWith(path.sep) ? c : c + path.sep;
-        return standardFontDataUrl;
-      }
-    } catch {
-      /* ignore */
-    }
+  // Teste l'override PDFJS_STANDARD_FONTS PUIS tous les emplacements connus
+  // (cwd, process.resourcesPath/…, app.asar.unpacked/…, relatif au fichier).
+  const dirs = [process.env.PDFJS_STANDARD_FONTS?.trim() || null, ...pdfjsCandidates("standard_fonts")];
+  const marker = firstExisting(dirs.map((d) => (d ? path.join(d, "FoxitDingbats.pfb") : null)));
+  if (marker) {
+    const dir = path.dirname(marker);
+    standardFontDataUrl = dir.endsWith(path.sep) ? dir : dir + path.sep;
+    dlog("standard_fonts=" + standardFontDataUrl);
+    return standardFontDataUrl;
   }
   standardFontDataUrl = "";
+  setPdfError("pdf_standard_fonts_missing");
   console.warn("[engine/pdf] standard_fonts pdf.js introuvable — le texte des PDF sans police embarquée ne sera pas rendu.");
   return undefined;
+}
+
+/**
+ * Worker pdf.js (build legacy). UNIQUEMENT nécessaire sous Electron : là,
+ * `process.type` vaut « utility » et pdf.js calcule `isNodeJS=false`
+ * (`!(process.versions.electron && process.type && process.type!=='browser')`),
+ * croit être dans un navigateur et EXIGE un workerSrc → sinon « No
+ * GlobalWorkerOptions.workerSrc specified » et AUCUN rendu PDF (vignette = simple
+ * placeholder). En pointant le worker legacy, pdf.js monte un « fake worker » sur
+ * le thread principal et rend normalement. Hors Electron (web/serveur Node,
+ * isNodeJS=true) on NE TOUCHE À RIEN → comportement web inchangé.
+ */
+function resolvePdfWorker(): string | undefined {
+  return firstExisting([
+    process.env.PDFJS_WORKER_SRC?.trim() || null,
+    ...pdfjsCandidates("legacy/build/pdf.worker.mjs"),
+  ]);
 }
 
 let pdfjsMod: any = null;
@@ -83,6 +194,28 @@ async function pdfjs(): Promise<any> {
     await canvasLib();
     // Build « legacy » = compatible Node (pas d'API navigateur requise).
     pdfjsMod = await import("pdfjs-dist/legacy/build/pdf.mjs");
+    // pdf.js exige un workerSrc dès qu'il ne se croit pas en « Node pur » — ce qui
+    // est le cas sous Electron (utilityProcess : process.type='utility' →
+    // isNodeJS=false) → sinon « No GlobalWorkerOptions.workerSrc specified » et
+    // AUCUN rendu PDF. On fixe le worker legacy s'il n'est pas déjà défini : pdf.js
+    // monte alors un « fake worker » sur le thread principal et rend. Sur le web
+    // (Node), workerSrc est aussi vide par défaut mais pointe le MÊME worker legacy
+    // que pdf.js auto-résout → strictement neutre.
+    try {
+      const gwo = pdfjsMod.GlobalWorkerOptions as { workerSrc?: string } | undefined;
+      if (gwo && !gwo.workerSrc) {
+        const w = resolvePdfWorker();
+        if (w) {
+          gwo.workerSrc = w;
+          dlog("pdf.worker=" + w);
+        } else {
+          setPdfError("pdf_worker_missing");
+          console.warn("[engine/pdf] worker pdf.js introuvable — rendu PDF en placeholder.");
+        }
+      }
+    } catch (e) {
+      console.error("[engine/pdf] configuration worker pdf.js :", e instanceof Error ? e.message : e);
+    }
   }
   return pdfjsMod;
 }
@@ -95,6 +228,9 @@ export async function loadPdf(buf: Buffer): Promise<PdfDoc | null> {
     const data = new Uint8Array(buf.byteLength);
     data.set(buf);
     const fonts = resolveStandardFonts();
+    // Sous Electron, fournir notre CanvasFactory (sinon DOMCanvasFactory plante sur
+    // les PDF avec images). Hors Electron : laissé à pdf.js (NodeCanvasFactory).
+    const CanvasFactory = IS_DESKTOP ? makeNapiCanvasFactory() : undefined;
     return await lib.getDocument({
       data,
       isEvalSupported: false,
@@ -103,8 +239,11 @@ export async function loadPdf(buf: Buffer): Promise<PdfDoc | null> {
       useSystemFonts: false,
       disableFontFace: true,
       ...(fonts ? { standardFontDataUrl: fonts } : {}),
+      ...(CanvasFactory ? { CanvasFactory } : {}),
     }).promise;
   } catch (e) {
+    // Ne pas écraser un code plus précis déjà posé (worker/fonts/canvas).
+    if (!lastPdfError) setPdfError("pdf_render_failed");
     console.error("[engine/pdf] ouverture échouée :", e instanceof Error ? e.message : e);
     return null;
   }
@@ -151,6 +290,7 @@ export async function renderPdfPageToPng(
       if (longest > maxDim) scale *= maxDim / longest;
     }
     const viewport = page.getViewport({ scale });
+    dlog(`pdf render start page=${pageNumber} ${Math.ceil(viewport.width)}x${Math.ceil(viewport.height)}`);
     const canvas = createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
     const ctx = canvas.getContext("2d");
     // Fond blanc : pdfjs dessine sur un canvas transparent. Les PDF sans fond
@@ -159,8 +299,11 @@ export async function renderPdfPageToPng(
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     await page.render({ canvasContext: ctx as any, viewport, canvas }).promise;
-    return canvas.toBuffer("image/png");
+    const out = canvas.toBuffer("image/png");
+    dlog(`pdf render ok size=${out.length}`);
+    return out;
   } catch (e) {
+    if (!lastPdfError) setPdfError("pdf_render_failed");
     console.error("[engine/pdf] rendu page échoué :", e instanceof Error ? e.message : e);
     return null;
   }

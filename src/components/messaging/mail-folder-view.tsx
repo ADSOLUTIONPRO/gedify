@@ -1,7 +1,10 @@
 import { NoGmailState } from "@/components/messaging/no-gmail-state";
 import { InboxClient } from "@/components/messaging/inbox-client";
+import { ImapInboxView } from "@/components/messaging/imap-inbox-view";
+import { MailboxSelector } from "@/components/messaging/mailbox-selector";
 import { MobileMails } from "@/components/mobile/mobile-mails";
 import { loadThreads } from "@/lib/messaging/load-threads";
+import { loadImapInbox } from "@/lib/messaging/load-imap-inbox";
 import { loadCorrespondentFilters } from "@/lib/messaging/correspondent-filters";
 import { getGmailOAuthConfig } from "@/lib/connectors/gmail/oauth";
 
@@ -25,6 +28,12 @@ export async function MailFolderView({
   const [result, correspondents] = await Promise.all([loadThreads(query, limit), loadCorrespondentFilters()]);
 
   if (!result.connected) {
+    // Pas de compte Gmail : si une boîte IMAP est connectée, on affiche au moins
+    // ses messages (lecture seule) au lieu de l'écran « connecter Google ».
+    const imap = await loadImapInbox(100);
+    if (imap.accounts.length > 0) {
+      return <ImapInboxView data={imap} title={title} />;
+    }
     return (
       <div className="p-6">
         <NoGmailState
@@ -54,6 +63,7 @@ export async function MailFolderView({
             {subtitle ?? result.accountEmail}
           </p>
         </div>
+        <MailboxSelector />
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">

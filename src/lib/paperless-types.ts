@@ -49,6 +49,9 @@ export type PaperlessDocument = {
   notes?: PaperlessNote[];
   owner?: PaperlessId | null;
   user_can_change?: boolean;
+  /** Statut + code d'erreur de la miniature (diagnostic vignette, moteur autonome). */
+  thumbnail_status?: string | null;
+  thumbnail_error?: string | null;
   __search_hit__?: PaperlessSearchHit;
 };
 

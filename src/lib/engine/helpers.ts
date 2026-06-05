@@ -128,6 +128,8 @@ export function serializeDocument(doc: EngineDocument, maps: NameMaps): Paperles
     notes: doc.notes ?? [],
     owner: doc.owner,
     user_can_change: true,
+    thumbnail_status: doc.thumbnail_status ?? null,
+    thumbnail_error: doc.thumbnail_error ?? null,
     // Champs personnalisés (forme Paperless : { field, value }[])
     ...(doc.custom_fields ? { custom_fields: doc.custom_fields } : {}),
   } as PaperlessDocument;

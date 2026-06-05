@@ -290,6 +290,8 @@ export type DerivedStatus = "pending" | "processing" | "ready" | "failed" | "ski
 export type DocumentDerivedStatuses = {
   import_status?: DerivedStatus;
   thumbnail_status?: DerivedStatus;
+  /** Code d'erreur si la miniature est tombée sur un placeholder (diagnostic UI). */
+  thumbnail_error?: string | null;
   preview_status?: DerivedStatus;
   pages_status?: DerivedStatus;
   ocr_status?: DerivedStatus;

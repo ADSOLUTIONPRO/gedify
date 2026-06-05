@@ -18,6 +18,11 @@ export type GedifyErrorCode =
   | "thumbnail_generation_failed"
   | "preview_generation_failed"
   | "pages_generation_failed"
+  | "pdf_worker_missing"
+  | "pdf_standard_fonts_missing"
+  | "canvas_native_missing"
+  | "pdf_render_failed"
+  | "thumbnail_write_failed"
   | "ocr_failed"
   | "ai_failed"
   | "index_failed"
@@ -45,6 +50,36 @@ export const ERROR_CATALOG: Record<GedifyErrorCode, GedifyErrorEntry> = {
     cause: "PDF illisible ou trop volumineux pour le moteur de rendu.",
     solution: "Vérifiez le fichier, puis relancez la génération des pages.",
     retryLabel: "Relancer les pages",
+  },
+  pdf_worker_missing: {
+    title: "Rendu PDF indisponible",
+    cause: "Le composant de rendu PDF (worker) est introuvable dans l'application.",
+    solution: "Réinstallez l'application puis relancez la génération de la miniature.",
+    retryLabel: "Relancer miniature",
+  },
+  pdf_standard_fonts_missing: {
+    title: "Polices PDF manquantes",
+    cause: "Les polices standard de rendu PDF sont absentes de l'application.",
+    solution: "Réinstallez l'application ; le texte des PDF sans police embarquée ne sera pas rendu.",
+    retryLabel: "Relancer miniature",
+  },
+  canvas_native_missing: {
+    title: "Moteur d'image indisponible",
+    cause: "Le module natif de rendu (canvas) n'a pas pu être chargé.",
+    solution: "Réinstallez l'application correspondant à votre Mac (Apple Silicon ou Intel).",
+    retryLabel: "Relancer miniature",
+  },
+  pdf_render_failed: {
+    title: "PDF illisible",
+    cause: "Ce PDF n'a pas pu être rendu (fichier endommagé, protégé ou inhabituel).",
+    solution: "Vérifiez le fichier ; une vignette générique est affichée à la place.",
+    retryLabel: "Relancer miniature",
+  },
+  thumbnail_write_failed: {
+    title: "Miniature non enregistrée",
+    cause: "Écriture impossible dans le dossier des miniatures (droits ou disque plein).",
+    solution: "Vérifiez l'espace disque et les droits du dossier de données, puis relancez.",
+    retryLabel: "Relancer miniature",
   },
   ocr_failed: {
     title: "OCR impossible",
@@ -104,6 +139,12 @@ export function resolveError(code?: string | null): GedifyErrorEntry {
 export function guessErrorCode(message?: string | null): GedifyErrorCode {
   const m = (message ?? "").toLowerCase();
   if (!m) return "generic";
+  // Codes spécifiques de rendu PDF/vignette AVANT le /thumb/ générique.
+  if (/canvas_native|canvas.*(missing|natif|native)/.test(m)) return "canvas_native_missing";
+  if (/pdf_worker|worker.*(missing|introuvable)/.test(m)) return "pdf_worker_missing";
+  if (/standard_fonts|polices? pdf/.test(m)) return "pdf_standard_fonts_missing";
+  if (/thumbnail_write|écriture.*miniature|write.*thumb/.test(m)) return "thumbnail_write_failed";
+  if (/pdf_render|render.*(fail|échou)|pdf illisible/.test(m)) return "pdf_render_failed";
   if (/thumb|vignette|miniature/.test(m)) return "thumbnail_generation_failed";
   if (/preview|aperçu|apercu/.test(m)) return "preview_generation_failed";
   if (/ocr|tesseract/.test(m)) return "ocr_failed";

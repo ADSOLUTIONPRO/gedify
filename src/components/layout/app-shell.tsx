@@ -6,6 +6,7 @@ import { MobileAppHeader } from "@/components/layout/mobile-app-header";
 import { AppsRail } from "@/components/layout/apps-rail";
 import { SpaceMenuSidebar } from "@/components/layout/space-menu-sidebar";
 import { MailComposer } from "@/components/messaging/mail-composer";
+import { ImportActivityIndicator } from "@/components/layout/import-activity-indicator";
 import { readSession } from "@/lib/auth/session";
 
 type AppShellProps = {
@@ -59,6 +60,8 @@ export async function AppShell({ children }: AppShellProps) {
       <MobileTabBar />
       {/* Fenêtre de rédaction globale (persiste pendant la navigation) */}
       <MailComposer />
+      {/* Indicateur global non bloquant de traitement (import → OCR/IA/miniatures) */}
+      <ImportActivityIndicator />
     </div>
   );
 }

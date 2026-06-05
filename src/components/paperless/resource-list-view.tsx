@@ -159,7 +159,14 @@ export function ResourceListView({
       </section>
 
       {!result.ok ? (
-        <ErrorState title="Fonctionnalité Gedify à connecter" message={result.error} />
+        <ErrorState
+          title="Fonction bientôt disponible"
+          message={
+            /\b(40\d|50\d|endpoint|moteur|\/api\/|implémenté|token|scope|undefined)\b/i.test(result.error ?? "")
+              ? "Cette fonctionnalité n'est pas encore disponible dans cette version."
+              : result.error
+          }
+        />
       ) : rows.length === 0 ? (
         <SectionCard bodyClassName="">
           <EmptyState

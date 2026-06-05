@@ -84,6 +84,8 @@ export type DocumentStatusesVM = {
   learned: "template" | "similar" | null;
   /** Libellé du modèle appris associé (tooltip « Similaire à … »). */
   matchedLabel: string | null;
+  /** Code d'erreur de la miniature (placeholder affiché). Null si OK. */
+  thumbnailError?: string | null;
 };
 
 export type DocumentVM = {
