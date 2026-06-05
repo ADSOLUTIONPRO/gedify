@@ -7,9 +7,9 @@ import {
   Plug,
   RefreshCw,
   Trash2,
-  XCircle,
 } from "lucide-react";
 import type { MailTestResult, MailSyncResult } from "@/lib/mail-connector/types";
+import { GedifyErrorHint } from "@/components/ui/gedify-error-hint";
 
 type Props = {
   accountId: string;
@@ -143,7 +143,7 @@ export function AccountActions({ accountId, hasPassword }: Props) {
       </div>
 
       {feedback ? (
-        <p
+        <div
           className={`mt-3 flex items-start gap-2 rounded-xl px-3 py-2 text-xs font-semibold ${
             feedback.kind === "success"
               ? "bg-emerald-50 text-emerald-700"
@@ -153,10 +153,10 @@ export function AccountActions({ accountId, hasPassword }: Props) {
           {feedback.kind === "success" ? (
             <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden="true" />
           ) : (
-            <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden="true" />
+            <GedifyErrorHint code="mail_sync_failed" message={feedback.message} onRetry={() => void runSync()} />
           )}
           <span>{feedback.message}</span>
-        </p>
+        </div>
       ) : null}
     </div>
   );

@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, FileDown, Loader2, Paperclip, TriangleAlert } from "lucide-react";
+import { CheckCircle2, FileDown, Loader2, Paperclip } from "lucide-react";
 import { RightRailCard } from "@/components/ui/right-rail-card";
+import { GedifyErrorHint } from "@/components/ui/gedify-error-hint";
 import type { MailDocumentLinkStatus } from "@/lib/messaging/mail-document-links-store";
 
 export type ThreadAttachment = {
@@ -84,7 +85,7 @@ export function ThreadAttachmentsCard({ threadId, attachments }: { threadId: str
                 </span>
               ) : att.status === "error" ? (
                 <span className="inline-flex items-center gap-2 text-[11.5px] font-semibold" style={{ color: "#B91C1C" }}>
-                  <TriangleAlert className="h-3.5 w-3.5" strokeWidth={2} /> Erreur d&apos;import
+                  <GedifyErrorHint code="import_failed" onRetry={() => void importAttachment(att)} retryLabel="Réessayer l'import" /> Erreur d&apos;import
                   <button type="button" onClick={() => void importAttachment(att)} className="font-bold underline" style={{ color: "var(--accent)" }}>Réessayer</button>
                 </span>
               ) : (

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Download, Loader2, TriangleAlert, CheckCircle2 } from "lucide-react";
+import { Download, Loader2, CheckCircle2 } from "lucide-react";
+import { GedifyErrorHint } from "@/components/ui/gedify-error-hint";
 
 type ExportCounts = {
   documents: number;
@@ -107,10 +108,10 @@ export function ExportButton() {
         </button>
 
         {error ? (
-          <p className="flex items-center gap-1.5 text-[13px] font-semibold text-rose-700">
-            <TriangleAlert className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+          <span className="flex items-center gap-2 text-[13px] font-semibold text-rose-700">
+            <GedifyErrorHint code="generic" message={error} onRetry={() => void runExport()} retryLabel="Relancer l'export" />
             {error}
-          </p>
+          </span>
         ) : null}
       </div>
 

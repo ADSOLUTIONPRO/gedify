@@ -36,6 +36,8 @@ import { SectionCard } from "@/components/ui/section-card";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusPill } from "@/components/ui/status-pill";
 import { ConfirmActionDialog } from "@/components/ui/confirm-action-dialog";
+import { GedifyErrorHint } from "@/components/ui/gedify-error-hint";
+import { guessErrorCode } from "@/lib/errors/error-catalog";
 
 type DirUsage = { files: number; bytes: number };
 type GedHealth = {
@@ -571,6 +573,15 @@ export function HealthDashboard() {
           <ActionButton onClick={() => void runPipeline("ai-unclassified", "p-ai")} busy={busy === "p-ai"} disabled={Boolean(busy)} icon={Brain} label="Analyser les non classés (IA)" />
           <ActionButton onClick={() => void runPipeline("reindex-all", "p-index")} busy={busy === "p-index"} disabled={Boolean(busy)} icon={RefreshCw} label="Réindexer tout" />
           <ActionButton onClick={() => void runPipeline("retry-failed", "p-retry")} busy={busy === "p-retry"} disabled={Boolean(busy)} icon={RefreshCw} label="Relancer les jobs échoués" tone="rose" />
+          {health!.pipeline.failed > 0 ? (
+            <GedifyErrorHint
+              code="generic"
+              message={`${health!.pipeline.failed} job(s) en erreur dans la file de traitement.`}
+              label={`${health!.pipeline.failed} en erreur`}
+              retryLabel="Relancer les jobs échoués"
+              onRetry={() => void runPipeline("retry-failed", "p-retry")}
+            />
+          ) : null}
         </div>
       </SectionCard>
 
@@ -632,9 +643,10 @@ export function HealthDashboard() {
           </p>
         ) : null}
         {error ? (
-          <p className="mt-3 flex items-center gap-1.5 text-[13px] font-semibold text-rose-700">
-            <AlertTriangle className="h-4 w-4" /> {error}
-          </p>
+          <div className="mt-3 flex items-center gap-2 text-[13px] font-semibold text-rose-700">
+            <GedifyErrorHint code={guessErrorCode(error)} message={error} onRetry={() => void load()} />
+            <span>{error}</span>
+          </div>
         ) : null}
         <p className="mt-3 text-[11px]" style={{ color: "var(--text-muted)" }}>
           Dernier calcul : {new Date(health!.generatedAt).toLocaleString("fr-FR")}

@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Archive, CheckCircle2, Clock, Loader2, Save, TriangleAlert } from "lucide-react";
+import { Archive, CheckCircle2, Clock, Loader2, Save } from "lucide-react";
+import { GedifyProgressModal } from "@/components/ui/gedify-progress-modal";
+import { GedifyErrorHint } from "@/components/ui/gedify-error-hint";
+import { useGedifyProgress } from "@/lib/hooks/use-gedify-progress";
 
 type BackupEntry = { filename: string; bytes: number; createdAt: string };
 type BackupReport = {
@@ -25,6 +28,7 @@ export function BackupNowPanel() {
   const [busy, setBusy] = useState(false);
   const [report, setReport] = useState<BackupReport | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const progress = useGedifyProgress();
 
   const loadList = useCallback(async () => {
     try {
@@ -46,6 +50,8 @@ export function BackupNowPanel() {
     setBusy(true);
     setError(null);
     setReport(null);
+    progress.start({ title: "Sauvegarde", description: "Archive complète : documents, fichiers et base." });
+    progress.setStep("Construction de l'archive…");
     try {
       const res = await fetch("/api/admin/backup", {
         method: "POST",
@@ -57,13 +63,18 @@ export function BackupNowPanel() {
       const data = (await res.json()) as BackupReport & { error?: string };
       if (!res.ok || data.error) throw new Error(data.error ?? `HTTP ${res.status}`);
       setReport(data);
+      progress.setStep(`Archive créée : ${data.filename}`);
+      progress.bumpSucceeded();
+      progress.finish();
       await loadList();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur inconnue");
+      const msg = err instanceof Error ? err.message : "Erreur inconnue";
+      setError(msg);
+      progress.fail("backup_failed", msg);
     } finally {
       setBusy(false);
     }
-  }, [loadList]);
+  }, [loadList, progress]);
 
   const pgTables = report?.counts?.postgres ? Object.keys(report.counts.postgres).length : 0;
 
@@ -85,12 +96,6 @@ export function BackupNowPanel() {
         </span>
       </div>
 
-      {busy ? (
-        <p className="flex items-center gap-2 text-[13px]" style={{ color: "var(--text-muted)" }}>
-          <Loader2 className="h-4 w-4 animate-spin" /> Construction de l&apos;archive (documents, fichiers, base)…
-        </p>
-      ) : null}
-
       {report ? (
         <div className="rounded-xl border p-3 text-[13px]" style={{ borderColor: "var(--border)" }}>
           <p className="flex items-center gap-1.5 font-semibold" style={{ color: "#16A34A" }}>
@@ -107,9 +112,10 @@ export function BackupNowPanel() {
       ) : null}
 
       {error ? (
-        <p className="flex items-center gap-1.5 text-[13px] font-semibold text-rose-700">
-          <TriangleAlert className="h-4 w-4 shrink-0" /> {error}
-        </p>
+        <div className="flex items-center gap-2 text-[13px] font-semibold text-rose-700">
+          <GedifyErrorHint code="backup_failed" message={error} onRetry={() => void runBackup()} />
+          <span>{error}</span>
+        </div>
       ) : null}
 
       <div>
@@ -138,6 +144,8 @@ export function BackupNowPanel() {
           </ul>
         )}
       </div>
+
+      <GedifyProgressModal data={progress.data} onClose={progress.close} onRetry={() => void runBackup()} />
     </div>
   );
 }
