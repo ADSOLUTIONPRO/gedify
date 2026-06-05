@@ -70,12 +70,30 @@ export type AIProvider = {
   analyzeDocument(context: AnalyzeContext): Promise<AnalyzeResult>;
 };
 
+/** Un cloud OpenAI-compatible (AI_CLOUD_*) est-il configuré ? */
+function cloudConfigured(): boolean {
+  return Boolean(process.env.AI_CLOUD_API_KEY && process.env.AI_CLOUD_BASE_URL);
+}
+
+/** Provider cloud (AI_CLOUD_*) avec repli mock visible en cas d'échec. */
+function cloudWithFallback(): AIProvider {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const mod = require("./cloud-provider") as typeof import("./cloud-provider");
+  return wrapWithMockFallback(mod.cloudProvider);
+}
+
 export function getActiveAIProvider(): AIProvider {
   const requested = (process.env.AI_PROVIDER ?? "mock").toLowerCase();
-  console.log("[AI] getActiveAIProvider provider=", requested);
+  console.log("[AI] getActiveAIProvider provider=", requested, "cloudConfigured=", cloudConfigured());
   switch (requested) {
     case "openai": {
       if (!process.env.OPENAI_API_KEY) {
+        // Pas de clé OPENAI_* mais un cloud OpenAI-compatible (AI_CLOUD_*) est
+        // configuré → on l'utilise plutôt que de retomber sur le mock.
+        if (cloudConfigured()) {
+          console.log("[AI] OPENAI_API_KEY absente — bascule sur le cloud AI_CLOUD_*");
+          return cloudWithFallback();
+        }
         console.log("[AI] OPENAI_API_KEY absente — fallback mock");
         return mockProvider;
       }
@@ -104,6 +122,12 @@ export function getActiveAIProvider(): AIProvider {
       return mockProvider;
     case "mock":
     default:
+      // Aucun provider local explicite : si un cloud OpenAI-compatible est
+      // configuré (AI_CLOUD_*), l'analyse "ai" l'utilise au lieu du mock.
+      if (cloudConfigured()) {
+        console.log("[AI] AI_PROVIDER non défini — utilisation du cloud AI_CLOUD_*");
+        return cloudWithFallback();
+      }
       return mockProvider;
   }
 }

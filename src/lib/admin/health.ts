@@ -249,7 +249,14 @@ export async function computeGedHealth(): Promise<GedHealth> {
     duplicates: { groups: dups.groups, exact: dups.exact, probable: dups.probable },
     storage: { originals, thumbnails, previews, pages, backups, totalBytes },
     database,
-    services: { openaiConfigured: Boolean(process.env.OPENAI_API_KEY?.trim()) },
+    services: {
+      // Vrai si OpenAI direct (OPENAI_API_KEY) OU un cloud OpenAI-compatible
+      // (AI_CLOUD_API_KEY + AI_CLOUD_BASE_URL) est configuré — les deux activent l'IA.
+      openaiConfigured: Boolean(
+        process.env.OPENAI_API_KEY?.trim() ||
+          (process.env.AI_CLOUD_API_KEY?.trim() && process.env.AI_CLOUD_BASE_URL?.trim()),
+      ),
+    },
     lastBackup: backup,
     pipeline: {
       pending: jobs.pending,
