@@ -24,24 +24,25 @@ export function NoGmailState({ oauthConfigured, needsReconnect }: NoGmailStatePr
           <Mail className="h-6 w-6" strokeWidth={1.75} aria-hidden="true" />
         </span>
         <p className="text-base font-extrabold" style={{ color: "var(--text-main)" }}>
-          {needsReconnect ? "Reconnectez votre compte Google" : "Connectez Gmail pour activer la messagerie"}
+          {needsReconnect ? "Reconnectez votre compte Google" : "Ajoutez une boîte mail pour activer la messagerie"}
         </p>
         <p className="mt-2 text-sm" style={{ color: "var(--text-muted)" }}>
           {needsReconnect
             ? "Votre session Google a expiré ou a été révoquée. Reconnectez le compte pour retrouver vos messages et pièces jointes — vos données GED restent intactes."
-            : "Gedify lit votre boîte de réception en lecture seule. Les tokens restent chiffrés côté serveur — aucun accès en écriture ne sera demandé tant que vous n'activez pas la phase d'envoi."}
+            : "Connectez un compte Google (OAuth, en 1 clic) ou un compte IMAP (détection automatique du serveur). Les identifiants restent chiffrés côté serveur."}
         </p>
 
-        {oauthConfigured ? (
-          <Link
-            href="/emails/connecter"
-            className="mt-4 inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-white transition hover:opacity-90"
-            style={{ background: "var(--blue-600)" }}
-          >
-            <Sparkles className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-            {needsReconnect ? "Reconnecter Gmail" : "Connecter Gmail"}
-          </Link>
-        ) : (
+        {/* Toujours proposer l'ajout : l'écran suivant offre Google ET IMAP manuel. */}
+        <Link
+          href="/emails/connecter"
+          className="mt-4 inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-white transition hover:opacity-90"
+          style={{ background: "var(--blue-600)" }}
+        >
+          <Sparkles className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+          {needsReconnect ? "Reconnecter / ajouter une boîte" : "Ajouter une boîte mails"}
+        </Link>
+
+        {!oauthConfigured && !needsReconnect ? (
           <div
             className="mt-4 rounded-xl p-3 text-left text-xs"
             style={{
@@ -52,17 +53,17 @@ export function NoGmailState({ oauthConfigured, needsReconnect }: NoGmailStatePr
           >
             <p className="flex items-center gap-2 font-bold">
               <ShieldCheck className="h-4 w-4" strokeWidth={2} />
-              OAuth Google non configuré
+              Connexion Google en 1 clic non configurée
             </p>
             <p className="mt-1 leading-snug">
-              Définissez sur le serveur : <code className="font-mono">GOOGLE_CLIENT_ID</code>,{" "}
+              Vous pouvez ajouter une boîte <b>IMAP manuellement</b> dès maintenant. Pour activer
+              <b> Google OAuth</b>, définissez sur le serveur <code className="font-mono">GOOGLE_CLIENT_ID</code>,{" "}
               <code className="font-mono">GOOGLE_CLIENT_SECRET</code>,{" "}
               <code className="font-mono">GOOGLE_REDIRECT_URI</code> et{" "}
-              <code className="font-mono">CONNECTOR_SECRET_KEY</code>. Une fois en place,
-              relancez l&apos;application.
+              <code className="font-mono">CONNECTOR_SECRET_KEY</code>.
             </p>
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

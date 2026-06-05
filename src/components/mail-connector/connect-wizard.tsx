@@ -74,9 +74,38 @@ export function ConnectMailWizard({
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [detecting, setDetecting] = useState(false);
+  const [detectMsg, setDetectMsg] = useState<string | null>(null);
 
   function updateDraft(patch: Partial<Draft>) {
     setDraft((current) => ({ ...current, ...patch }));
+  }
+
+  /** Auto-détecte le serveur IMAP depuis l'adresse email (table intégrée → ISPDB
+   *  Mozilla → repli imap.<domaine>). Préremplit hôte/port/chiffrement. */
+  async function autodetect(email: string) {
+    if (!email.includes("@") || !email.split("@")[1]?.includes(".")) return;
+    setDetecting(true);
+    setDetectMsg(null);
+    try {
+      const res = await fetch(`/api/mail-connector/autodetect?email=${encodeURIComponent(email.trim())}`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const body = (await res.json()) as { detect?: { imapHost: string; imapPort: number; encryption: MailEncryption; source: string } };
+      if (res.ok && body.detect) {
+        updateDraft({ imapHost: body.detect.imapHost, imapPort: body.detect.imapPort, encryption: body.detect.encryption });
+        setDetectMsg(
+          body.detect.source === "guess"
+            ? "Réglages estimés (imap.<domaine>) — vérifiez puis testez la connexion."
+            : "Serveur IMAP détecté automatiquement.",
+        );
+      }
+    } catch {
+      /* silencieux : l'utilisateur peut saisir manuellement */
+    } finally {
+      setDetecting(false);
+    }
   }
 
   function selectProvider(provider: MailProvider) {
@@ -299,11 +328,12 @@ export function ConnectMailWizard({
                 />
               </FormField>
               <div className="grid gap-4 sm:grid-cols-2">
-                <FormField label="Adresse email" required>
+                <FormField label="Adresse email" hint="À la sortie du champ, le serveur IMAP est détecté automatiquement." required>
                   <input
                     type="email"
                     value={draft.email}
                     onChange={(e) => updateDraft({ email: e.target.value, username: e.target.value })}
+                    onBlur={(e) => void autodetect(e.target.value)}
                     placeholder="vous@example.com"
                     className={formInputClass()}
                   />
@@ -343,6 +373,18 @@ export function ConnectMailWizard({
                   </button>
                 </div>
               </FormField>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void autodetect(draft.email)}
+                  disabled={detecting || !draft.email.includes("@")}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3 text-xs font-bold text-blue-700 transition hover:bg-blue-100 disabled:opacity-50"
+                >
+                  <Sparkles className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+                  {detecting ? "Détection…" : "Détecter le serveur automatiquement"}
+                </button>
+                {detectMsg ? <span className="text-xs font-semibold text-emerald-700">{detectMsg}</span> : null}
+              </div>
               <div className="grid gap-4 sm:grid-cols-3">
                 <FormField label="Serveur IMAP" required>
                   <input

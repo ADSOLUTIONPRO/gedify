@@ -1,4 +1,5 @@
-import { PenSquare, ShieldCheck } from "lucide-react";
+import Link from "next/link";
+import { PenSquare, ShieldCheck, Plus } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
 import { RightRailCard } from "@/components/ui/right-rail-card";
@@ -61,9 +62,17 @@ export default async function MessagerieParametresPage() {
           </SectionCard>
 
           <SectionCard
-            title={`Comptes Gmail connectés (${accounts.length})`}
-            description="Reconnectez (mise à jour sans doublon), supprimez ou ajoutez des comptes."
+            title={`Comptes mail connectés (${accounts.length})`}
+            description="Ajoutez un compte Google (OAuth) ou IMAP (détection automatique), reconnectez ou supprimez."
           >
+            <Link
+              href="/emails/connecter"
+              className="mb-4 inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-white transition hover:opacity-90"
+              style={{ background: "var(--blue-600)" }}
+            >
+              <Plus className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+              Ajouter une boîte mails
+            </Link>
             <GmailAccountsManager
               accounts={accounts.map((a) => ({ accountId: a.accountId, email: a.email, connectedAt: a.connectedAt }))}
             />
