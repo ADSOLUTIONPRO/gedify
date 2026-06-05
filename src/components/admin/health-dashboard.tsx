@@ -26,6 +26,7 @@ import {
   Unlink,
   FileX,
   Lock,
+  Workflow,
 } from "lucide-react";
 import { SectionCard } from "@/components/ui/section-card";
 import { StatCard } from "@/components/ui/stat-card";
@@ -83,6 +84,12 @@ type SecurityReport = {
   generatedAt: string;
 };
 
+type AutomationReport = {
+  workflows: { total: number; enabled: number; neverRun: number; lastRunAt: string | null };
+  recentActions: { at: string; user: string; action: string; target: string | null; result: "success" | "denied" | "error"; details: string | null }[];
+  generatedAt: string;
+};
+
 function formatBytes(n: number): string {
   if (!n) return "0 o";
   const units = ["o", "Ko", "Mo", "Go", "To"];
@@ -96,6 +103,7 @@ export function HealthDashboard() {
   const [health, setHealth] = useState<GedHealth | null>(null);
   const [integrity, setIntegrity] = useState<IntegrityReport | null>(null);
   const [security, setSecurity] = useState<SecurityReport | null>(null);
+  const [automation, setAutomation] = useState<AutomationReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -125,6 +133,14 @@ export function HealthDashboard() {
         if (sr.ok && !("error" in sdata)) setSecurity(sdata as SecurityReport);
       } catch {
         /* sécurité indisponible : ignorée */
+      }
+      // Automatisations & actions (non bloquant).
+      try {
+        const ar = await fetch("/api/admin/automation", { credentials: "include", cache: "no-store" });
+        const adata = (await ar.json()) as AutomationReport | { error: string };
+        if (ar.ok && !("error" in adata)) setAutomation(adata as AutomationReport);
+      } catch {
+        /* automatisation indisponible : ignorée */
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur inconnue");
@@ -351,6 +367,50 @@ export function HealthDashboard() {
           <p className="mt-3 text-[11px]" style={{ color: "var(--text-muted)" }}>
             Aucun secret affiché (présence seule). Détail en conteneur : <code>npm run gedify:security:inspect</code>.
           </p>
+        </SectionCard>
+      ) : null}
+
+      {/* Automatisations & actions groupées */}
+      {automation ? (
+        <SectionCard
+          icon={Workflow}
+          title="Automatisations & actions"
+          description="Règles/workflows et dernières actions groupées journalisées."
+        >
+          <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard label="Workflows" value={automation.workflows.total} helper="règles définies" icon={Workflow} tone="blue" />
+            <StatCard label="Actifs" value={automation.workflows.enabled} helper="activés" icon={Activity} tone={automation.workflows.enabled ? "emerald" : "slate"} />
+            <StatCard label="Jamais exécutés" value={automation.workflows.neverRun} helper="à tester" icon={AlertTriangle} tone={automation.workflows.neverRun ? "amber" : "emerald"} />
+            <StatCard label="Dernière exécution" value={automation.workflows.lastRunAt ? new Date(automation.workflows.lastRunAt).toLocaleDateString("fr-FR") : "—"} helper="workflow" icon={RefreshCw} tone="slate" />
+          </div>
+          <p className="mb-2 text-[12px] font-semibold" style={{ color: "var(--text-muted)" }}>
+            Dernières actions groupées / exécutions
+          </p>
+          {automation.recentActions.length === 0 ? (
+            <p className="text-[13px]" style={{ color: "var(--text-muted)" }}>Aucune action groupée journalisée pour le moment.</p>
+          ) : (
+            <ul className="divide-y rounded-xl border" style={{ borderColor: "var(--border)" }}>
+              {automation.recentActions.map((a, i) => (
+                <li key={`act-${i}`} className="flex items-center justify-between gap-3 px-3 py-2 text-[13px]">
+                  <span className="flex min-w-0 items-center gap-2">
+                    <StatusPill tone={a.result === "success" ? "emerald" : a.result === "denied" ? "amber" : "rose"} dot>
+                      {a.action}
+                    </StatusPill>
+                    <span className="truncate" style={{ color: "var(--text-muted)" }}>
+                      {a.target ?? ""}{a.details ? ` · ${a.details}` : ""}
+                    </span>
+                  </span>
+                  <span className="shrink-0 tabular-nums" style={{ color: "var(--text-muted)" }}>
+                    {a.user} · {new Date(a.at).toLocaleString("fr-FR")}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <SanteLink href="/actions/automatiques" label="Gérer les automatisations" />
+            <SanteLink href="/administration/roles" label="Journal d'audit" />
+          </div>
         </SectionCard>
       ) : null}
 
