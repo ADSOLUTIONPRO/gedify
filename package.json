@@ -43,6 +43,8 @@
     "gedify:security:inspect": "node scripts/gedify-security-doctor.mjs",
     "gedify:users:inspect": "node scripts/gedify-security-doctor.mjs --users",
     "gedify:tokens:inspect": "node scripts/gedify-security-doctor.mjs --tokens",
+    "gedify:finances:inspect": "node scripts/gedify-finances-doctor.mjs",
+    "gedify:finances:detect-duplicates": "node scripts/gedify-finances-doctor.mjs --detect-duplicates",
     "gedify:backup-json": "node scripts/gedify-backup-json.mjs",
     "gedify:migrate-json:dry-run": "node scripts/gedify-migrate-json.mjs --dry-run",
     "gedify:migrate-json": "node scripts/gedify-migrate-json.mjs"
