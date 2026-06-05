@@ -1,5 +1,6 @@
 import { Loader2 } from "lucide-react";
 import type { DocumentStatusesVM } from "@/components/documents/types";
+import { GedifyErrorHint } from "@/components/ui/gedify-error-hint";
 
 /**
  * Rangée compacte de badges d'état (OCR / IA xx % / Budget / Classé / À vérifier)
@@ -42,11 +43,14 @@ export function DocumentStatusBadges({
   statuses,
   busy = false,
   className,
+  onRetryAi,
 }: {
   statuses: DocumentStatusesVM;
   /** Une analyse IA est en cours pour ce document (état temps réel). */
   busy?: boolean;
   className?: string;
+  /** Si fourni, l'erreur IA devient un « ! » cliquable (cause/solution/relancer). */
+  onRetryAi?: () => void;
 }) {
   const { ocr, ai, confidencePct, budget, classified, learned, matchedLabel } = statuses;
 
@@ -67,7 +71,11 @@ export function DocumentStatusBadges({
           <Loader2 className="h-2.5 w-2.5 animate-spin" aria-hidden="true" /> IA…
         </Pill>
       ) : ai === "error" ? (
-        <Pill tone="red" title="Erreur d'analyse IA">IA erreur</Pill>
+        onRetryAi ? (
+          <GedifyErrorHint code="ai_failed" label="IA erreur" onRetry={onRetryAi} />
+        ) : (
+          <Pill tone="red" title="Erreur d'analyse IA">IA erreur</Pill>
+        )
       ) : ai === "none" ? (
         <Pill tone="slate" title="Document non analysé">IA —</Pill>
       ) : confidencePct != null ? (

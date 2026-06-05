@@ -93,7 +93,7 @@ export function DocumentRow({ doc, checked, active, onToggle, onActivate, action
             </span>
           ) : null}
         </div>
-        <DocumentStatusBadges statuses={doc.statuses} busy={aiBusy} className="mt-1" />
+        <DocumentStatusBadges statuses={doc.statuses} busy={aiBusy} className="mt-1" onRetryAi={() => actions.onAi(doc, "analyse")} />
         {doc.tags.length > 0 ? (
           <div className="mt-1 flex flex-wrap items-center gap-1">
             {doc.tags.slice(0, 3).map((tag) => (

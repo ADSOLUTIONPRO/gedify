@@ -123,7 +123,7 @@ export function DocumentSpaceCard({ doc, checked, active, onToggle, onActivate, 
           <StatusPill tone={status.tone} dot>
             {status.label}
           </StatusPill>
-          <DocumentStatusBadges statuses={doc.statuses} busy={aiBusy} />
+          <DocumentStatusBadges statuses={doc.statuses} busy={aiBusy} onRetryAi={() => actions.onAi(doc, "analyse")} />
         </div>
 
         {/* Confiance + montant */}
