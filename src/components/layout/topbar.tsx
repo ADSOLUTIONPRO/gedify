@@ -1,23 +1,12 @@
-import { Suspense } from "react";
 import Link from "next/link";
-import { Bell, ExternalLink, Search, Upload } from "lucide-react";
+import { ExternalLink, Search, Upload } from "lucide-react";
 import { AdministrationDropdown } from "@/components/navigation/administration-dropdown";
-import { AppLauncher } from "@/components/navigation/app-launcher";
 import { BrandLogo } from "@/components/ui/brand-logo";
 import { MobileSpaceMenu } from "@/components/layout/space-menu-sidebar";
 import { UserMenu } from "@/components/user-menu";
-import { ConnectionStatusBadge } from "@/components/ui/connection-status-badge";
+import { NotificationsBell } from "@/components/layout/notifications-bell";
 import { getPaperlessPublicUrl } from "@/lib/paperless";
 import { readSession } from "@/lib/auth/session";
-
-function ConnectionBadgeSkeleton() {
-  return (
-    <span className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold" style={{ borderColor: "var(--border)", color: "var(--text-hint)", background: "var(--surface)" }}>
-      <span className="h-2 w-2 rounded-full" style={{ background: "var(--border)" }} />
-      Vérification...
-    </span>
-  );
-}
 
 export async function Topbar() {
   const paperlessUrl = getPaperlessPublicUrl();
@@ -74,13 +63,6 @@ export async function Topbar() {
 
         {/* Droite */}
         <div className="ml-auto flex items-center gap-1.5">
-          {/* Badge Gedify connecté (v2 maquette) */}
-          <div className="hidden lg:block">
-            <Suspense fallback={<ConnectionBadgeSkeleton />}>
-              <ConnectionStatusBadge compact />
-            </Suspense>
-          </div>
-
           {/* Importer (masqué sur smartphone : accessible via Actions rapides) */}
           <Link
             href="/import"
@@ -111,24 +93,8 @@ export async function Topbar() {
             </a>
           ) : null}
 
-          {/* Lanceur d'applications */}
-          <AppLauncher />
-
-          {/* Notifications → rappels (visible aussi sur smartphone) */}
-          <Link
-            href="/rappels"
-            aria-label="Notifications"
-            title="Notifications"
-            className="relative inline-flex h-9 w-9 items-center justify-center rounded-xl border transition hover:bg-slate-50"
-            style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}
-          >
-            <Bell className="h-4 w-4" strokeWidth={1.75} />
-            <span
-              className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full"
-              style={{ background: "#E11D48" }}
-              aria-hidden="true"
-            />
-          </Link>
+          {/* Notifications (liste agrégée : rappels, erreurs, actions) */}
+          <NotificationsBell />
 
           {/* User */}
           <UserMenu initials={userInitials} username={username} />
