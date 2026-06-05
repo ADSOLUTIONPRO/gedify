@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { ChatMessage } from "./assistant-types";
+import { sanitizeForAi } from "@/lib/ai/sanitize-for-ai";
 
 /* ────────────────────────────────────────────────────────────────────────
    Boucle de tool-calling OpenAI (chat/completions). Réutilise la config cloud
@@ -125,7 +126,8 @@ export async function runAssistantLoop(opts: {
       } catch (e) {
         result = { error: e instanceof Error ? e.message : String(e) };
       }
-      messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result).slice(0, 8000) });
+      // Filet de sécurité : masque tout secret éventuel avant envoi à l'IA.
+      messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(sanitizeForAi(result)).slice(0, 8000) });
     }
   }
 
