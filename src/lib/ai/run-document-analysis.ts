@@ -302,7 +302,7 @@ async function finalizeAnalysis(
   const diagnostics: AnalysisDiagnostics = {
     ocrLength,
     provider: working.provider ?? process.env.AI_PROVIDER ?? "mock",
-    model: opts.mode === "cloud" ? (process.env.AI_CLOUD_MODEL ?? null) : (process.env.OLLAMA_MODEL ?? null),
+    model: opts.mode === "cloud" ? (process.env.AI_CLOUD_MODEL ?? process.env.OPENAI_MODEL ?? null) : (process.env.OLLAMA_MODEL ?? null),
     confidence: working.confidence,
     reason: diagnoseReason(working, ocrLength),
   };

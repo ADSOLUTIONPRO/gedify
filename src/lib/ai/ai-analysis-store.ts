@@ -57,7 +57,11 @@ async function readForDocumentIds(ids: number[]): Promise<AIAnalysis[]> {
 
 async function writeAll(items: AIAnalysis[]) {
   if (pgStorageActive()) {
-    await pgWriteAll<AIAnalysis>("document_ai_analyses", "id", (a) => a.id, items);
+    // document_id est NOT NULL en base → on le renseigne explicitement (le blob
+    // seul laisserait la colonne NULL → violation de contrainte).
+    await pgWriteAll<AIAnalysis>("document_ai_analyses", "id", (a) => a.id, items, "raw", [
+      { name: "document_id", valueOf: (a) => a.documentId },
+    ]);
     return;
   }
   await ensureDir();

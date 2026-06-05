@@ -9,7 +9,9 @@ import { parsePaySlipRichData, PAY_SLIP_CLOUD_PROMPT } from "./pay-slip-types";
 // ─── Config ──────────────────────────────────────────────────────────────────
 
 function getBaseUrl(): string {
-  return (process.env.AI_CLOUD_BASE_URL ?? "https://api.openai.com").replace(/\/+$/, "");
+  // Repli sur OPENAI_* : permet de n'utiliser QUE les variables OpenAI standard
+  // (OPENAI_API_KEY / OPENAI_BASE_URL / OPENAI_MODEL) sans configurer AI_CLOUD_*.
+  return (process.env.AI_CLOUD_BASE_URL ?? process.env.OPENAI_BASE_URL ?? "https://api.openai.com").replace(/\/+$/, "");
 }
 
 /**
@@ -24,11 +26,11 @@ function getChatCompletionsUrl(): string {
 }
 
 function getApiKey(): string | null {
-  return process.env.AI_CLOUD_API_KEY ?? null;
+  return process.env.AI_CLOUD_API_KEY ?? process.env.OPENAI_API_KEY ?? null;
 }
 
 function getModel(): string {
-  return process.env.AI_CLOUD_MODEL ?? "gpt-4o-mini";
+  return process.env.AI_CLOUD_MODEL ?? process.env.OPENAI_MODEL ?? "gpt-4o-mini";
 }
 
 /** Cloud timeout is separate from Ollama timeout. Default: 180s. */
@@ -61,7 +63,9 @@ function getCloudOcrMaxChars(): number {
 }
 
 export function isCloudProviderConfigured(): boolean {
-  return Boolean(getApiKey() && process.env.AI_CLOUD_BASE_URL);
+  // Configuré dès qu'une clé est présente (AI_CLOUD_* OU OPENAI_*) ; la base
+  // par défaut est https://api.openai.com.
+  return Boolean(getApiKey());
 }
 
 export function getCloudProviderConfig() {

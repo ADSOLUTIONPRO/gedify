@@ -58,9 +58,15 @@ export async function pgReadByJsonIds<T>(
   return rows.map((r) => r.blob as T);
 }
 
+/** Colonne « requêtable » supplémentaire à renseigner à l'écriture (ex. une
+ *  colonne NOT NULL comme document_ai_analyses.document_id, que le blob seul ne
+ *  remplit pas → violation de contrainte). */
+export type PgExtraColumn<T> = { name: string; valueOf: (item: T) => unknown };
+
 /**
- * Remplace l'état complet d'une table : upsert de chaque élément (idCol + blob)
- * puis suppression des lignes absentes, en transaction.
+ * Remplace l'état complet d'une table : upsert de chaque élément (idCol + blob,
+ * + colonnes `extraColumns` éventuelles) puis suppression des lignes absentes,
+ * en transaction. `extraColumns` est rétrocompatible (optionnel).
  */
 export async function pgWriteAll<T>(
   table: string,
@@ -68,19 +74,27 @@ export async function pgWriteAll<T>(
   idOf: (item: T) => string | number | null | undefined,
   items: T[],
   blobCol = "raw",
+  extraColumns?: PgExtraColumn<T>[],
 ): Promise<void> {
+  const extras = extraColumns ?? [];
   const pool = await getPool();
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
     const ids: (string | number)[] = [];
+    // Colonnes insérées : idCol, blobCol, puis les extras. Le SET du ON CONFLICT
+    // met à jour blobCol + extras (jamais idCol, clé de conflit).
+    const colNames = [idCol, blobCol, ...extras.map((c) => c.name)];
+    const colList = colNames.map((c) => `"${c}"`).join(", ");
+    const placeholders = colNames.map((_, i) => `$${i + 1}`).join(", ");
+    const updateSet = [blobCol, ...extras.map((c) => c.name)].map((c) => `"${c}" = EXCLUDED."${c}"`).join(", ");
     for (const item of items) {
       const id = idOf(item);
       if (id == null || id === "") continue;
       ids.push(id);
       await client.query(
-        `INSERT INTO "${table}"("${idCol}", "${blobCol}") VALUES($1, $2) ON CONFLICT("${idCol}") DO UPDATE SET "${blobCol}" = EXCLUDED."${blobCol}"`,
-        [id, JSON.stringify(item)],
+        `INSERT INTO "${table}"(${colList}) VALUES(${placeholders}) ON CONFLICT("${idCol}") DO UPDATE SET ${updateSet}`,
+        [id, JSON.stringify(item), ...extras.map((c) => c.valueOf(item))],
       );
     }
     if (ids.length > 0) {
