@@ -320,13 +320,15 @@ async function fileResponse(id: number, kind: "thumb" | "preview" | "download"):
       }
     }
     if (!thumb) return notFound("Vignette indisponible.");
-    // Miniature ~immuable par id : cache navigateur + revalidation par ETag.
-    // (id jamais réutilisé ; la longueur change si la miniature est régénérée.)
+    // `no-cache` : le navigateur REVALIDE à chaque affichage (If-None-Match).
+    // Inchangée → 304 sans corps (grille fluide). Régénérée → l'ETag (basé sur la
+    // taille) change → image fraîche. Évite la vignette périmée 1 h après une
+    // régénération manuelle (l'ancien max-age=3600 servait le cache sans revalider).
     return new Response(new Uint8Array(thumb), {
       status: 200,
       headers: {
         "Content-Type": "image/webp",
-        "Cache-Control": "private, max-age=3600, must-revalidate",
+        "Cache-Control": "private, no-cache, must-revalidate",
         ETag: `"t-${id}-${thumb.length}"`,
       },
     });

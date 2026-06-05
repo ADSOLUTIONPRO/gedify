@@ -46,6 +46,32 @@ type DocumentSpaceProps = {
   basePath?: string;
 };
 
+/**
+ * Attend la fin du job miniature d'un document (poll de /jobs) pour rafraîchir
+ * la vignette au bon moment. Renvoie l'issue ; n'échoue jamais (timeout borné).
+ */
+async function pollThumbnailJob(docId: number, jobId: string | null, timeoutMs = 30000): Promise<"done" | "failed" | "timeout"> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    await new Promise((r) => setTimeout(r, 1200));
+    try {
+      const res = await fetch(`/api/documents/${docId}/jobs`, { credentials: "include", cache: "no-store" });
+      if (!res.ok) continue;
+      const data = (await res.json()) as { jobs?: { id: string; type: string; status: string }[] };
+      const job = (data.jobs ?? []).find((j) => (jobId ? j.id === jobId : j.type === "thumbnail"));
+      if (job) {
+        if (job.status === "done" || job.status === "skipped") return "done";
+        if (job.status === "failed") return "failed";
+      } else if (jobId) {
+        return "done"; // job purgé de la liste → considéré terminé
+      }
+    } catch {
+      /* on continue à poller */
+    }
+  }
+  return "timeout";
+}
+
 export function DocumentSpace({
   docs,
   totalCount,
@@ -66,6 +92,9 @@ export function DocumentSpace({
   const router = useRouter();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<string | null>(null);
+  // Cache-bust par document : bumpé après régénération de miniature pour forcer
+  // le rechargement immédiat de la vignette (sans recharger la page).
+  const [thumbBust, setThumbBust] = useState<Record<number, number>>({});
   // Ancre pour la sélection par plage (Maj + clic sur une case).
   const lastIndexRef = useRef<number | null>(null);
   const [activeId, setActiveId] = useState<number | null>(docs[0]?.id ?? null);
@@ -202,11 +231,36 @@ export function DocumentSpace({
 
   const reanalyzeSelection = () => runBulk("Analyse IA", (id) => [`/api/documents/${id}/reanalyze`]);
   const redoOcrSelection = () => runBulk("OCR", (id) => [`/api/documents/${id}/redo-ocr`]);
-  const regenerateThumbnailSelection = () =>
-    runBulk("Miniature + aperçu", (id) => [
-      `/api/documents/${id}/regenerate-thumbnail`,
-      `/api/documents/${id}/regenerate-preview`,
-    ]);
+  // Régénération miniature/aperçu : enfile les jobs, ATTEND leur fin (poll), puis
+  // cache-bust la vignette → rafraîchissement immédiat dans la grille, sans reload.
+  const regenerateThumbnailSelection = async () => {
+    const targets = selectedDocs.length > 0 ? selectedDocs : activeDoc ? [activeDoc] : [];
+    if (targets.length === 0) return;
+    let done = 0;
+    let errors = 0;
+    setBulkStatus(`Miniature + aperçu : 0/${targets.length}…`);
+    for (const doc of targets) {
+      let jobId: string | null = null;
+      try {
+        const res = await fetch(`/api/documents/${doc.id}/regenerate-thumbnail`, { method: "POST", credentials: "include" });
+        const data = (await res.json().catch(() => ({}))) as { jobId?: string | null };
+        jobId = data.jobId ?? null;
+        void fetch(`/api/documents/${doc.id}/regenerate-preview`, { method: "POST", credentials: "include" }).catch(() => {});
+      } catch {
+        /* enfilement échoué : on tente quand même le poll/bust */
+      }
+      setBulkStatus(`Miniature + aperçu : ${done}/${targets.length}… (génération #${doc.id})`);
+      const outcome = await pollThumbnailJob(doc.id, jobId);
+      if (outcome === "failed") errors += 1;
+      // Nouvelle URL de vignette (?v=) → la carte recharge l'image fraîche.
+      setThumbBust((prev) => ({ ...prev, [doc.id]: Date.now() }));
+      done += 1;
+      setBulkStatus(`Miniature + aperçu : ${done}/${targets.length}…${errors ? ` · ${errors} erreur(s)` : ""}`);
+    }
+    setBulkStatus(`✓ Miniatures régénérées — ${done}/${targets.length}${errors ? ` · ${errors} erreur(s)` : ""}.`);
+    router.refresh();
+    setTimeout(() => setBulkStatus(null), 6000);
+  };
 
   async function deleteSelection() {
     setDeleting(true);
@@ -236,9 +290,21 @@ export function DocumentSpace({
     onDelete: (d) => setDocToDelete(d),
   };
 
+  // Vignettes avec cache-bust appliqué (après régénération) — n'affecte QUE l'URL
+  // d'image affichée, jamais la logique de sélection (qui reste sur `docs`).
+  const displayDocs = useMemo(
+    () =>
+      docs.map((d) =>
+        thumbBust[d.id]
+          ? { ...d, thumbUrl: `${d.thumbUrl}${d.thumbUrl.includes("?") ? "&" : "?"}v=${thumbBust[d.id]}` }
+          : d,
+      ),
+    [docs, thumbBust],
+  );
+
   const cards = (
     <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(240px,1fr))]">
-      {docs.map((doc) => (
+      {displayDocs.map((doc) => (
         <DocumentSpaceCard
           key={doc.id}
           doc={doc}
@@ -338,7 +404,7 @@ export function DocumentSpace({
               <>
                 <div className="hidden md:block">
                   <DocumentList
-                    docs={docs}
+                    docs={displayDocs}
                     selectedIds={selectedIds}
                     activeId={activeId}
                     onToggle={toggle}

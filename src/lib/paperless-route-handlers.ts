@@ -133,7 +133,9 @@ export async function proxyDocumentFileGet(
       });
       const etag = response.headers.get("etag");
       const cacheHeaders: Record<string, string> = {
-        "Cache-Control": "private, max-age=3600, must-revalidate",
+        // `no-cache` : revalidation systématique (304 si inchangée). Une miniature
+        // régénérée (ETag différent) est alors servie fraîche, sans attendre 1 h.
+        "Cache-Control": "private, no-cache, must-revalidate",
       };
       if (etag) cacheHeaders.ETag = etag;
       // Le navigateur a déjà la bonne version → 304 sans corps.
