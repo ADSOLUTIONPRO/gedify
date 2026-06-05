@@ -18,11 +18,13 @@ import { DocumentAiResultDialog } from "@/components/documents/document-ai-resul
 import { BulkAnalyzeDialog } from "@/components/documents/bulk-analyze-dialog";
 import type { DocumentVM } from "@/components/documents/types";
 import { ConfirmActionDialog } from "@/components/ui/confirm-action-dialog";
+import { GedifyProgressModal } from "@/components/ui/gedify-progress-modal";
+import { useGedifyProgress } from "@/lib/hooks/use-gedify-progress";
 import { setAssistantOverrides, clearAssistantOverrides } from "@/components/ai-assistant/assistant-context-provider";
 import { openComposer } from "@/lib/messaging/mail-composer-store";
 import { fetchCurrentUser } from "@/lib/documents/document-quick-edit";
 import { ANALYSIS_ACTIONS, logAiAction, runAiAction, type AiActionId, type AiActionResult } from "@/lib/documents/document-ai";
-import { CheckSquare, Loader2, Sparkles, Square } from "lucide-react";
+import { CheckSquare, Sparkles, Square } from "lucide-react";
 
 type Option = { id: number | string; name: string };
 
@@ -91,7 +93,8 @@ export function DocumentSpace({
 }: DocumentSpaceProps) {
   const router = useRouter();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-  const [bulkStatus, setBulkStatus] = useState<string | null>(null);
+  // Modale de progression commune (miniature/OCR/IA groupés).
+  const progress = useGedifyProgress();
   // Cache-bust par document : bumpé après régénération de miniature pour forcer
   // le rechargement immédiat de la vignette (sans recharger la page).
   const [thumbBust, setThumbBust] = useState<Record<number, number>>({});
@@ -211,56 +214,59 @@ export function DocumentSpace({
     });
   }
 
-  // Exécute une action groupée avec progression (X/N), puis rafraîchit.
-  async function runBulk(label: string, makeUrls: (id: number) => string[]) {
+  // Action groupée longue pilotée par la modale de progression commune
+  // (GedifyProgressModal). Pour la miniature : attend la fin du job puis
+  // cache-bust la vignette → rafraîchissement immédiat. Erreurs → GedifyErrorHint.
+  const runBulkProgress = async (opts: {
+    title: string;
+    errorCode: string;
+    makeUrls: (id: number) => string[];
+    pollThumbnail?: boolean;
+  }) => {
     const targets = selectedDocs.length > 0 ? selectedDocs : activeDoc ? [activeDoc] : [];
     if (targets.length === 0) return;
-    let done = 0;
-    setBulkStatus(`${label} : 0/${targets.length}…`);
+    progress.setRetry(() => void runBulkProgress(opts));
+    progress.start({ title: opts.title, total: targets.length });
     for (const doc of targets) {
-      await Promise.all(
-        makeUrls(doc.id).map((u) => fetch(u, { method: "POST", credentials: "include" }).catch(() => {})),
-      );
-      done += 1;
-      setBulkStatus(`${label} : ${done}/${targets.length}…`);
-    }
-    setBulkStatus(`✓ ${label} — ${targets.length} document(s) en traitement.`);
-    router.refresh();
-    setTimeout(() => setBulkStatus(null), 6000);
-  }
-
-  const reanalyzeSelection = () => runBulk("Analyse IA", (id) => [`/api/documents/${id}/reanalyze`]);
-  const redoOcrSelection = () => runBulk("OCR", (id) => [`/api/documents/${id}/redo-ocr`]);
-  // Régénération miniature/aperçu : enfile les jobs, ATTEND leur fin (poll), puis
-  // cache-bust la vignette → rafraîchissement immédiat dans la grille, sans reload.
-  const regenerateThumbnailSelection = async () => {
-    const targets = selectedDocs.length > 0 ? selectedDocs : activeDoc ? [activeDoc] : [];
-    if (targets.length === 0) return;
-    let done = 0;
-    let errors = 0;
-    setBulkStatus(`Miniature + aperçu : 0/${targets.length}…`);
-    for (const doc of targets) {
-      let jobId: string | null = null;
-      try {
-        const res = await fetch(`/api/documents/${doc.id}/regenerate-thumbnail`, { method: "POST", credentials: "include" });
-        const data = (await res.json().catch(() => ({}))) as { jobId?: string | null };
-        jobId = data.jobId ?? null;
-        void fetch(`/api/documents/${doc.id}/regenerate-preview`, { method: "POST", credentials: "include" }).catch(() => {});
-      } catch {
-        /* enfilement échoué : on tente quand même le poll/bust */
+      progress.setStep(`Document #${doc.id} — ${doc.displayTitle}`);
+      let ok = true;
+      let lastErr = "";
+      for (const url of opts.makeUrls(doc.id)) {
+        const isPreview = opts.pollThumbnail && url.includes("regenerate-preview");
+        try {
+          const res = await fetch(url, { method: "POST", credentials: "include" });
+          if (isPreview) continue; // aperçu : best-effort, ne fait pas échouer le doc
+          if (!res.ok) { ok = false; lastErr = `HTTP ${res.status}`; continue; }
+          if (opts.pollThumbnail && url.includes("regenerate-thumbnail")) {
+            const data = (await res.json().catch(() => ({}))) as { jobId?: string | null };
+            const outcome = await pollThumbnailJob(doc.id, data.jobId ?? null);
+            if (outcome === "failed") { ok = false; lastErr = "Job miniature en échec"; }
+          }
+        } catch (e) {
+          if (isPreview) continue;
+          ok = false;
+          lastErr = e instanceof Error ? e.message : String(e);
+        }
       }
-      setBulkStatus(`Miniature + aperçu : ${done}/${targets.length}… (génération #${doc.id})`);
-      const outcome = await pollThumbnailJob(doc.id, jobId);
-      if (outcome === "failed") errors += 1;
-      // Nouvelle URL de vignette (?v=) → la carte recharge l'image fraîche.
-      setThumbBust((prev) => ({ ...prev, [doc.id]: Date.now() }));
-      done += 1;
-      setBulkStatus(`Miniature + aperçu : ${done}/${targets.length}…${errors ? ` · ${errors} erreur(s)` : ""}`);
+      if (opts.pollThumbnail) setThumbBust((prev) => ({ ...prev, [doc.id]: Date.now() }));
+      if (ok) progress.bumpSucceeded();
+      else progress.bumpFailed(lastErr, opts.errorCode);
     }
-    setBulkStatus(`✓ Miniatures régénérées — ${done}/${targets.length}${errors ? ` · ${errors} erreur(s)` : ""}.`);
+    progress.finish();
     router.refresh();
-    setTimeout(() => setBulkStatus(null), 6000);
   };
+
+  const reanalyzeSelection = () =>
+    runBulkProgress({ title: "Analyse IA", errorCode: "ai_failed", makeUrls: (id) => [`/api/documents/${id}/reanalyze`] });
+  const redoOcrSelection = () =>
+    runBulkProgress({ title: "Relancer l'OCR", errorCode: "ocr_failed", makeUrls: (id) => [`/api/documents/${id}/redo-ocr`] });
+  const regenerateThumbnailSelection = () =>
+    runBulkProgress({
+      title: "Régénération miniature + aperçu",
+      errorCode: "thumbnail_generation_failed",
+      pollThumbnail: true,
+      makeUrls: (id) => [`/api/documents/${id}/regenerate-thumbnail`, `/api/documents/${id}/regenerate-preview`],
+    });
 
   async function deleteSelection() {
     setDeleting(true);
@@ -383,17 +389,6 @@ export function DocumentSpace({
             paperlessUrl={paperlessUrl}
             firstDocId={primary?.id ?? null}
           />
-
-          {bulkStatus ? (
-            <div
-              className="flex items-center gap-2 rounded-xl border px-3 py-2 text-[13px] font-semibold"
-              style={{ borderColor: "var(--blue-600)", background: "rgba(11,92,255,0.06)", color: "var(--blue-600)" }}
-              role="status"
-            >
-              <Loader2 className={`h-4 w-4 ${bulkStatus.startsWith("✓") ? "" : "animate-spin"}`} strokeWidth={2} />
-              {bulkStatus}
-            </div>
-          ) : null}
 
           <div className="overflow-hidden rounded-2xl bg-white" style={{ boxShadow: "var(--shadow-card)" }}>
             {docs.length === 0 ? (
@@ -537,6 +532,9 @@ export function DocumentSpace({
           onDone={() => router.refresh()}
         />
       ) : null}
+
+      {/* Progression commune (miniature / OCR / IA groupés) */}
+      <GedifyProgressModal data={progress.data} onClose={progress.close} onRetry={progress.retry} />
     </>
   );
 }
