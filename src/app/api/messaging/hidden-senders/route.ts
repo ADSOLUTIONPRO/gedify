@@ -1,6 +1,7 @@
 import "server-only";
 
 import { NextResponse, type NextRequest } from "next/server";
+import { recordAudit } from "@/lib/audit/audit-store";
 import {
   listHiddenSenders,
   hideSender,
@@ -27,6 +28,7 @@ export async function POST(request: NextRequest) {
   // Masquage en masse
   if (Array.isArray(body.bulk) && body.bulk.length > 0) {
     const result = await hideSendersBulk(body.bulk);
+    await recordAudit({ action: "mail.sender.hide", target: `${body.bulk.length} expéditeur(s)`, details: "masquage en masse" });
     return NextResponse.json({ ok: true, ...result });
   }
 
@@ -35,6 +37,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "email requis." }, { status: 400 });
   }
   const sender = await hideSender(body.email, body.displayName ?? null, body.reason ?? null);
+  await recordAudit({ action: "mail.sender.hide", target: body.email.replace(/^(.).*(@.*)$/, "$1***$2") });
   return NextResponse.json({ ok: true, sender });
 }
 

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { jsonError } from "@/lib/api-utils";
+import { recordAudit } from "@/lib/audit/audit-store";
 import {
   deleteGmailTokens,
   getGmailRefreshToken,
@@ -32,6 +33,11 @@ export async function POST(request: NextRequest) {
     } else {
       await updateAccount(body.accountId, { isActive: false });
     }
+    await recordAudit({
+      action: "mail.account.disconnect",
+      target: `#${body.accountId}`,
+      details: body.deleteAccount ? "compte supprimé + token révoqué" : "désactivé + token révoqué",
+    });
     return NextResponse.json({ ok: true });
   } catch (error) {
     return jsonError("Déconnexion Gmail impossible", error);

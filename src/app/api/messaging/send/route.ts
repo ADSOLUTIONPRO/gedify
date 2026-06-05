@@ -2,6 +2,7 @@ import "server-only";
 
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAuth } from "@/lib/auth/require-auth";
+import { recordAudit } from "@/lib/audit/audit-store";
 import { jsonError } from "@/lib/api-utils";
 import { getActiveGmailAccount } from "@/lib/messaging/active-gmail-account";
 import { sendGmailMessage, deleteGmailDraft, type EmailAttachment } from "@/lib/connectors/gmail/gmail-api";
@@ -114,6 +115,13 @@ export async function POST(request: NextRequest) {
         ),
       );
     }
+
+    // Journalisation de l'envoi (Partie 12 §30). Destinataire masqué, jamais le corps.
+    await recordAudit({
+      action: "mail.send",
+      target: body.to.replace(/^(.).*(@.*)$/, "$1***$2"),
+      details: `${attachments.length} pièce(s) jointe(s)${docIds.length ? `, ${docIds.length} doc GED` : ""}`,
+    });
 
     return NextResponse.json({ ok: true, message });
   } catch (error) {

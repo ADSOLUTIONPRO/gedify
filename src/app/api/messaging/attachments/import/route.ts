@@ -2,6 +2,7 @@ import "server-only";
 
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAuth } from "@/lib/auth/require-auth";
+import { recordAudit } from "@/lib/audit/audit-store";
 import { jsonError } from "@/lib/api-utils";
 import { getActiveGmailAccount } from "@/lib/messaging/active-gmail-account";
 import { getGmailAttachment } from "@/lib/connectors/gmail/gmail-api";
@@ -114,6 +115,12 @@ export async function POST(request: NextRequest) {
       documentTitle: body.filename,
       paperlessDocumentId: documentId,
       errorMessage: null,
+    });
+
+    await recordAudit({
+      action: "mail.attachment.import",
+      target: body.filename,
+      details: `pièce jointe importée vers la GED${documentId ? ` (doc #${documentId})` : ""}`,
     });
 
     return NextResponse.json({
