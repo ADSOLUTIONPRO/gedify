@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { jsonError } from "@/lib/api-utils";
+import { recordAudit } from "@/lib/audit/audit-store";
 import { recordPayment } from "@/lib/budget/financial-item-store";
 
 export const runtime = "nodejs";
@@ -18,6 +19,7 @@ export async function POST(request: NextRequest, ctx: Ctx) {
     }
     const item = await recordPayment(id, body.amount, body.date);
     if (!item) return NextResponse.json({ error: "Introuvable" }, { status: 404 });
+    await recordAudit({ action: "budget.item.payment", target: `#${id}`, details: `paiement enregistré · statut=${item.status}` });
     return NextResponse.json({ item });
   } catch (error) {
     return jsonError("Impossible d'enregistrer le paiement", error);
