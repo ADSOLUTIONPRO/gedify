@@ -32,6 +32,33 @@ export async function pgReadAll<T>(table: string, idCol = "id", blobCol = "raw")
 }
 
 /**
+ * Lit UNIQUEMENT les lignes dont la clé JSON `jsonKey` (lue dans la colonne blob
+ * — source de vérité, toujours à jour) appartient à `ids`. Évite de transférer
+ * toute la table quand on ne cible qu'une page de documents (perf Partie 9).
+ *
+ * On filtre sur le blob (et non sur les colonnes requêtables document_id/
+ * source_document_id) car `pgWriteAll` ne maintient que `id` + blob : ces
+ * colonnes peuvent être nulles après une écriture applicative. `jsonKey` est une
+ * constante interne (jamais une entrée utilisateur). Sans index dédié, Postgres
+ * fait un seq scan côté serveur mais ne transfère/parse que les lignes ciblées
+ * (≈ une page) au lieu de toute la table — gain net réseau + CPU applicatif.
+ */
+export async function pgReadByJsonIds<T>(
+  table: string,
+  jsonKey: string,
+  ids: number[],
+  blobCol = "raw",
+): Promise<T[]> {
+  if (ids.length === 0) return [];
+  const pool = await getPool();
+  const { rows } = await pool.query(
+    `SELECT "${blobCol}" AS blob FROM "${table}" WHERE ("${blobCol}"->>'${jsonKey}')::bigint = ANY($1::bigint[])`,
+    [ids],
+  );
+  return rows.map((r) => r.blob as T);
+}
+
+/**
  * Remplace l'état complet d'une table : upsert de chaque élément (idCol + blob)
  * puis suppression des lignes absentes, en transaction.
  */

@@ -3,7 +3,7 @@ import "server-only";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { pgStorageActive, jsonFallback, pgReadAll, pgWriteAll } from "@/lib/db/pg-store";
+import { pgStorageActive, jsonFallback, pgReadAll, pgReadByJsonIds, pgWriteAll } from "@/lib/db/pg-store";
 import { getBudgetDataDir } from "./storage";
 import { classifyDueDate, toBudgetYear } from "./budget-periods";
 import {
@@ -40,6 +40,22 @@ async function readAll(): Promise<FinancialItem[]> {
     } catch (e) {
       if (jsonFallback()) return readAllJson();
       throw e;
+    }
+  }
+  return readAllJson();
+}
+
+/**
+ * Lit les lignes budget des seuls documents `ids` (pushdown SQL en mode
+ * Postgres). Repli sûr sur la lecture complète si le pushdown échoue — le
+ * filtrage final en mémoire garantit la correction.
+ */
+async function readForDocumentIds(ids: number[]): Promise<FinancialItem[]> {
+  if (pgStorageActive()) {
+    try {
+      return await pgReadByJsonIds<FinancialItem>("budget_entries", "sourceDocumentId", ids);
+    } catch {
+      return readAll();
     }
   }
   return readAllJson();
@@ -155,7 +171,7 @@ export type ListFinancialItemsOptions = {
 export async function listFinancialItems(
   options: ListFinancialItemsOptions = {},
 ): Promise<FinancialItem[]> {
-  const all = await readAll();
+  const all = options.documentIds ? await readForDocumentIds(options.documentIds) : await readAll();
   let filtered = all;
   if (options.status) filtered = filtered.filter((e) => e.status === options.status);
   if (options.validationStatus)

@@ -3,7 +3,7 @@ import "server-only";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { pgStorageActive, jsonFallback, pgReadAll, pgWriteAll } from "@/lib/db/pg-store";
+import { pgStorageActive, jsonFallback, pgReadAll, pgReadByJsonIds, pgWriteAll } from "@/lib/db/pg-store";
 import { getAiDataDir } from "@/lib/budget/storage";
 import type { AIAnalysis, AIAnalysisInput, AIAnalysisStatus } from "./types";
 
@@ -39,6 +39,22 @@ async function readAll(): Promise<AIAnalysis[]> {
   return readAllJson();
 }
 
+/**
+ * Lit les analyses des seuls documents `ids` (pushdown SQL en mode Postgres).
+ * Repli sûr sur la lecture complète si le pushdown échoue — le filtrage final en
+ * mémoire garantit la correction quelle que soit la voie de lecture.
+ */
+async function readForDocumentIds(ids: number[]): Promise<AIAnalysis[]> {
+  if (pgStorageActive()) {
+    try {
+      return await pgReadByJsonIds<AIAnalysis>("document_ai_analyses", "documentId", ids);
+    } catch {
+      return readAll();
+    }
+  }
+  return readAllJson();
+}
+
 async function writeAll(items: AIAnalysis[]) {
   if (pgStorageActive()) {
     await pgWriteAll<AIAnalysis>("document_ai_analyses", "id", (a) => a.id, items);
@@ -56,7 +72,7 @@ export type ListOptions = {
 };
 
 export async function listAnalyses(options: ListOptions = {}): Promise<AIAnalysis[]> {
-  const all = await readAll();
+  const all = options.documentIds ? await readForDocumentIds(options.documentIds) : await readAll();
   const idSet = options.documentIds ? new Set(options.documentIds) : null;
   return all
     .filter((entry) => (options.status ? entry.status === options.status : true))
