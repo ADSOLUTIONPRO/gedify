@@ -29,6 +29,8 @@ import {
   Workflow,
   Wallet,
   Copy,
+  Mail,
+  Paperclip,
 } from "lucide-react";
 import { SectionCard } from "@/components/ui/section-card";
 import { StatCard } from "@/components/ui/stat-card";
@@ -104,6 +106,19 @@ type FinancesReport = {
   generatedAt: string;
 };
 
+type MailReport = {
+  accounts: { total: number; active: number; withError: number };
+  lastSyncAt: string | null;
+  syncErrors: number;
+  tokensExpired: number;
+  links: { total: number; imported: number; pending: number; error: number };
+  contacts: number;
+  hiddenSenders: number;
+  suppressedAttachments: number;
+  scheduledDrafts: number;
+  generatedAt: string;
+};
+
 function formatBytes(n: number): string {
   if (!n) return "0 o";
   const units = ["o", "Ko", "Mo", "Go", "To"];
@@ -119,6 +134,7 @@ export function HealthDashboard() {
   const [security, setSecurity] = useState<SecurityReport | null>(null);
   const [automation, setAutomation] = useState<AutomationReport | null>(null);
   const [finances, setFinances] = useState<FinancesReport | null>(null);
+  const [mail, setMail] = useState<MailReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -164,6 +180,14 @@ export function HealthDashboard() {
         if (fr.ok && !("error" in fdata)) setFinances(fdata as FinancesReport);
       } catch {
         /* finances indisponibles : ignorées */
+      }
+      // Messagerie (non bloquant).
+      try {
+        const mr = await fetch("/api/admin/mail", { credentials: "include", cache: "no-store" });
+        const mdata = (await mr.json()) as MailReport | { error: string };
+        if (mr.ok && !("error" in mdata)) setMail(mdata as MailReport);
+      } catch {
+        /* messagerie indisponible : ignorée */
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur inconnue");
@@ -463,6 +487,34 @@ export function HealthDashboard() {
           <p className="mt-3 text-[11px]" style={{ color: "var(--text-muted)" }}>
             Détail / doublons en conteneur : <code>npm run gedify:finances:inspect</code>.
           </p>
+        </SectionCard>
+      ) : null}
+
+      {/* Messagerie (affichée uniquement si au moins un compte mail) */}
+      {mail && mail.accounts.total > 0 ? (
+        <SectionCard
+          icon={Mail}
+          title="Messagerie"
+          description="Comptes, synchronisation, liens mail↔document — aucun token affiché."
+        >
+          <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard label="Comptes" value={`${mail.accounts.active}/${mail.accounts.total}`} helper="actifs" icon={Mail} tone={mail.accounts.withError ? "amber" : "emerald"} />
+            <StatCard label="Tokens expirés" value={mail.tokensExpired} helper="reconnexion" icon={Lock} tone={mail.tokensExpired ? "rose" : "emerald"} />
+            <StatCard label="Liens mail↔doc" value={mail.links.total} helper={`${mail.links.imported} importés`} icon={Paperclip} tone="blue" />
+            <StatCard label="Brouillons programmés" value={mail.scheduledDrafts} helper="à envoyer" icon={Activity} tone={mail.scheduledDrafts ? "amber" : "slate"} />
+          </div>
+          <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-[12px]" style={{ color: "var(--text-muted)" }}>
+            <span>Erreurs de sync : <strong>{mail.syncErrors}</strong></span>
+            <span>Liens en attente : <strong>{mail.links.pending}</strong></span>
+            <span>Contacts : <strong>{mail.contacts}</strong></span>
+            <span>Expéditeurs masqués : <strong>{mail.hiddenSenders}</strong></span>
+            <span>PJ supprimées : <strong>{mail.suppressedAttachments}</strong></span>
+            <span>Dernier sync : <strong>{mail.lastSyncAt ? new Date(mail.lastSyncAt).toLocaleString("fr-FR") : "—"}</strong></span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <SanteLink href="/messagerie" label="Ouvrir la messagerie" />
+            <SanteLink href="/emails/comptes" label="Comptes mail" />
+          </div>
         </SectionCard>
       ) : null}
 
