@@ -24,6 +24,7 @@ const entries = [
   ["scripts/diagnostic-doctor.ts", "scripts/gedify-diagnostic-doctor.mjs"],
   ["scripts/security-doctor.ts", "scripts/gedify-security-doctor.mjs"],
   ["scripts/finances-doctor.ts", "scripts/gedify-finances-doctor.mjs"],
+  ["scripts/mails-doctor.ts", "scripts/gedify-mails-doctor.mjs"],
   ["scripts/backup-json.ts", "scripts/gedify-backup-json.mjs"],
   ["scripts/migrate-json.ts", "scripts/gedify-migrate-json.mjs"],
   ["scripts/db-push.ts", "scripts/gedify-db-push.mjs"],
