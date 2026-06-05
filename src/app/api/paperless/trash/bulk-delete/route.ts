@@ -2,6 +2,7 @@ import "server-only";
 
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAuth } from "@/lib/auth/require-auth";
+import { recordAudit } from "@/lib/audit/audit-store";
 import { paperlessFetch } from "@/lib/paperless";
 import { cleanupDocumentData } from "@/lib/documents/cleanup-document-data";
 
@@ -60,6 +61,14 @@ export async function POST(request: NextRequest) {
 
   const succeeded = results.filter((r) => r.ok).length;
   const failed = results.filter((r) => !r.ok).length;
+
+  // Journalisation de la suppression DÉFINITIVE groupée (Partie 6 — action destructive).
+  await recordAudit({
+    action: "documents.trash.bulk_delete",
+    target: `${succeeded}/${documentIds.length} document(s)`,
+    result: failed === 0 ? "success" : succeeded > 0 ? "success" : "error",
+    details: `Suppression définitive · nettoyage: ${cleanupTotals.aiAnalyses} IA, ${cleanupTotals.financialItems} budget, ${cleanupTotals.reminders} rappels, ${cleanupTotals.actions} actions`,
+  });
 
   return NextResponse.json({ ok: failed === 0, succeeded, failed, results, cleanup: cleanupTotals });
 }

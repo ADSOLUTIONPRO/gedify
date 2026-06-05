@@ -2,6 +2,7 @@ import "server-only";
 
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAuth } from "@/lib/auth/require-auth";
+import { recordAudit } from "@/lib/audit/audit-store";
 import { getFinancialItem, deleteFinancialItem } from "@/lib/budget/financial-item-store";
 
 export const runtime = "nodejs";
@@ -38,6 +39,12 @@ export async function POST(request: NextRequest) {
     await deleteFinancialItem(id);
     deleted++;
   }
+
+  await recordAudit({
+    action: "budget.bulk_delete",
+    target: `${deleted} ligne(s)`,
+    details: `${deleted} supprimée(s), ${skipped} ignorée(s) (validées/payées préservées)`,
+  });
 
   return NextResponse.json({ ok: true, deleted, skipped });
 }

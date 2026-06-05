@@ -2,6 +2,7 @@ import "server-only";
 
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAuth } from "@/lib/auth/require-auth";
+import { recordAudit } from "@/lib/audit/audit-store";
 import { deleteAnalysis } from "@/lib/ai/ai-analysis-store";
 import { listDetectedInfos, deleteDetectedInfo } from "@/lib/ai/detected-info-store";
 
@@ -39,6 +40,12 @@ export async function POST(request: NextRequest) {
       }
     }
   }
+
+  await recordAudit({
+    action: "ai.analyses.bulk_delete",
+    target: `${deletedAnalyses} analyse(s)`,
+    details: `${deletedAnalyses} analyse(s) + ${deletedInfos} info(s) détectée(s) supprimées`,
+  });
 
   return NextResponse.json({ ok: true, deletedAnalyses, deletedInfos });
 }

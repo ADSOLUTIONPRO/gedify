@@ -2,6 +2,7 @@ import "server-only";
 
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAuth } from "@/lib/auth/require-auth";
+import { recordAudit } from "@/lib/audit/audit-store";
 import { getDocument, updateDocument } from "@/lib/paperless";
 import { listProjectFolders } from "@/lib/projects/project-store";
 
@@ -119,5 +120,21 @@ export async function POST(request: NextRequest) {
   }
 
   if (result.failed > 0) result.ok = result.updated > 0;
+
+  // Journalisation de l'action groupée (Partie 6 — traçabilité). Best-effort.
+  const ops: string[] = [];
+  if (patch.correspondentOp === "replace" || patch.correspondentOp === "clear") ops.push("correspondant");
+  if (patch.typeOp === "replace" || patch.typeOp === "clear") ops.push("type");
+  if (patch.tagOp) ops.push(`tags(${patch.tagOp})`);
+  if (patch.createdOp === "replace" || patch.createdOp === "clear") ops.push("date");
+  if (patch.asnOp === "replace" || patch.asnOp === "clear") ops.push("ASN");
+  if (patch.notesOp === "replace") ops.push("notes");
+  await recordAudit({
+    action: "documents.bulk_update",
+    target: `${body.documentIds.length} document(s)`,
+    result: result.failed > 0 ? (result.updated > 0 ? "success" : "error") : "success",
+    details: `${result.updated} modifié(s), ${result.failed} échec(s)${ops.length ? ` — ${ops.join(", ")}` : ""}`,
+  });
+
   return NextResponse.json(result);
 }

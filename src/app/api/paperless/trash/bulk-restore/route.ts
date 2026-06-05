@@ -2,6 +2,7 @@ import "server-only";
 
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAuth } from "@/lib/auth/require-auth";
+import { recordAudit } from "@/lib/audit/audit-store";
 import { jsonError } from "@/lib/api-utils";
 import { paperlessFetch } from "@/lib/paperless";
 
@@ -31,6 +32,11 @@ export async function POST(request: NextRequest) {
     const data = await paperlessFetch<unknown>("/api/trash/", {
       method: "POST",
       body: { action: "restore", documents: documentIds.map(Number) },
+    });
+    await recordAudit({
+      action: "documents.trash.bulk_restore",
+      target: `${documentIds.length} document(s)`,
+      details: "Restauration depuis la corbeille",
     });
     return NextResponse.json({ ok: true, restored: documentIds.length, data: data ?? null });
   } catch (error) {
