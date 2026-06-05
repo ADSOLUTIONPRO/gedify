@@ -92,7 +92,11 @@ function main() {
   // ── Alertes ─────────────────────────────────────────────────────────────
   const warnings: string[] = [];
   const errors: string[] = [];
+  if (process.env.GEDIFY_LOCAL_NO_AUTH === "1")
+    errors.push("GEDIFY_LOCAL_NO_AUTH=1 : authentification désactivée — à retirer sur un serveur en ligne.");
   if (env.AUTH_SECRET === "absent") errors.push("AUTH_SECRET absent — définissez-le pour des sessions stables.");
+  else if ((process.env.AUTH_SECRET ?? "").length < 32)
+    warnings.push("AUTH_SECRET court (< 32 caractères) — préférez une valeur longue et aléatoire.");
   if (env.GEDIFY_STORAGE_MODE === "postgres" && env.DATABASE_URL === "absent")
     errors.push("Mode postgres mais DATABASE_URL absent.");
   if (users.length > 0 && activeAdmins === 0)

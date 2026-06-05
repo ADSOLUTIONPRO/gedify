@@ -101,7 +101,11 @@ function main() {
   const expiredTokens = tokenRows.filter((t) => t.expired === true).length;
   const warnings = [];
   const errors = [];
+  if (process.env.GEDIFY_LOCAL_NO_AUTH === "1")
+    errors.push("GEDIFY_LOCAL_NO_AUTH=1 : authentification d\xE9sactiv\xE9e \u2014 \xE0 retirer sur un serveur en ligne.");
   if (env.AUTH_SECRET === "absent") errors.push("AUTH_SECRET absent \u2014 d\xE9finissez-le pour des sessions stables.");
+  else if ((process.env.AUTH_SECRET ?? "").length < 32)
+    warnings.push("AUTH_SECRET court (< 32 caract\xE8res) \u2014 pr\xE9f\xE9rez une valeur longue et al\xE9atoire.");
   if (env.GEDIFY_STORAGE_MODE === "postgres" && env.DATABASE_URL === "absent")
     errors.push("Mode postgres mais DATABASE_URL absent.");
   if (users.length > 0 && activeAdmins === 0)
