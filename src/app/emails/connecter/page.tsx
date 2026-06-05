@@ -52,6 +52,7 @@ export default async function ConnectMailPage({
       >
         <div className="flex flex-wrap items-center gap-3">
           <GoogleConnectButton
+            returnTo="/messagerie"
             disabledMessage={
               gmailReady
                 ? undefined

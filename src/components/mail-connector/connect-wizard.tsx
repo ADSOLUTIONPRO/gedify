@@ -201,8 +201,9 @@ export function ConnectMailWizard({
         const body = (await response.json().catch(() => ({}))) as { error?: string; details?: string };
         throw new Error(body.details ?? body.error ?? "Création impossible.");
       }
-      const body = (await response.json()) as { account: { id: string } };
-      router.push(`/emails/comptes/${body.account.id}`);
+      await response.json().catch(() => ({}));
+      // Retour sur la boîte (et non l'écran d'ajout/compte) : l'utilisateur voit sa messagerie.
+      router.push("/messagerie");
       router.refresh();
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Création impossible.");

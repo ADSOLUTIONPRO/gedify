@@ -145,7 +145,7 @@ export function MessagerieShell({ children, email }: Props) {
           </button>
 
           {/* Inbox */}
-          <NavItem href="/messagerie/inbox" icon={Inbox} label="Boîte de réception" badge="999+" pathname={pathname} />
+          <NavItem href="/messagerie/inbox" icon={Inbox} label="Boîte de réception" pathname={pathname} />
 
           {/* Section Exchange */}
           <Section title="Messages">
@@ -153,7 +153,7 @@ export function MessagerieShell({ children, email }: Props) {
             <NavItem href="/messagerie/brouillons" icon={PenSquare} label="Brouillons" pathname={pathname} indent={1} />
             <NavItem href="/messagerie/inbox?q=in:spam" icon={Mail} label="Spam" pathname={pathname} indent={1} />
             <NavItem href="/messagerie/inbox?q=in:trash" icon={Trash2} label="Corbeille" pathname={pathname} indent={1} />
-            <NavItem href="/messagerie/archives" icon={Archive} label="Archives" badge={24} pathname={pathname} indent={1} />
+            <NavItem href="/messagerie/archives" icon={Archive} label="Archives" pathname={pathname} indent={1} />
           </Section>
 
           {/* Section Flagged */}
