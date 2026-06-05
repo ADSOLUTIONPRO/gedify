@@ -1,5 +1,11 @@
 "use client";
 
+// pdf.js v6 utilise Uint8Array.toHex/toBase64/fromBase64 (Chrome 140+ / Node 22+).
+// Sous Electron 33 (Chromium 130) ces méthodes manquent → « a.toHex is not a
+// function ». Ce polyfill (no-op sur navigateur récent) DOIT être importé avant
+// pdf.js (côté thread principal ; le worker est couvert par pdf.worker.polyfilled.mjs).
+import "@/lib/polyfills/uint8-encoding";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
@@ -129,7 +135,8 @@ export function DocumentSignEditor({ documentId, title }: { documentId: number; 
         if (cancelled) return;
         bytesRef.current = buf;
         const pdfjs = await import("pdfjs-dist");
-        pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+        // Worker « enveloppé » : polyfill Uint8Array (toHex/…) chargé avant pdf.js.
+        pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.polyfilled.mjs";
         const pdf = await pdfjs.getDocument({ data: new Uint8Array(buf) }).promise;
         if (cancelled) return;
         pdfRef.current = pdf;
