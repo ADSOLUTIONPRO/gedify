@@ -110,6 +110,41 @@ export async function writeCollectionPg(name: string, data: unknown): Promise<vo
           [k, Number(v) || 0],
         );
       }
+    } else if (name === "users") {
+      // users.username est NOT NULL (et password_hash vit dans sa colonne, lue par
+      // readCollectionPg) : on renseigne les colonnes explicites EN PLUS du blob.
+      // Sans cela, INSERT(id, metadata) viole la contrainte → « Erreur serveur »
+      // à la création du compte admin.
+      const arr = Array.isArray(data) ? data : [];
+      const ids: number[] = [];
+      for (const item of arr) {
+        const u = (item ?? {}) as Record<string, unknown>;
+        const id = Number(u.id);
+        if (!Number.isFinite(id)) continue;
+        ids.push(id);
+        await client.query(
+          `INSERT INTO "users"(id, username, email, password_hash, is_superuser, is_active, metadata)
+           VALUES($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT(id) DO UPDATE SET
+             username = EXCLUDED.username, email = EXCLUDED.email,
+             password_hash = EXCLUDED.password_hash, is_superuser = EXCLUDED.is_superuser,
+             is_active = EXCLUDED.is_active, metadata = EXCLUDED.metadata`,
+          [
+            id,
+            String(u.username ?? `user-${id}`),
+            (u.email as string | undefined) ?? null,
+            (u.passwordHash as string | undefined) ?? null,
+            Boolean(u.is_superuser),
+            u.is_active !== false,
+            JSON.stringify(item),
+          ],
+        );
+      }
+      if (ids.length > 0) {
+        await client.query(`DELETE FROM "users" WHERE id <> ALL($1::int[])`, [ids]);
+      } else {
+        await client.query(`DELETE FROM "users"`);
+      }
     } else {
       const { table, blob } = TABLES[name];
       const arr = Array.isArray(data) ? data : [];
