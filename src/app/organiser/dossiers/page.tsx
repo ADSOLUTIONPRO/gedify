@@ -40,11 +40,14 @@ export default async function OrganiserDossiersPage({ searchParams }: { searchPa
     const linkedIds = selected?.linkedDocumentIds ?? [];
     let docs = [] as Awaited<ReturnType<typeof buildDocumentVMs>>;
     if (selected && linkedIds.length > 0) {
+      // Analyses IA + budget bornées aux documents du dossier (perf — au lieu de
+      // relire toute la base). Pushdown SQL en mode Postgres.
+      const docIds = linkedIds.map(Number).filter(Number.isFinite);
       const apiParams = { ...buildDocumentApiParams(params, "", 200), id__in: linkedIds.join(",") };
       const [documentsData, analyses, financialItems] = await Promise.all([
         getDocuments(apiParams),
-        listAnalyses(),
-        listFinancialItems({}),
+        listAnalyses({ documentIds: docIds }),
+        listFinancialItems({ documentIds: docIds }),
       ]);
       docs = await buildDocumentVMs(documentsData.results ?? [], { correspondents, types, tags, analyses, financialItems, paperlessUrl });
     }
