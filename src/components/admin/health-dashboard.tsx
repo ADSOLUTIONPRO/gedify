@@ -25,6 +25,7 @@ import {
   Trash2,
   Unlink,
   FileX,
+  Lock,
 } from "lucide-react";
 import { SectionCard } from "@/components/ui/section-card";
 import { StatCard } from "@/components/ui/stat-card";
@@ -72,6 +73,16 @@ type IntegrityReport = {
   generatedAt: string;
 };
 
+type SecurityReport = {
+  status: "ok" | "warning" | "error";
+  env: { authSecret: string; databaseUrl: string; storageMode: string; cookieSecure: string; openaiKey: string; connectorSecret: string };
+  users: { total: number; admins: number; activeAdmins: number; noPassword: number };
+  mailTokens: { total: number; expired: number; encryptionConfigured: boolean };
+  warnings: string[];
+  errors: string[];
+  generatedAt: string;
+};
+
 function formatBytes(n: number): string {
   if (!n) return "0 o";
   const units = ["o", "Ko", "Mo", "Go", "To"];
@@ -84,6 +95,7 @@ type BatchResult = { generated?: number; remaining?: number; deleted?: number };
 export function HealthDashboard() {
   const [health, setHealth] = useState<GedHealth | null>(null);
   const [integrity, setIntegrity] = useState<IntegrityReport | null>(null);
+  const [security, setSecurity] = useState<SecurityReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -105,6 +117,14 @@ export function HealthDashboard() {
         if (ir.ok && !("error" in idata)) setIntegrity(idata as IntegrityReport);
       } catch {
         /* intégrité indisponible : ignorée */
+      }
+      // Sécurité : posture masquée (non bloquant).
+      try {
+        const sr = await fetch("/api/admin/security", { credentials: "include", cache: "no-store" });
+        const sdata = (await sr.json()) as SecurityReport | { error: string };
+        if (sr.ok && !("error" in sdata)) setSecurity(sdata as SecurityReport);
+      } catch {
+        /* sécurité indisponible : ignorée */
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur inconnue");
@@ -293,6 +313,43 @@ export function HealthDashboard() {
           </div>
           <p className="mt-3 text-[11px]" style={{ color: "var(--text-muted)" }}>
             Aucune modification effectuée. Détail des éléments concernés : <code>npm run gedify:integrity:inspect</code> (options <code>--missing</code> · <code>--orphans</code>). Ne supprimez jamais un document signalé « sans original » : restaurez-le depuis une sauvegarde.
+          </p>
+        </SectionCard>
+      ) : null}
+
+      {/* Sécurité (secrets masqués) */}
+      {security ? (
+        <SectionCard
+          icon={Lock}
+          title="Sécurité"
+          description="Accès, comptes et tokens — aucun secret n'est affiché (lecture seule)."
+        >
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="space-y-2.5 text-sm">
+              <Row label="AUTH_SECRET" value={security.env.authSecret} tone={security.env.authSecret === "présent" ? "emerald" : "rose"} />
+              <Row label="DATABASE_URL" value={security.env.databaseUrl} tone={security.env.databaseUrl === "présent" ? "emerald" : "slate"} />
+              <Row label="OPENAI_API_KEY" value={security.env.openaiKey} tone={security.env.openaiKey === "présent" ? "emerald" : "slate"} />
+              <Row label="Chiffrement tokens mail" value={security.env.connectorSecret === "présent" ? "configuré" : "absent"} tone={security.env.connectorSecret === "présent" ? "emerald" : security.mailTokens.total ? "amber" : "slate"} />
+            </div>
+            <div className="space-y-2.5 text-sm">
+              <Row label="Utilisateurs" value={String(security.users.total)} tone="blue" />
+              <Row label="Administrateurs actifs" value={String(security.users.activeAdmins)} tone={security.users.activeAdmins ? "emerald" : "rose"} />
+              <Row label="Comptes sans mot de passe" value={String(security.users.noPassword)} tone={security.users.noPassword ? "amber" : "emerald"} />
+              <Row label="Tokens mail" value={`${security.mailTokens.total}${security.mailTokens.expired ? ` · ${security.mailTokens.expired} expiré(s)` : ""}`} tone={security.mailTokens.expired ? "amber" : "emerald"} />
+            </div>
+          </div>
+          {security.errors.length || security.warnings.length ? (
+            <ul className="mt-3 space-y-1 text-[12px]">
+              {security.errors.map((e, i) => (
+                <li key={`se-${i}`} className="font-semibold text-rose-700">❌ {e}</li>
+              ))}
+              {security.warnings.map((w, i) => (
+                <li key={`sw-${i}`} style={{ color: "var(--text-muted)" }}>⚠️ {w}</li>
+              ))}
+            </ul>
+          ) : null}
+          <p className="mt-3 text-[11px]" style={{ color: "var(--text-muted)" }}>
+            Aucun secret affiché (présence seule). Détail en conteneur : <code>npm run gedify:security:inspect</code>.
           </p>
         </SectionCard>
       ) : null}

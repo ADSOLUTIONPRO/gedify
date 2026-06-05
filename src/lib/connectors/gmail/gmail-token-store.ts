@@ -81,6 +81,33 @@ async function readAll(): Promise<GmailTokenRecord[]> {
   return readAllJson();
 }
 
+/** Type public masqué : présence/expiration UNIQUEMENT, jamais les valeurs. */
+export type GmailTokenPublic = {
+  accountId: string;
+  email: string;
+  hasRefreshToken: boolean;
+  expiresAt: number | null;
+  expired: boolean | null;
+  connectedAt: string | null;
+};
+
+/**
+ * Liste les tokens Gmail en forme PUBLIQUE (audit sécurité). Ne renvoie JAMAIS
+ * encryptedRefreshToken / cachedAccessToken — seulement présence + expiration.
+ */
+export async function listGmailTokensPublic(): Promise<GmailTokenPublic[]> {
+  const now = Date.now();
+  const all = await readAll();
+  return all.map((t) => ({
+    accountId: t.accountId,
+    email: t.email,
+    hasRefreshToken: Boolean(t.encryptedRefreshToken && t.encryptedRefreshToken.trim()),
+    expiresAt: t.accessTokenExpiresAt ?? null,
+    expired: t.accessTokenExpiresAt != null ? t.accessTokenExpiresAt < now : null,
+    connectedAt: t.connectedAt ?? null,
+  }));
+}
+
 async function writeAll(items: GmailTokenRecord[]) {
   if (pgStorageActive()) {
     await pgWriteAll<GmailTokenRecord>("mail_oauth_tokens", "id", (t) => t.accountId, items, "metadata");
