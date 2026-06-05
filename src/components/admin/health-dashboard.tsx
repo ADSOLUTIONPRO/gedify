@@ -27,6 +27,8 @@ import {
   FileX,
   Lock,
   Workflow,
+  Wallet,
+  Copy,
 } from "lucide-react";
 import { SectionCard } from "@/components/ui/section-card";
 import { StatCard } from "@/components/ui/stat-card";
@@ -90,6 +92,18 @@ type AutomationReport = {
   generatedAt: string;
 };
 
+type FinancesReport = {
+  total: number;
+  toReview: number;
+  withoutDocument: number;
+  withoutDueDate: number;
+  overdue: number;
+  aiCreated: number;
+  validated: number;
+  duplicateGroups: number;
+  generatedAt: string;
+};
+
 function formatBytes(n: number): string {
   if (!n) return "0 o";
   const units = ["o", "Ko", "Mo", "Go", "To"];
@@ -104,6 +118,7 @@ export function HealthDashboard() {
   const [integrity, setIntegrity] = useState<IntegrityReport | null>(null);
   const [security, setSecurity] = useState<SecurityReport | null>(null);
   const [automation, setAutomation] = useState<AutomationReport | null>(null);
+  const [finances, setFinances] = useState<FinancesReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -141,6 +156,14 @@ export function HealthDashboard() {
         if (ar.ok && !("error" in adata)) setAutomation(adata as AutomationReport);
       } catch {
         /* automatisation indisponible : ignorée */
+      }
+      // Finances (non bloquant).
+      try {
+        const fr = await fetch("/api/admin/finances", { credentials: "include", cache: "no-store" });
+        const fdata = (await fr.json()) as FinancesReport | { error: string };
+        if (fr.ok && !("error" in fdata)) setFinances(fdata as FinancesReport);
+      } catch {
+        /* finances indisponibles : ignorées */
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur inconnue");
@@ -411,6 +434,35 @@ export function HealthDashboard() {
             <SanteLink href="/actions/automatiques" label="Gérer les automatisations" />
             <SanteLink href="/administration/roles" label="Journal d'audit" />
           </div>
+        </SectionCard>
+      ) : null}
+
+      {/* Finances */}
+      {finances ? (
+        <SectionCard
+          icon={Wallet}
+          title="Finances"
+          description="Lignes budgétaires : contrôle, échéances, doublons et provenance IA."
+        >
+          <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard label="Lignes budget" value={finances.total} helper="au total" icon={Wallet} tone="blue" />
+            <StatCard label="À contrôler" value={finances.toReview} helper="à valider" icon={AlertTriangle} tone={finances.toReview ? "amber" : "emerald"} />
+            <StatCard label="En retard" value={finances.overdue} helper="échéance dépassée" icon={Activity} tone={finances.overdue ? "rose" : "emerald"} />
+            <StatCard label="Doublons possibles" value={finances.duplicateGroups} helper="groupes" icon={Copy} tone={finances.duplicateGroups ? "amber" : "emerald"} />
+          </div>
+          <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-[12px]" style={{ color: "var(--text-muted)" }}>
+            <span>Sans document lié : <strong>{finances.withoutDocument}</strong></span>
+            <span>Sans échéance (sorties) : <strong>{finances.withoutDueDate}</strong></span>
+            <span>Créées par IA : <strong>{finances.aiCreated}</strong></span>
+            <span>Validées : <strong>{finances.validated}</strong></span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <SanteLink href="/finances" label="Ouvrir les finances" />
+            <SanteLink href="/budget" label="Budget" />
+          </div>
+          <p className="mt-3 text-[11px]" style={{ color: "var(--text-muted)" }}>
+            Détail / doublons en conteneur : <code>npm run gedify:finances:inspect</code>.
+          </p>
         </SectionCard>
       ) : null}
 
