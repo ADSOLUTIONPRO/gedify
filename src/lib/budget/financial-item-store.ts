@@ -146,6 +146,8 @@ export type ListFinancialItemsOptions = {
   correspondentId?: number;
   projectId?: string;
   documentId?: number;
+  /** Restreint aux lignes liées à ces documents (perf : page Documents paginée). */
+  documentIds?: number[];
   analysisId?: string;
   limit?: number;
 };
@@ -170,6 +172,10 @@ export async function listFinancialItems(
     filtered = filtered.filter((e) => e.projectId === options.projectId);
   if (options.documentId !== undefined)
     filtered = filtered.filter((e) => e.sourceDocumentId === options.documentId);
+  if (options.documentIds) {
+    const set = new Set(options.documentIds);
+    filtered = filtered.filter((e) => e.sourceDocumentId != null && set.has(e.sourceDocumentId));
+  }
   if (options.analysisId)
     filtered = filtered.filter((e) => e.sourceAnalysisId === options.analysisId);
 

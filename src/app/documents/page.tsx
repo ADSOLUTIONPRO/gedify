@@ -53,15 +53,14 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pa
 
   try {
     const unsupported = UNSUPPORTED_TABS.has(tab);
-    const [documentsData, correspondentsData, typesData, tagsData, analyses, financialItems] = await Promise.all([
+    // 1) Documents (page courante) + taxonomies, en parallèle.
+    const [documentsData, correspondentsData, typesData, tagsData] = await Promise.all([
       unsupported
         ? Promise.resolve({ count: 0, results: [] as PaperlessDocument[] })
         : getDocuments(buildDocumentApiParams(params, tab, pageSize)),
       getCorrespondents(),
       getDocumentTypes(),
       getTags(),
-      unsupported ? Promise.resolve([]) : listAnalyses(),
-      unsupported ? Promise.resolve([]) : listFinancialItems({}),
     ]);
 
     const correspondents = correspondentsData.results ?? [];
@@ -69,6 +68,18 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pa
     const tags = tagsData.results ?? [];
     const paperlessUrl = getPaperlessPublicUrl();
     const rawDocuments = documentsData.results ?? [];
+
+    // 2) Analyses IA + lignes budget : UNIQUEMENT pour les documents de la page
+    //    (perf — évite de relire toute la base d'analyses/finances à chaque page).
+    const pageDocIds = rawDocuments.map((d) => Number(d.id));
+    let analyses: Awaited<ReturnType<typeof listAnalyses>> = [];
+    let financialItems: Awaited<ReturnType<typeof listFinancialItems>> = [];
+    if (!unsupported && pageDocIds.length > 0) {
+      [analyses, financialItems] = await Promise.all([
+        listAnalyses({ documentIds: pageDocIds }),
+        listFinancialItems({ documentIds: pageDocIds }),
+      ]);
+    }
 
     // Filtrage par onglet (vues À traiter / Archives).
     const documents =

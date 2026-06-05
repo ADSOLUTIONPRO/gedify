@@ -51,13 +51,17 @@ async function writeAll(items: AIAnalysis[]) {
 export type ListOptions = {
   status?: AIAnalysisStatus;
   documentId?: number;
+  /** Restreint aux analyses de ces documents (perf : page Documents paginée). */
+  documentIds?: number[];
 };
 
 export async function listAnalyses(options: ListOptions = {}): Promise<AIAnalysis[]> {
   const all = await readAll();
+  const idSet = options.documentIds ? new Set(options.documentIds) : null;
   return all
     .filter((entry) => (options.status ? entry.status === options.status : true))
     .filter((entry) => (options.documentId ? entry.documentId === options.documentId : true))
+    .filter((entry) => (idSet ? idSet.has(entry.documentId) : true))
     .sort((a, b) => (b.updatedAt > a.updatedAt ? 1 : -1));
 }
 
