@@ -233,8 +233,19 @@ export function DocumentSpace({
     Boolean(selectAllQuery) && allSelected && !allMatchingSelected && totalCount > docs.length;
 
   function downloadSelection() {
-    const targets = selectedDocs.length > 0 ? selectedDocs : activeDoc ? [activeDoc] : [];
-    for (const doc of targets) window.open(doc.downloadUrl, "_blank", "noopener");
+    // Utilise la sélection complète (inclut la « totalité » sélectionnée hors page).
+    const ids = [...selectedIds];
+    if (ids.length === 0) {
+      if (activeDoc) window.open(activeDoc.downloadUrl, "_blank", "noopener");
+      return;
+    }
+    if (ids.length === 1) {
+      const d = docs.find((x) => x.id === ids[0]) ?? activeDoc;
+      if (d) window.open(d.downloadUrl, "_blank", "noopener");
+      return;
+    }
+    // Plusieurs documents → archive ZIP.
+    window.location.href = `/api/documents/download-zip?ids=${ids.join(",")}`;
   }
 
   function sendByMail() {

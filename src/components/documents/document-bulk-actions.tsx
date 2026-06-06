@@ -8,7 +8,6 @@ import {
   Edit3,
   ExternalLink,
   FileSearch,
-  FolderInput,
   FolderPlus,
   Image as ImageIcon,
   Mail,
@@ -37,11 +36,15 @@ type DocumentBulkActionsProps = {
 
 const actionClass =
   "inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[12.5px] font-semibold transition hover:bg-slate-50 whitespace-nowrap";
+const menuItemClass =
+  "flex w-full items-center gap-2.5 px-3 py-2 text-[13px] transition hover:bg-slate-50";
 
 /**
- * Barre d'actions groupées avec menu déroulant réel.
- * Les actions principales sont toujours visibles.
- * Le menu ··· contient les actions secondaires — il ne redirige plus jamais.
+ * Barre d'actions groupées.
+ * Toujours visibles : Détails (1 doc) · Télécharger · Envoyer par mail · Modifier · Supprimer.
+ * Le menu ··· regroupe le reste (dossier, IA, OCR, miniature, archiver, ouvrir).
+ * Les actions « 1 document » (Détails / Ouvrir) sont masquées en sélection multiple.
+ * Télécharger : un seul doc = fichier ; plusieurs = ZIP (géré par onDownload).
  */
 export function DocumentBulkActions({
   count,
@@ -64,15 +67,14 @@ export function DocumentBulkActions({
 
   if (count === 0) return null;
 
-  const paperlessDocUrl =
-    paperlessUrl && firstDocId ? `${paperlessUrl}/documents/${firstDocId}` : null;
+  const single = count === 1;
+  const paperlessDocUrl = paperlessUrl && firstDocId ? `${paperlessUrl}/documents/${firstDocId}` : null;
 
   return (
     <div
       className="relative flex flex-wrap items-center gap-2 rounded-2xl border bg-white p-2.5"
       style={{ borderColor: "var(--blue-600)", boxShadow: "0 1px 2px rgba(11,92,255,0.10)" }}
     >
-      {/* Compteur + désélectionner */}
       <span className="inline-flex items-center gap-2 pl-1 pr-1 text-[12.5px] font-bold" style={{ color: "var(--blue-600)" }}>
         {count} sélectionné{count > 1 ? "s" : ""}
         <button
@@ -87,20 +89,17 @@ export function DocumentBulkActions({
 
       <span className="mx-1 h-5 w-px" style={{ background: "var(--border)" }} aria-hidden="true" />
 
-      {/* Actions principales toujours visibles */}
+      {/* Détails — uniquement quand UN SEUL document est sélectionné */}
+      {single ? (
+        <button type="button" onClick={onOpenFirst} className={actionClass} style={{ borderColor: "var(--border)", color: "var(--text-main)" }}>
+          <FileSearch className="h-4 w-4" strokeWidth={1.75} />
+          Détails
+        </button>
+      ) : null}
+
       <button type="button" onClick={onDownload} className={actionClass} style={{ borderColor: "var(--border)", color: "var(--text-main)" }}>
         <Download className="h-4 w-4" strokeWidth={1.75} />
-        Télécharger
-      </button>
-
-      <button type="button" onClick={onEdit} className={actionClass} style={{ borderColor: "var(--blue-600)", color: "var(--blue-600)", background: "rgba(11,92,255,0.06)" }}>
-        <Edit3 className="h-4 w-4" strokeWidth={1.75} />
-        Modifier
-      </button>
-
-      <button type="button" onClick={onAddToFolder} className={actionClass} style={{ borderColor: "var(--border)", color: "var(--text-main)" }}>
-        <FolderPlus className="h-4 w-4" strokeWidth={1.75} />
-        Ajouter à un dossier
+        {single ? "Télécharger" : "Télécharger (ZIP)"}
       </button>
 
       <button type="button" onClick={onSendByMail} className={actionClass} style={{ borderColor: "var(--border)", color: "var(--text-main)" }}>
@@ -108,17 +107,17 @@ export function DocumentBulkActions({
         Envoyer par mail
       </button>
 
-      <button type="button" onClick={onReanalyze} className={actionClass} style={{ borderColor: "var(--border)", color: "var(--text-main)" }}>
-        <Bot className="h-4 w-4" strokeWidth={1.75} />
-        Relancer IA
+      <button type="button" onClick={onEdit} className={actionClass} style={{ borderColor: "var(--blue-600)", color: "var(--blue-600)", background: "rgba(11,92,255,0.06)" }}>
+        <Edit3 className="h-4 w-4" strokeWidth={1.75} />
+        Modifier
       </button>
 
-      <button type="button" onClick={onArchive} className={actionClass} style={{ borderColor: "var(--border)", color: "var(--text-main)" }}>
-        <Archive className="h-4 w-4" strokeWidth={1.75} />
-        Archiver
+      <button type="button" onClick={onDelete} className={actionClass} style={{ borderColor: "rgba(239,68,68,0.35)", color: "#DC2626" }}>
+        <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+        Supprimer
       </button>
 
-      {/* Menu ··· */}
+      {/* Menu ··· — actions secondaires */}
       <div ref={menuRef} className="relative ml-auto">
         <button
           type="button"
@@ -133,125 +132,42 @@ export function DocumentBulkActions({
 
         {menuOpen && (
           <>
-            <div
-              className="fixed inset-0 z-20"
-              onClick={() => setMenuOpen(false)}
-              aria-hidden="true"
-            />
-            <div
-              className="absolute right-0 top-10 z-30 w-60 rounded-xl border bg-white py-1.5 shadow-xl"
-              style={{ borderColor: "var(--border)" }}
-            >
+            <div className="fixed inset-0 z-20" onClick={() => setMenuOpen(false)} aria-hidden="true" />
+            <div className="absolute right-0 top-10 z-30 w-60 rounded-xl border bg-white py-1.5 shadow-xl" style={{ borderColor: "var(--border)" }}>
               <p className="border-b px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wide" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>
                 {count} document{count > 1 ? "s" : ""} sélectionné{count > 1 ? "s" : ""}
               </p>
 
-              {count === 1 && (
-                <button
-                  type="button"
-                  onClick={() => { onOpenFirst(); setMenuOpen(false); }}
-                  className="flex w-full items-center gap-2.5 px-3 py-2 text-[13px] transition hover:bg-slate-50"
-                  style={{ color: "var(--text-main)" }}
-                >
-                  <FileSearch className="h-4 w-4 shrink-0" strokeWidth={1.75} />
-                  Voir le détail
-                </button>
-              )}
-
-              {paperlessDocUrl && count === 1 && (
-                <a
-                  href={paperlessDocUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={() => setMenuOpen(false)}
-                  className="flex w-full items-center gap-2.5 px-3 py-2 text-[13px] transition hover:bg-slate-50"
-                  style={{ color: "var(--text-main)" }}
-                >
+              {single && paperlessDocUrl ? (
+                <a href={paperlessDocUrl} target="_blank" rel="noreferrer" onClick={() => setMenuOpen(false)} className={menuItemClass} style={{ color: "var(--text-main)" }}>
                   <ExternalLink className="h-4 w-4 shrink-0" strokeWidth={1.75} />
                   Ouvrir le document
                 </a>
-              )}
+              ) : null}
 
-              <button
-                type="button"
-                onClick={() => { onEdit(); setMenuOpen(false); }}
-                className="flex w-full items-center gap-2.5 px-3 py-2 text-[13px] transition hover:bg-slate-50"
-                style={{ color: "var(--text-main)" }}
-              >
-                <Edit3 className="h-4 w-4 shrink-0" strokeWidth={1.75} />
-                Modifier les métadonnées
-              </button>
-
-              <button
-                type="button"
-                onClick={() => { onAddToFolder(); setMenuOpen(false); }}
-                className="flex w-full items-center gap-2.5 px-3 py-2 text-[13px] transition hover:bg-slate-50"
-                style={{ color: "var(--text-main)" }}
-              >
+              <button type="button" onClick={() => { onAddToFolder(); setMenuOpen(false); }} className={menuItemClass} style={{ color: "var(--text-main)" }}>
                 <FolderPlus className="h-4 w-4 shrink-0" strokeWidth={1.75} />
                 Ajouter à un dossier
               </button>
 
-              <button
-                type="button"
-                onClick={() => { onSendByMail(); setMenuOpen(false); }}
-                className="flex w-full items-center gap-2.5 px-3 py-2 text-[13px] transition hover:bg-slate-50"
-                style={{ color: "var(--text-main)" }}
-              >
-                <Mail className="h-4 w-4 shrink-0" strokeWidth={1.75} />
-                Envoyer le(s) document(s) par mail
-              </button>
-
-              <button
-                type="button"
-                onClick={() => { onReanalyze(); setMenuOpen(false); }}
-                className="flex w-full items-center gap-2.5 px-3 py-2 text-[13px] transition hover:bg-slate-50"
-                style={{ color: "var(--text-main)" }}
-              >
+              <button type="button" onClick={() => { onReanalyze(); setMenuOpen(false); }} className={menuItemClass} style={{ color: "var(--text-main)" }}>
                 <Bot className="h-4 w-4 shrink-0" strokeWidth={1.75} />
                 Relancer l&apos;analyse IA
               </button>
 
-              <button
-                type="button"
-                onClick={() => { onRedoOcr(); setMenuOpen(false); }}
-                className="flex w-full items-center gap-2.5 px-3 py-2 text-[13px] transition hover:bg-slate-50"
-                style={{ color: "var(--text-main)" }}
-              >
+              <button type="button" onClick={() => { onRedoOcr(); setMenuOpen(false); }} className={menuItemClass} style={{ color: "var(--text-main)" }}>
                 <ScanText className="h-4 w-4 shrink-0" strokeWidth={1.75} />
                 Relancer l&apos;OCR
               </button>
 
-              <button
-                type="button"
-                onClick={() => { onRegenerateThumbnail(); setMenuOpen(false); }}
-                className="flex w-full items-center gap-2.5 px-3 py-2 text-[13px] transition hover:bg-slate-50"
-                style={{ color: "var(--text-main)" }}
-              >
+              <button type="button" onClick={() => { onRegenerateThumbnail(); setMenuOpen(false); }} className={menuItemClass} style={{ color: "var(--text-main)" }}>
                 <ImageIcon className="h-4 w-4 shrink-0" strokeWidth={1.75} />
                 Régénérer miniature + aperçu
               </button>
 
-              <button
-                type="button"
-                onClick={() => { onArchive(); setMenuOpen(false); }}
-                className="flex w-full items-center gap-2.5 px-3 py-2 text-[13px] transition hover:bg-slate-50"
-                style={{ color: "var(--text-main)" }}
-              >
-                <FolderInput className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+              <button type="button" onClick={() => { onArchive(); setMenuOpen(false); }} className={menuItemClass} style={{ color: "var(--text-main)" }}>
+                <Archive className="h-4 w-4 shrink-0" strokeWidth={1.75} />
                 Archiver
-              </button>
-
-              <div className="my-1 border-t" style={{ borderColor: "var(--border)" }} />
-
-              <button
-                type="button"
-                onClick={() => { onDelete(); setMenuOpen(false); }}
-                className="flex w-full items-center gap-2.5 px-3 py-2 text-[13px] transition hover:bg-rose-50"
-                style={{ color: "#DC2626" }}
-              >
-                <Trash2 className="h-4 w-4 shrink-0" strokeWidth={1.75} />
-                Supprimer
               </button>
             </div>
           </>
