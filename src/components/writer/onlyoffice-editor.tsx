@@ -71,7 +71,13 @@ export function OnlyOfficeEditor({ documentId }: Props) {
   }, [documentId, editorElementId]);
 
   return (
-    <div className="relative h-full min-h-[70vh] w-full overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-[0_8px_28px_-12px_rgba(15,23,42,0.10)]">
+    // Hauteur DÉFINIE (et non `h-full` qui s'effondrait faute de parent à hauteur
+    // explicite) : l'iframe ONLYOFFICE résout alors `height:100%` correctement.
+    // ~74% de l'écran sur desktop, avec un plancher d'usage (mobile/desktop).
+    <div className="office-online-editor-frame relative mt-4 h-[calc(100dvh-280px)] min-h-[600px] w-full overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-[0_8px_28px_-12px_rgba(15,23,42,0.10)] md:min-h-[720px]">
+      {/* L'iframe est injectée par ONLYOFFICE (pas de className possible) : on la
+          force à remplir le conteneur, quel que soit le style appliqué par api.js. */}
+      <style>{ONLYOFFICE_IFRAME_CSS}</style>
       {status === "loading" ? (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-white/80 backdrop-blur">
           <Loader2 className="h-6 w-6 animate-spin text-blue-600" strokeWidth={1.75} aria-hidden="true" />
@@ -88,10 +94,15 @@ export function OnlyOfficeEditor({ documentId }: Props) {
           </p>
         </div>
       ) : null}
-      <div ref={containerRef} id={editorElementId} className="h-full min-h-[70vh] w-full" />
+      <div ref={containerRef} id={editorElementId} className="h-full w-full" />
     </div>
   );
 }
+
+/* Force l'iframe générée par ONLYOFFICE à remplir tout le conteneur (sinon elle
+   peut se réduire à la hauteur de sa barre d'outils ~62px). Portée à l'éditeur. */
+const ONLYOFFICE_IFRAME_CSS =
+  ".office-online-editor-frame iframe{width:100%!important;height:100%!important;min-height:600px;border:0;display:block}";
 
 const scriptPromises = new Map<string, Promise<void>>();
 
