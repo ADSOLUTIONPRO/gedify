@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { jsonError } from "@/lib/api-utils";
 import { uploadAttachmentToPaperless } from "@/lib/mail-connector/paperless-upload";
 import { convertDocxToPdf } from "@/lib/writer/onlyoffice-convert";
+import { getGedifyInternalBaseUrl } from "@/lib/writer/onlyoffice-config";
 import {
   getWriterDocument,
   recordPaperlessSend,
@@ -11,14 +12,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
-
-function getPublicBaseUrl(): string {
-  return (
-    process.env.APP_PUBLIC_URL?.replace(/\/+$/, "") ??
-    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "") ??
-    "http://localhost:3000"
-  );
-}
 
 export async function POST(_request: NextRequest, ctx: Ctx) {
   try {
@@ -31,7 +24,8 @@ export async function POST(_request: NextRequest, ctx: Ctx) {
     const conversion = await convertDocxToPdf({
       documentId: id,
       documentKey: `${id}-v${document.version}-send`,
-      sourceUrl: `${getPublicBaseUrl()}/api/writer/documents/${id}/file`,
+      // URL fetchée PAR ONLYOFFICE → base interne (joignable depuis le conteneur).
+      sourceUrl: `${getGedifyInternalBaseUrl()}/api/writer/documents/${id}/file`,
       title: document.fileName,
     });
 

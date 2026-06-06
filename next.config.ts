@@ -25,6 +25,10 @@ const nextConfig: NextConfig = {
   ],
 
   async headers() {
+    // En-têtes de sécurité STATIQUES. La Content-Security-Policy n'est PAS ici :
+    // elle dépend d'une variable RUNTIME (ONLYOFFICE_DOCUMENT_SERVER_URL, inconnue
+    // au build — ex. IP du NAS Synology) et est donc posée dans le middleware
+    // `src/proxy.ts`, évalué à chaque requête.
     return [
       {
         source: "/(.*)",
@@ -34,21 +38,6 @@ const nextConfig: NextConfig = {
           {
             key: "Permissions-Policy",
             value: "camera=(), microphone=(), geolocation=()",
-          },
-          {
-            key: "Content-Security-Policy",
-            value: [
-              "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-              "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: blob: https:",
-              "font-src 'self'",
-              "connect-src 'self'",
-              "frame-src 'self' https://office.azserver.fr",
-              "frame-ancestors 'self' https://office.azserver.fr",
-              "object-src 'none'",
-              "base-uri 'self'",
-            ].join("; "),
           },
         ],
       },

@@ -50,6 +50,71 @@ function secret(): Uint8Array {
   return new TextEncoder().encode(process.env.AUTH_SECRET ?? "");
 }
 
+/* ────────────────────────────────────────────────────────────────────────
+   Content-Security-Policy posée au RUNTIME (et non au build via next.config),
+   car l'origine du serveur ONLYOFFICE vient d'une variable d'environnement
+   connue seulement à l'exécution (http://IP_DU_NAS:8082 en Synology,
+   http://localhost:8082 en Mac/PC, https://office.azserver.fr en Coolify, ou un
+   reverse proxy https://office-maison.domaine.fr). Le middleware lit
+   `process.env.*` à l'exécution (vérifié : même mécanisme que AUTH_SECRET).
+
+   Règles :
+   • On NE code AUCUN domaine en dur. On lit l'origine de
+     ONLYOFFICE_DOCUMENT_SERVER_URL (chargée par le navigateur) — et, par
+     robustesse, ONLYOFFICE_INTERNAL_URL — via `new URL(...).origin`.
+   • Si la variable est absente ou invalide → on n'ajoute RIEN (CSP de base
+     inchangée → aucun impact Coolify/Synology/Mac/PC sans ONLYOFFICE).
+   • Origine ajoutée aux directives : script-src, style-src, img-src, font-src,
+     connect-src (+ WebSocket ws/wss), frame-src, worker-src, child-src.
+   ──────────────────────────────────────────────────────────────────────── */
+function originOf(raw: string | undefined): string | null {
+  const v = raw?.trim();
+  if (!v) return null;
+  try {
+    return new URL(v).origin; // normalise (sans slash final, port inclus)
+  } catch {
+    return null; // URL invalide → on n'ajoute rien
+  }
+}
+
+function buildCsp(): string {
+  const origins = new Set<string>();
+  for (const o of [
+    originOf(process.env.ONLYOFFICE_DOCUMENT_SERVER_URL),
+    originOf(process.env.ONLYOFFICE_INTERNAL_URL),
+  ]) {
+    if (o) origins.add(o);
+  }
+  const office = [...origins];
+  const http = office.join(" "); // ex. "https://office.azserver.fr" / "http://192.168.1.17:8082"
+  // WebSocket correspondant (ws:// pour http, wss:// pour https) pour l'édition.
+  const ws = office.map((o) => o.replace(/^http/, "ws")).join(" ");
+  const sp = http ? ` ${http}` : ""; // origines http(s)
+  const cp = http ? ` ${http}${ws ? ` ${ws}` : ""}` : ""; // + WebSocket (connect-src)
+
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'unsafe-inline' 'unsafe-eval'${sp}`,
+    `style-src 'self' 'unsafe-inline'${sp}`,
+    // `https:` conservé (images externes existantes) ; ${sp} ajoute l'origine
+    // ONLYOFFICE en http (Synology/Mac local).
+    `img-src 'self' data: blob: https:${sp}`,
+    `font-src 'self' data:${sp}`,
+    `connect-src 'self'${cp}`,
+    `frame-src 'self' blob:${sp}`,
+    `child-src 'self' blob:${sp}`,
+    `worker-src 'self' blob:${sp}`,
+    `frame-ancestors 'self'${sp}`,
+    "object-src 'none'",
+    "base-uri 'self'",
+  ].join("; ");
+}
+
+function withCsp<T extends NextResponse>(res: T): T {
+  res.headers.set("Content-Security-Policy", buildCsp());
+  return res;
+}
+
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
@@ -61,27 +126,27 @@ export async function proxy(req: NextRequest) {
   // Activé UNIQUEMENT par le runtime macOS embarqué (GEDIFY_LOCAL_NO_AUTH=1) ;
   // jamais défini sur le serveur en ligne → aucun impact sécurité distant.
   if (process.env.GEDIFY_LOCAL_NO_AUTH === "1") {
-    return NextResponse.next({ request: { headers: requestHeaders } });
+    return withCsp(NextResponse.next({ request: { headers: requestHeaders } }));
   }
 
   // Routes publiques : login, assets Next.js, routes auth API
   if (isPublic(pathname)) {
-    return NextResponse.next({ request: { headers: requestHeaders } });
+    return withCsp(NextResponse.next({ request: { headers: requestHeaders } }));
   }
 
   // Toutes les autres routes nécessitent une session valide
   const token = req.cookies.get(COOKIE_NAME)?.value;
 
   if (!token) {
-    return denyAccess(req, pathname);
+    return withCsp(denyAccess(req, pathname));
   }
 
   try {
     await jwtVerify(token, secret());
-    return NextResponse.next({ request: { headers: requestHeaders } });
+    return withCsp(NextResponse.next({ request: { headers: requestHeaders } }));
   } catch {
     // Token invalide ou expiré
-    const res = denyAccess(req, pathname);
+    const res = withCsp(denyAccess(req, pathname));
     res.cookies.delete(COOKIE_NAME);
     return res;
   }

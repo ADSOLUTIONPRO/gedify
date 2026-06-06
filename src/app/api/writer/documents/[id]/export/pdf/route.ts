@@ -1,20 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { jsonError } from "@/lib/api-utils";
 import { convertDocxToPdf } from "@/lib/writer/onlyoffice-convert";
+import { getGedifyInternalBaseUrl } from "@/lib/writer/onlyoffice-config";
 import { getWriterDocument } from "@/lib/writer/writer-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
-
-function getPublicBaseUrl(): string {
-  return (
-    process.env.APP_PUBLIC_URL?.replace(/\/+$/, "") ??
-    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "") ??
-    "http://localhost:3000"
-  );
-}
 
 export async function POST(_request: NextRequest, ctx: Ctx) {
   try {
@@ -24,7 +17,8 @@ export async function POST(_request: NextRequest, ctx: Ctx) {
       return NextResponse.json({ error: "Document introuvable" }, { status: 404 });
     }
 
-    const sourceUrl = `${getPublicBaseUrl()}/api/writer/documents/${id}/file`;
+    // URL fetchée PAR ONLYOFFICE → base interne (joignable depuis le conteneur ONLYOFFICE).
+    const sourceUrl = `${getGedifyInternalBaseUrl()}/api/writer/documents/${id}/file`;
     const result = await convertDocxToPdf({
       documentId: id,
       documentKey: `${id}-v${document.version}-export`,

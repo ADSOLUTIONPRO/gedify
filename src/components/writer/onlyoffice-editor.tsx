@@ -39,10 +39,20 @@ export function OnlyOfficeEditor({ documentId }: Props) {
         const payload = (await response.json()) as EditorPayload;
         if (disposed) return;
 
-        await loadOnlyOfficeScript(`${payload.serverUrl}/web-apps/apps/api/documents/api.js`);
+        // Normalise l'URL serveur (retire tout slash final) pour éviter un double
+        // slash dans l'URL du script (…fr//web-apps/…), qui ferait échouer le chargement.
+        const serverUrl = (payload.serverUrl ?? "").replace(/\/+$/, "");
+        if (!serverUrl) {
+          throw new Error("URL du serveur ONLYOFFICE absente (ONLYOFFICE_DOCUMENT_SERVER_URL).");
+        }
+        const scriptUrl = `${serverUrl}/web-apps/apps/api/documents/api.js`;
+
+        await loadOnlyOfficeScript(scriptUrl);
         if (disposed) return;
         if (!window.DocsAPI) {
-          throw new Error("API ONLYOFFICE indisponible (window.DocsAPI manquant).");
+          throw new Error(
+            `API ONLYOFFICE indisponible (window.DocsAPI manquant) après chargement de ${scriptUrl}.`,
+          );
         }
         new window.DocsAPI.DocEditor(editorElementId, payload.config);
         setStatus("ready");
@@ -91,6 +101,23 @@ function loadOnlyOfficeScript(src: string): Promise<void> {
   const cached = scriptPromises.get(src);
   if (cached) return cached;
   const promise = new Promise<void>((resolve, reject) => {
+    const fail = (event?: unknown) => {
+      // Détail en console pour diagnostiquer : la cause la plus fréquente est un
+      // blocage Content-Security-Policy (script-src) ou un serveur injoignable.
+      console.error(
+        "[ONLYOFFICE] Échec du chargement du script.",
+        `\n  URL : ${src}`,
+        "\n  Pistes : 1) la CSP autorise-t-elle cette origine dans script-src/connect-src ?",
+        "(voir l'onglet Console pour un éventuel message « Refused to load … Content Security Policy »)",
+        "\n           2) le serveur ONLYOFFICE est-il accessible depuis le navigateur ?",
+        event ?? "",
+      );
+      reject(
+        new Error(
+          `Échec du chargement du script ONLYOFFICE (${src}). Vérifiez la CSP (script-src) et que le serveur ONLYOFFICE est accessible.`,
+        ),
+      );
+    };
     const existing = document.querySelector<HTMLScriptElement>(`script[data-onlyoffice="${src}"]`);
     if (existing) {
       if (window.DocsAPI) {
@@ -98,7 +125,7 @@ function loadOnlyOfficeScript(src: string): Promise<void> {
         return;
       }
       existing.addEventListener("load", () => resolve());
-      existing.addEventListener("error", () => reject(new Error("Échec du chargement du script ONLYOFFICE.")));
+      existing.addEventListener("error", (event) => fail(event));
       return;
     }
     const script = document.createElement("script");
@@ -106,7 +133,7 @@ function loadOnlyOfficeScript(src: string): Promise<void> {
     script.async = true;
     script.dataset.onlyoffice = src;
     script.onload = () => resolve();
-    script.onerror = () => reject(new Error("Échec du chargement du script ONLYOFFICE."));
+    script.onerror = (event) => fail(event);
     document.head.appendChild(script);
   });
   scriptPromises.set(src, promise);

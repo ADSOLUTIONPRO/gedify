@@ -2,7 +2,7 @@ import "server-only";
 
 import {
   getOnlyOfficeJwtSecret,
-  getOnlyOfficeServerUrl,
+  getOnlyOfficeInternalUrl,
   signOnlyOfficePayload,
 } from "./onlyoffice-config";
 
@@ -28,7 +28,9 @@ export async function convertDocxToPdf(args: {
   sourceUrl: string;
   title?: string;
 }): Promise<ConvertResult> {
-  const baseUrl = getOnlyOfficeServerUrl();
+  // Appel SERVEUR → ONLYOFFICE : on privilégie l'URL interne (http://onlyoffice
+  // en Docker) ; repli sur l'URL publique si non définie.
+  const baseUrl = getOnlyOfficeInternalUrl();
   if (!baseUrl) {
     return {
       ok: false,
