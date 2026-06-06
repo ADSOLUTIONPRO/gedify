@@ -34,6 +34,8 @@ secrets.env
 **/secrets.env
 onlyoffice.env
 **/onlyoffice.env
+# pointeur de chemin écrit par init-host.sh (Container Manager) — local à l'hôte
+/deploy/synology/.env
 
 # debug
 npm-debug.log*

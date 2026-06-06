@@ -2,35 +2,29 @@
 # Gedify — Synology (Container Manager / docker compose), TOTALEMENT AUTONOME.
 #
 #   • Stockage SQLite RÉEL : un vrai fichier /app/.data/gedify.sqlite (métadonnées)
-#     + les fichiers binaires à côté, dans le volume unique /app/.data.
-#   • IA 100 % LOCALE via Ollama (aucune clé OpenAI nécessaire). Le modèle est
-#     téléchargé automatiquement au 1er lancement (qwen3:4b par défaut).
+#     + les fichiers binaires à côté, dans le volume unique <ROOT>/data.
+#   • IA 100 % LOCALE via Ollama (aucune clé OpenAI nécessaire). Modèle téléchargé
+#     automatiquement au 1er lancement (qwen3:4b par défaut).
 #   • Édition Office en ligne via ONLYOFFICE Docs LOCAL (clé JWT auto-générée).
-#   • Secrets internes GÉNÉRÉS AUTOMATIQUEMENT au 1er démarrage (secrets.env),
-#     jamais à saisir à la main, jamais committés.
+#   • Secrets internes générés automatiquement, jamais committés.
 #
-# Seuls Gedify (3210) et ONLYOFFICE (8082) sont publiés, pour l'accès LOCAL depuis
-# le navigateur. Ollama (11434) reste interne. Adaptez l'IP du NAS via .env
-# (GEDIFY_SYNOLOGY_HOST) — voir docs/synology-installation.md.
+# ⚠️ AVANT D'IMPORTER DANS CONTAINER MANAGER : lancez le script d'init hôte, qui
+#    crée les dossiers + les fichiers d'environnement (Container Manager lit
+#    `env_file` au parsing → onlyoffice.env DOIT exister avant) :
+#
+#        export SYNOLOGY_DOCKER_ROOT=/volume1/docker/gedify   # ou /volume5/...
+#        sh deploy/synology/init-host.sh
+#
+#    Voir deploy/synology/README.md pour la procédure complète.
+#
+# Le chemin racine est configurable via SYNOLOGY_DOCKER_ROOT (défaut volume1).
+# Seuls Gedify (3210) et ONLYOFFICE (8082) sont publiés (réseau local). Ollama
+# (11434) reste interne.
 #
 # Lancement :  docker compose -f docker-compose.sqlite.yml up -d --build
 # Accès     :  http://IP_DU_NAS:3210   (éditeur Office : http://IP_DU_NAS:8082)
 # ─────────────────────────────────────────────────────────────────────────────
 services:
-  # ── Génération des secrets internes AVANT tout le reste ─────────────────────
-  # Écrit /app/.data/secrets.env (Gedify) + /app/.data/onlyoffice.env (clé JWT
-  # partagée avec ONLYOFFICE). Idempotent : ne réécrit jamais une clé existante.
-  init-secrets:
-    image: alpine:latest
-    container_name: gedify-init-secrets
-    restart: "no"
-    volumes:
-      - /volume1/docker/gedify/data:/app/.data
-      - ./scripts/init-secrets.sh:/init-secrets.sh:ro
-    # alpine nu n'a ni openssl ni node → on installe openssl (repli /dev/urandom
-    # si pas d'accès réseau). DATA_DIR=/app/.data (défaut du script).
-    command: ["sh", "-c", "command -v openssl >/dev/null 2>&1 || apk add --no-cache openssl >/dev/null 2>&1 || true; sh /init-secrets.sh"]
-
   # ── IA locale : serveur Ollama (OpenAI-compatible) ──────────────────────────
   ollama:
     image: ollama/ollama:latest
@@ -45,8 +39,8 @@ services:
       OLLAMA_NUM_PARALLEL: "1"
       OLLAMA_MAX_LOADED_MODELS: "1"
     volumes:
-      # Modèles Ollama persistés sur le NAS (créez le dossier au préalable).
-      - /volume1/docker/gedify/ollama:/root/.ollama
+      # Modèles Ollama persistés sur le NAS (créés par init-host.sh).
+      - ${SYNOLOGY_DOCKER_ROOT:-/volume1/docker/gedify}/ollama:/root/.ollama
     networks:
       - gedify-net
     # PAS de `ports:` → le 11434 n'est JAMAIS publié sur le NAS (interne seulement).
@@ -73,16 +67,17 @@ services:
       OLLAMA_MODEL: "qwen3:4b"
     networks:
       - gedify-net
+    # `$$` = évalué DANS le conteneur (et non par docker compose) → pas de warning
+    # « MODEL variable not set ». OLLAMA_MODEL vient de l'environment ci-dessus.
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
         echo "Initialisation du modèle Ollama…"
-        MODEL="${OLLAMA_MODEL:-qwen3:4b}"
-        if ollama list | grep -q "$MODEL"; then
-          echo "Modèle $MODEL déjà présent — aucun téléchargement."
+        if ollama list | grep -q "$${OLLAMA_MODEL:-qwen3:4b}"; then
+          echo "Modèle déjà présent — aucun téléchargement."
         else
-          echo "Téléchargement du modèle $MODEL (peut être long au 1er lancement)…"
-          ollama pull "$MODEL"
+          echo "Téléchargement du modèle (peut être long au 1er lancement)…"
+          ollama pull "$${OLLAMA_MODEL:-qwen3:4b}"
         fi
         echo "Modèle Ollama prêt."
 
@@ -91,15 +86,13 @@ services:
     image: onlyoffice/documentserver:latest
     container_name: gedify-onlyoffice
     restart: unless-stopped
-    depends_on:
-      init-secrets:
-        condition: service_completed_successfully
-    # JWT_SECRET vient de onlyoffice.env (= ONLYOFFICE_JWT_SECRET généré). Le
-    # fichier existe car init-secrets s'est terminé avant ce service.
+    # JWT_SECRET vient de onlyoffice.env, CRÉÉ PAR init-host.sh AVANT l'import
+    # (Container Manager lit ce fichier au parsing → il doit déjà exister).
     env_file:
-      - /volume1/docker/gedify/data/onlyoffice.env
+      - ${SYNOLOGY_DOCKER_ROOT:-/volume1/docker/gedify}/data/onlyoffice.env
     environment:
       # Sécurité : signature JWT OBLIGATOIRE des requêtes (ne pas désactiver).
+      # (Également présent dans onlyoffice.env ; valeurs identiques.)
       JWT_ENABLED: "true"
       JWT_HEADER: "Authorization"
     # Accès LOCAL depuis le navigateur (réseau local du NAS). À NE PAS exposer
@@ -107,10 +100,10 @@ services:
     ports:
       - "8082:80"
     volumes:
-      - /volume1/docker/gedify/onlyoffice/logs:/var/log/onlyoffice
-      - /volume1/docker/gedify/onlyoffice/data:/var/www/onlyoffice/Data
-      - /volume1/docker/gedify/onlyoffice/lib:/var/lib/onlyoffice
-      - /volume1/docker/gedify/onlyoffice/db:/var/lib/postgresql
+      - ${SYNOLOGY_DOCKER_ROOT:-/volume1/docker/gedify}/onlyoffice/logs:/var/log/onlyoffice
+      - ${SYNOLOGY_DOCKER_ROOT:-/volume1/docker/gedify}/onlyoffice/data:/var/www/onlyoffice/Data
+      - ${SYNOLOGY_DOCKER_ROOT:-/volume1/docker/gedify}/onlyoffice/lib:/var/lib/onlyoffice
+      - ${SYNOLOGY_DOCKER_ROOT:-/volume1/docker/gedify}/onlyoffice/db:/var/lib/postgresql
     networks:
       - gedify-net
     # L'image ONLYOFFICE embarque curl → /healthcheck renvoie « true » quand prêt.
@@ -136,8 +129,6 @@ services:
     # image: gedify/gedify:latest
 
     depends_on:
-      init-secrets:
-        condition: service_completed_successfully
       ollama:
         condition: service_healthy
 
@@ -177,8 +168,7 @@ services:
       OPENAI_BASE_URL: "http://ollama:11434/v1"
       OPENAI_API_KEY: "ollama-local"
       # L'assistant conversationnel passe par l'endpoint OpenAI-compatible
-      # d'Ollama → on lui impose aussi le modèle local (sinon il tenterait
-      # gpt-4o-mini, absent en local).
+      # d'Ollama → on lui impose aussi le modèle local.
       AI_ASSISTANT_MODEL: "qwen3:4b"
       #
       # Pour utiliser OpenAI à la place d'Ollama : mettez AI_PROVIDER: "openai",
@@ -186,33 +176,31 @@ services:
       # "https://api.openai.com/v1". Voir docs/synology-installation.md.
 
       # ── Édition Office en ligne ONLYOFFICE (local) ─────────────────────────
-      # IP/nom d'hôte du NAS. À régler UNE SEULE FOIS (ici, ou via un fichier
+      # IP/nom d'hôte du NAS. À régler UNE SEULE FOIS (ici, ou via le fichier
       # deploy/synology/.env contenant GEDIFY_SYNOLOGY_HOST=192.168.x.x).
       GEDIFY_SYNOLOGY_HOST: "${GEDIFY_SYNOLOGY_HOST:-192.168.1.17}"
       # URL chargée par le NAVIGATEUR (api.js) → doit être joignable depuis le poste.
       ONLYOFFICE_DOCUMENT_SERVER_URL: "http://${GEDIFY_SYNOLOGY_HOST:-192.168.1.17}:8082"
       # URL INTERNE Docker (serveur Gedify → ONLYOFFICE : conversion PDF, etc.).
       ONLYOFFICE_INTERNAL_URL: "http://onlyoffice"
-      # ONLYOFFICE_JWT_SECRET : généré automatiquement (secrets.env), chargé par
-      # start-synology.sh. La MÊME valeur sert côté ONLYOFFICE (onlyoffice.env).
+      # ONLYOFFICE_JWT_SECRET : généré par init-host.sh (secrets.env), chargé par
+      # start-synology.sh. MÊME valeur que côté ONLYOFFICE (onlyoffice.env).
 
       # URL PUBLIQUE Gedify (navigateur) et INTERNE (ONLYOFFICE → Gedify pour
       # télécharger/sauvegarder les documents via le réseau Docker).
       GEDIFY_PUBLIC_URL: "http://${GEDIFY_SYNOLOGY_HOST:-192.168.1.17}:3210"
       GEDIFY_INTERNAL_URL: "http://gedify:3200"
 
-      # Secrets internes : GÉNÉRÉS AUTOMATIQUEMENT au 1er démarrage dans
-      # /app/.data/secrets.env (AUTH_SECRET, CONNECTOR_SECRET_KEY, MAIL_CONNECTOR_KEY…).
-      # Ne rien mettre ici : le script start-synology.sh s'en charge et ne les
-      # écrase jamais. (Pour forcer des valeurs, ajoutez-les dans le compose.)
+      # Secrets internes : générés par init-host.sh (et, en repli in-conteneur,
+      # par start-synology.sh) dans /app/.data/secrets.env. Jamais écrasés.
 
       # Cookie de session sur HTTP (accès local par IP, sans HTTPS) → false.
       # Passez à "true" derrière un reverse proxy HTTPS Synology.
       COOKIE_SECURE: "false"
 
     volumes:
-      # NAS (gauche) → conteneur (droite). Créez le dossier NAS au préalable.
-      - /volume1/docker/gedify/data:/app/.data
+      # NAS (gauche) → conteneur (droite). Dossier créé par init-host.sh.
+      - ${SYNOLOGY_DOCKER_ROOT:-/volume1/docker/gedify}/data:/app/.data
 
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3200/api/health"]
@@ -224,9 +212,3 @@ services:
 networks:
   gedify-net:
     driver: bridge
-
-sudo mkdir -p /volume1/docker/gedify/data
-sudo mkdir -p /volume1/docker/gedify/onlyoffice/logs
-sudo mkdir -p /volume1/docker/gedify/onlyoffice/data
-sudo mkdir -p /volume1/docker/gedify/onlyoffice/lib
-sudo mkdir -p /volume1/docker/gedify/onlyoffice/db

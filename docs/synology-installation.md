@@ -17,9 +17,18 @@ budget, mails…) vivent dans un **vrai fichier SQLite** `gedify.sqlite`, et les
 > **Tout est autonome** — La version Synology SQLite installe **Ollama** (IA
 > locale) **et ONLYOFFICE Docs** (édition Office en ligne) automatiquement :
 > aucune clé OpenAI, aucune clé JWT à créer. Les **secrets internes** (dont la
-> clé ONLYOFFICE) sont **générés automatiquement** au premier démarrage. Vous
-> n'avez rien à saisir : il suffit de lancer le compose. Voir §13 (Ollama),
+> clé ONLYOFFICE) sont **générés automatiquement**. Voir §13 (Ollama),
 > §14 (secrets) et §15 (ONLYOFFICE).
+
+> 🟢 **Container Manager : commencez par le guide dédié**
+> [`deploy/synology/README.md`](../deploy/synology/README.md). Avant d'importer
+> le projet, lancez **une fois** le script d'init hôte (il crée les dossiers + les
+> fichiers d'environnement, indispensables car Container Manager lit `env_file`
+> au parsing) :
+> ```bash
+> export SYNOLOGY_DOCKER_ROOT=/volume1/docker/gedify   # ou /volume5/...
+> sh deploy/synology/init-host.sh
+> ```
 
 ---
 

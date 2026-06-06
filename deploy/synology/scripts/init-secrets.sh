@@ -64,12 +64,21 @@ done
 # Verrouille les permissions (au cas où le fichier préexistait en 0644).
 chmod 600 "$SECRETS_FILE"
 
-# Dérive le fichier ONLYOFFICE (JWT_SECRET = ONLYOFFICE_JWT_SECRET) pour le
-# conteneur onlyoffice (env_file). Réécrit à chaque exécution avec la MÊME valeur
-# (donc idempotent en pratique). Ne révèle jamais la clé dans les logs.
+# Dérive le fichier ONLYOFFICE pour le conteneur onlyoffice (env_file). Sur
+# Synology, ce fichier est normalement déjà créé côté hôte par init-host.sh
+# (AVANT l'import Container Manager) : on ne l'écrit donc QUE s'il est absent,
+# pour ne jamais écraser une clé existante. Format identique à init-host.sh.
+# Ne révèle jamais la clé dans les logs.
 oo_secret="$(grep -E '^ONLYOFFICE_JWT_SECRET=' "$SECRETS_FILE" | head -n1 | cut -d= -f2-)"
-if [ -n "${oo_secret:-}" ]; then
-  ( umask 177; printf 'JWT_SECRET=%s\n' "$oo_secret" > "$ONLYOFFICE_ENV_FILE" )
+if [ -n "${oo_secret:-}" ] && [ ! -f "$ONLYOFFICE_ENV_FILE" ]; then
+  ( umask 177
+    cat > "$ONLYOFFICE_ENV_FILE" <<EOF
+ONLYOFFICE_JWT_SECRET=$oo_secret
+JWT_SECRET=$oo_secret
+JWT_ENABLED=true
+JWT_HEADER=Authorization
+EOF
+  )
   chmod 600 "$ONLYOFFICE_ENV_FILE"
 fi
 
