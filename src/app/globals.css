@@ -291,17 +291,46 @@ button, a {
   --gedify-info-soft:   #15233A;
 }
 
-/* Overrides ciblés des utilitaires Tailwind codés en dur (cartes/textes/bordures). */
-.dark .bg-white { background-color: var(--surface) !important; }
-.dark .bg-white\/95 { background-color: var(--surface) !important; }
-.dark .bg-slate-50,
-.dark .bg-slate-100 { background-color: var(--bg-panel) !important; }
-.dark .text-slate-900,
-.dark .text-slate-800,
-.dark .text-slate-700 { color: var(--text-main) !important; }
-.dark .text-slate-600,
-.dark .text-slate-500 { color: var(--text-muted) !important; }
-.dark .text-slate-400,
-.dark .text-slate-300 { color: var(--text-hint) !important; }
-.dark .border-slate-200,
-.dark .border-slate-100 { border-color: var(--border) !important; }
+/* ── Overrides exhaustifs des utilitaires Tailwind « clairs » codés en dur ──
+   Couvre la quasi-totalité de la surface UI. Les styles INLINE en dur
+   (style={{background:'#FFFFFF'}}) sont corrigés au cas par cas dans les composants. */
+
+/* Surfaces blanches — toutes opacités (bg-white, bg-white/95, /80, /70…) */
+.dark .bg-white,
+.dark [class*="bg-white/"] { background-color: var(--surface) !important; }
+
+/* Neutres clairs → panneaux/cartes sombres */
+.dark .bg-slate-50, .dark .bg-slate-100, .dark .bg-gray-50, .dark .bg-gray-100,
+.dark .bg-neutral-50, .dark .bg-neutral-100, .dark .bg-zinc-50, .dark .bg-zinc-100 { background-color: var(--bg-panel) !important; }
+.dark .bg-slate-200, .dark .bg-gray-200 { background-color: var(--bg-card) !important; }
+
+/* Texte neutre */
+.dark .text-slate-900, .dark .text-slate-800, .dark .text-slate-700,
+.dark .text-gray-900, .dark .text-gray-800, .dark .text-gray-700,
+.dark .text-neutral-900, .dark .text-zinc-900, .dark .text-black { color: var(--text-main) !important; }
+.dark .text-slate-600, .dark .text-slate-500, .dark .text-gray-600, .dark .text-gray-500,
+.dark .text-neutral-600, .dark .text-zinc-600 { color: var(--text-muted) !important; }
+.dark .text-slate-400, .dark .text-slate-300, .dark .text-gray-400, .dark .text-gray-300 { color: var(--text-hint) !important; }
+
+/* Bordures neutres */
+.dark .border-slate-200, .dark .border-slate-100, .dark .border-slate-300,
+.dark .border-gray-200, .dark .border-gray-100, .dark .border-gray-300,
+.dark .border-neutral-200, .dark .border-zinc-200 { border-color: var(--border) !important; }
+
+/* Teintes « soft » sémantiques → fonds assombris (callouts, badges) */
+.dark .bg-blue-50, .dark .bg-sky-50, .dark .bg-indigo-50 { background-color: #15233A !important; }
+.dark .bg-violet-50, .dark .bg-purple-50, .dark .bg-fuchsia-50 { background-color: #221A33 !important; }
+.dark .bg-emerald-50, .dark .bg-green-50, .dark .bg-teal-50 { background-color: #12241A !important; }
+.dark .bg-rose-50, .dark .bg-red-50, .dark .bg-pink-50 { background-color: #2A1717 !important; }
+.dark .bg-amber-50, .dark .bg-orange-50, .dark .bg-yellow-50 { background-color: #2A2113 !important; }
+
+/* Texte coloré foncé sur ces teintes → éclairci pour rester lisible */
+.dark .text-blue-700, .dark .text-blue-800, .dark .text-blue-900, .dark .text-sky-700, .dark .text-indigo-700 { color: #93C5FD !important; }
+.dark .text-violet-700, .dark .text-violet-800, .dark .text-purple-700 { color: #C4B5FD !important; }
+.dark .text-emerald-700, .dark .text-emerald-800, .dark .text-green-700, .dark .text-teal-700 { color: #6EE7B7 !important; }
+.dark .text-rose-700, .dark .text-rose-800, .dark .text-red-700 { color: #FCA5A5 !important; }
+.dark .text-amber-700, .dark .text-amber-800, .dark .text-orange-700 { color: #FCD34D !important; }
+
+/* Bordures colorées « soft » → discrètes en sombre */
+.dark .border-blue-200, .dark .border-emerald-200, .dark .border-rose-200,
+.dark .border-amber-200, .dark .border-violet-200, .dark .border-sky-200 { border-color: var(--border-strong) !important; }

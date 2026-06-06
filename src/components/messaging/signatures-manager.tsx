@@ -138,7 +138,7 @@ export function SignaturesManager({ initial }: { initial: EmailSignature[] }) {
           {/* Aperçu */}
           <div>
             <p className="mb-1 text-[11px] font-bold uppercase tracking-wide" style={{ color: "var(--text-hint)" }}>Aperçu</p>
-            <div className="rounded-lg border p-2.5 text-[13px]" style={{ borderColor: "var(--border)", background: "#fff", color: "var(--text-main)" }} dangerouslySetInnerHTML={{ __html: html || "<span style='color:#9ca3af'>(vide)</span>" }} />
+            <div className="rounded-lg border p-2.5 text-[13px]" style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--text-main)" }} dangerouslySetInnerHTML={{ __html: html || "<span style='color:#9ca3af'>(vide)</span>" }} />
           </div>
 
           <label className="flex items-center gap-2 text-[12.5px] font-semibold" style={{ color: "var(--text-main)" }}>

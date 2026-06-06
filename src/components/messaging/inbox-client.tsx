@@ -264,7 +264,7 @@ export function InboxClient({
       {/* ── Barre d'actions style Twake ── */}
       <div
         className="flex items-center gap-0.5 border-b px-4 py-2.5"
-        style={{ borderColor: "#E5E7EB", background: "#fff" }}
+        style={{ borderColor: "var(--border)", background: "var(--surface)" }}
       >
         {/* Refresh */}
         <button
@@ -278,10 +278,10 @@ export function InboxClient({
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" strokeWidth={1.75} />}
         </button>
 
-        <div className="mx-1 h-4 w-px" style={{ background: "#E5E7EB" }} />
+        <div className="mx-1 h-4 w-px" style={{ background: "var(--border)" }} />
 
         {/* Select all */}
-        <label className="flex h-8 cursor-pointer items-center gap-2 rounded-lg px-2.5 text-[12.5px] font-medium transition hover:bg-gray-100" style={{ color: "#374151" }}>
+        <label className="flex h-8 cursor-pointer items-center gap-2 rounded-lg px-2.5 text-[12.5px] font-medium transition hover:bg-gray-100" style={{ color: "var(--text-main)" }}>
           <input
             type="checkbox"
             checked={bulk.isAllSelected}
@@ -296,7 +296,7 @@ export function InboxClient({
           type="button"
           onClick={() => void fetchThreads(buildQuery(query, keyword, sender, hasAttachment, corrEmails))}
           className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12.5px] font-medium transition hover:bg-gray-100"
-          style={{ color: "#374151" }}
+          style={{ color: "var(--text-main)" }}
         >
           <Mail className="h-4 w-4" strokeWidth={1.75} />
           Récupérer les messages
@@ -306,7 +306,7 @@ export function InboxClient({
         <button
           type="button"
           className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12.5px] font-medium transition hover:bg-gray-100"
-          style={{ color: "#374151" }}
+          style={{ color: "var(--text-main)" }}
         >
           <Mail className="h-4 w-4" strokeWidth={1.75} />
           Tout marquer comme lu
@@ -317,7 +317,7 @@ export function InboxClient({
           type="button"
           onClick={() => setShowSearch((v) => !v)}
           className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12.5px] font-medium transition hover:bg-gray-100"
-          style={{ color: showSearch ? "#F75C8D" : "#374151" }}
+          style={{ color: showSearch ? "#F75C8D" : "var(--text-main)" }}
         >
           <SlidersHorizontal className="h-4 w-4" strokeWidth={1.75} />
           Filtrer les messages
@@ -327,7 +327,7 @@ export function InboxClient({
         {/* Actions groupées si sélection */}
         {bulk.selectedCount > 0 && (
           <>
-            <div className="mx-1 h-4 w-px" style={{ background: "#E5E7EB" }} />
+            <div className="mx-1 h-4 w-px" style={{ background: "var(--border)" }} />
             <span className="text-[12.5px] font-bold" style={{ color: "#F75C8D" }}>
               {bulk.selectedCount} sélectionné(s)
             </span>
@@ -368,7 +368,7 @@ export function InboxClient({
               type="button"
               onClick={() => { setKeyword(""); setSender(""); setHasAttachment(false); }}
               className="flex h-7 items-center gap-1 rounded-full border px-2.5 text-[11.5px] font-medium transition hover:bg-gray-50"
-              style={{ borderColor: "#E5E7EB", color: "#6B7280" }}
+              style={{ borderColor: "var(--border)", color: "#6B7280" }}
             >
               <X className="h-3 w-3" strokeWidth={2} /> Réinitialiser
             </button>
@@ -388,7 +388,7 @@ export function InboxClient({
       {showSearch && (
         <div
           className="flex flex-wrap items-center gap-2 border-b px-4 py-2"
-          style={{ borderColor: "#E5E7EB", background: "#F9FAFB" }}
+          style={{ borderColor: "var(--border)", background: "#F9FAFB" }}
         >
           <div className="relative flex-1" style={{ minWidth: "160px" }}>
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2" style={{ color: "#9CA3AF" }} strokeWidth={1.75} />
@@ -398,7 +398,7 @@ export function InboxClient({
               onChange={(e) => setKeyword(e.target.value)}
               placeholder="Mot-clé…"
               className="h-8 w-full rounded-lg border pl-8 pr-3 text-[12.5px] outline-none focus:ring-1"
-              style={{ borderColor: "#E5E7EB", background: "#fff" }}
+              style={{ borderColor: "var(--border)", background: "var(--surface)" }}
             />
           </div>
           <input
@@ -407,7 +407,7 @@ export function InboxClient({
             onChange={(e) => setSender(e.target.value)}
             placeholder="Expéditeur…"
             className="h-8 rounded-lg border px-3 text-[12.5px] outline-none focus:ring-1"
-            style={{ borderColor: "#E5E7EB", background: "#fff", width: "160px" }}
+            style={{ borderColor: "var(--border)", background: "var(--surface)", width: "160px" }}
           />
           <label className="flex cursor-pointer items-center gap-1.5 text-[12.5px]" style={{ color: "#6B7280" }}>
             <input type="checkbox" checked={hasAttachment} onChange={(e) => setHasAttachment(e.target.checked)} className="h-3.5 w-3.5 rounded" />
@@ -420,7 +420,7 @@ export function InboxClient({
             onChange={(e) => setCorrId(e.target.value)}
             title="Filtrer par correspondant"
             className="h-8 rounded-lg border px-2 text-[12.5px] outline-none focus:ring-1"
-            style={{ borderColor: corrId ? "#F75C8D" : "#E5E7EB", background: "#fff", color: corrId ? "#F75C8D" : "#374151" }}
+            style={{ borderColor: corrId ? "#F75C8D" : "var(--border)", background: "var(--surface)", color: corrId ? "#F75C8D" : "var(--text-main)" }}
           >
             <option value="">Tous les correspondants</option>
             {correspondents.length === 0 ? (
@@ -459,7 +459,7 @@ export function InboxClient({
         {visibleThreads.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24" style={{ color: "#9CA3AF" }}>
             <Mail className="mb-3 h-10 w-10" strokeWidth={1} />
-            <p className="text-[14px] font-medium" style={{ color: "#374151" }}>
+            <p className="text-[14px] font-medium" style={{ color: "var(--text-main)" }}>
               {hasActiveSearch ? "Aucun résultat" : "Boîte vide"}
             </p>
             <p className="mt-1 text-[12.5px]">
@@ -645,12 +645,12 @@ export function InboxClient({
                             {contextId === thread.id && (
                               <div
                                 className="absolute right-0 top-8 z-30 w-44 rounded-xl border bg-white py-1 shadow-lg"
-                                style={{ borderColor: "#E5E7EB" }}
+                                style={{ borderColor: "var(--border)" }}
                               >
                                 <Link
                                   href={`/messagerie/thread/${thread.id}`}
                                   className="flex items-center gap-2 px-3 py-2 text-[12.5px] hover:bg-gray-50"
-                                  style={{ color: "#374151" }}
+                                  style={{ color: "var(--text-main)" }}
                                   onClick={() => setContextId(null)}
                                 >
                                   Ouvrir
@@ -693,7 +693,7 @@ export function InboxClient({
                 onClick={() => void loadMore()}
                 disabled={loadingMore}
                 className="inline-flex h-9 items-center gap-2 rounded-[20px] border-[1.5px] bg-white px-5 text-[13px] font-bold transition hover:bg-[#FCFAF7] disabled:opacity-50"
-                style={{ borderColor: "#374151", color: "#374151" }}
+                style={{ borderColor: "var(--text-main)", color: "var(--text-main)" }}
               >
                 {loadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 Voir plus

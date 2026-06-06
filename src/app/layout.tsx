@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import "./globals.css";
@@ -12,6 +12,15 @@ export const metadata: Metadata = {
   title: "Gedify",
   description: "GED personnelle autonome — moteur documentaire local embarqué",
   icons: { icon: "/gedify-icon.png", apple: "/gedify-icon.png" },
+};
+
+/** Viewport mobile correct (échelle 1, largeur de l'appareil) — corrige le
+ *  « zoom » au lancement sur smartphone. Pinch-to-zoom conservé (maxScale 5). */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: "cover",
 };
 
 /** Routes rendues sans AppShell (0 chrome : fond + contenu uniquement). */
@@ -38,11 +47,11 @@ export default async function RootLayout({
   if (isBareRoute) {
     return (
       <html lang="fr">
-        <head><script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} /></head>
         <body
           className="min-h-screen antialiased"
           style={{ background: "var(--bg-page)", color: "var(--text-main)" }}
         >
+          <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
           {children}
         </body>
       </html>
@@ -64,11 +73,11 @@ export default async function RootLayout({
   // topbar. Le contenu occupe toute la largeur (centré, max 1600px).
   return (
     <html lang="fr">
-      <head><script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} /></head>
       <body
         className="min-h-screen antialiased"
         style={{ background: "var(--bg-page)", color: "var(--text-main)" }}
       >
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <AssistantProvider>
           <AuthSetupBanner />
           <SessionExpiredBanner />

@@ -196,7 +196,7 @@ export function DocumentSpaceCard({ doc, checked, active, onToggle, onActivate, 
             aria-label="Fiche IA"
             title="Fiche IA"
             className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg border px-2 text-[11px] font-bold transition hover:opacity-90"
-            style={{ background: "#FFFFFF", color: "var(--text-main)", borderColor: "var(--border-strong)" }}
+            style={{ background: "var(--surface)", color: "var(--text-main)", borderColor: "var(--border-strong)" }}
           >
             <FileSearch className="h-3.5 w-3.5" strokeWidth={1.85} aria-hidden="true" /> <span className="hidden min-[420px]:inline">Fiche IA</span>
           </button>

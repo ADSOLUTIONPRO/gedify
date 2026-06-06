@@ -26,7 +26,7 @@ export function SpaceCard({ space, variant = "tile", selected = false, onSelect 
         onClick={() => onSelect?.(space)}
         aria-pressed={selected}
         className="group flex w-[112px] flex-col items-center gap-1.5 rounded-xl px-2 py-2 text-center transition hover:bg-white"
-        style={selected ? { background: "#fff", boxShadow: "0 4px 18px rgba(8,18,37,0.10)" } : undefined}
+        style={selected ? { background: "var(--surface)", boxShadow: "0 4px 18px rgba(8,18,37,0.10)" } : undefined}
       >
         <span
           aria-hidden="true"

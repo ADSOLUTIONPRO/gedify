@@ -390,7 +390,7 @@ export function AttachmentsList({ inbox, sent, correspondents = [] }: Attachment
               onChange={(e) => setKeyword(e.target.value)}
               placeholder="Rechercher une pièce jointe, un mail, un mot-clé…"
               className="h-9 w-full rounded-lg border pl-8 pr-3 text-[12.5px] outline-none focus:ring-1"
-              style={{ borderColor: "var(--border)", background: "#fff" }}
+              style={{ borderColor: "var(--border)", background: "var(--surface)" }}
             />
           </div>
 
@@ -402,7 +402,7 @@ export function AttachmentsList({ inbox, sent, correspondents = [] }: Attachment
             list="att-corr-list"
             placeholder="Correspondant…"
             className="h-9 w-[180px] rounded-lg border px-3 text-[12.5px] outline-none focus:ring-1"
-            style={{ borderColor: corrText ? "#F75C8D" : "var(--border)", background: "#fff", color: corrText ? "#F75C8D" : undefined }}
+            style={{ borderColor: corrText ? "#F75C8D" : "var(--border)", background: "var(--surface)", color: corrText ? "#F75C8D" : undefined }}
           />
           <datalist id="att-corr-list">
             {corrSuggestions.map((s) => <option key={s} value={s} />)}
@@ -414,7 +414,7 @@ export function AttachmentsList({ inbox, sent, correspondents = [] }: Attachment
             onChange={(e) => setStatus(e.target.value as StatusFilter)}
             title="Statut GED"
             className="h-9 rounded-lg border px-2 text-[12.5px] outline-none focus:ring-1"
-            style={{ borderColor: status !== "all" ? "#F75C8D" : "var(--border)", background: "#fff", color: status !== "all" ? "#F75C8D" : undefined }}
+            style={{ borderColor: status !== "all" ? "#F75C8D" : "var(--border)", background: "var(--surface)", color: status !== "all" ? "#F75C8D" : undefined }}
           >
             {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.value === "all" ? "Statut : tous" : o.label}</option>)}
           </select>
@@ -453,7 +453,7 @@ export function AttachmentsList({ inbox, sent, correspondents = [] }: Attachment
                 value={fileType}
                 onChange={(e) => setFileType(e.target.value as TypeFilter)}
                 className="h-9 rounded-lg border px-2 text-[12.5px] outline-none focus:ring-1"
-                style={{ borderColor: fileType !== "all" ? "#F75C8D" : "var(--border)", background: "#fff", color: fileType !== "all" ? "#F75C8D" : undefined }}
+                style={{ borderColor: fileType !== "all" ? "#F75C8D" : "var(--border)", background: "var(--surface)", color: fileType !== "all" ? "#F75C8D" : undefined }}
               >
                 {TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
@@ -465,7 +465,7 @@ export function AttachmentsList({ inbox, sent, correspondents = [] }: Attachment
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
                 className="h-9 rounded-lg border px-2 text-[12.5px] outline-none focus:ring-1"
-                style={{ borderColor: dateFrom ? "#F75C8D" : "var(--border)", background: "#fff" }}
+                style={{ borderColor: dateFrom ? "#F75C8D" : "var(--border)", background: "var(--surface)" }}
               />
             </label>
             <label className="flex items-center gap-1.5 text-[12px]" style={{ color: "var(--text-muted)" }}>
@@ -475,7 +475,7 @@ export function AttachmentsList({ inbox, sent, correspondents = [] }: Attachment
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
                 className="h-9 rounded-lg border px-2 text-[12.5px] outline-none focus:ring-1"
-                style={{ borderColor: dateTo ? "#F75C8D" : "var(--border)", background: "#fff" }}
+                style={{ borderColor: dateTo ? "#F75C8D" : "var(--border)", background: "var(--surface)" }}
               />
             </label>
           </div>

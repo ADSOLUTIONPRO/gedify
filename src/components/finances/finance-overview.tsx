@@ -183,7 +183,7 @@ function CorrespondentCards({ rows }: { rows: CorrespondentBudgetSummary[] }) {
             return (
               <Link key={c.correspondentId ?? c.correspondentName} href="/finances/correspondants" className="flex flex-col gap-2 rounded-xl p-3 transition hover:-translate-y-0.5" style={{ background: "var(--bg-card-soft)" }}>
                 <span className="flex items-center gap-2">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ background: "#fff", color: "var(--text-muted)" }}>
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ background: "var(--surface)", color: "var(--text-muted)" }}>
                     <Building2 className="h-3.5 w-3.5" strokeWidth={2} />
                   </span>
                   <span className="min-w-0 truncate text-[12.5px] font-bold" style={{ color: "var(--text-main)" }}>{c.correspondentName}</span>
@@ -231,7 +231,7 @@ function DueDetailRail({ item }: { item: FinancialItem | null }) {
       <div className="rounded-xl p-3" style={{ background: "var(--bg-card-soft)" }}>
         <div className="flex items-start justify-between gap-2">
           <span className="flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ background: "#fff", color: "var(--accent)" }}>
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ background: "var(--surface)", color: "var(--accent)" }}>
               <CalendarClock className="h-4.5 w-4.5" strokeWidth={1.85} style={{ width: 18, height: 18 }} />
             </span>
             <span className="min-w-0">

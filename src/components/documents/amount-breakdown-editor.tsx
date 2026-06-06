@@ -170,7 +170,7 @@ export function AmountBreakdownEditor({
           {lines.map((l) => {
             const dir = KIND_TO_DIRECTION[l.kind];
             return (
-              <div key={l.id} className="rounded-xl border p-2" style={{ borderColor: "var(--border)", background: l.include ? "#FFFFFF" : "#FAF8F4" }}>
+              <div key={l.id} className="rounded-xl border p-2" style={{ borderColor: "var(--border)", background: l.include ? "var(--surface)" : "var(--bg-card-soft)" }}>
                 <div className="flex items-center gap-1.5">
                   <input
                     type="checkbox"
