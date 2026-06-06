@@ -2,6 +2,7 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import type { AnalyzeContext, AnalyzeResult, AIProvider } from "./ai-provider";
+import { realOpenAIKey } from "./ai-provider";
 import { parseAndMapFlat, AIFlatParseError } from "./parse-ai-flat";
 import { buildUsefulOcrContext } from "./document-context-extractor";
 import { parsePaySlipRichData, PAY_SLIP_CLOUD_PROMPT } from "./pay-slip-types";
@@ -26,7 +27,9 @@ function getChatCompletionsUrl(): string {
 }
 
 function getApiKey(): string | null {
-  return process.env.AI_CLOUD_API_KEY ?? process.env.OPENAI_API_KEY ?? null;
+  // `realOpenAIKey()` exclut la fausse clé locale « ollama-local » (Synology) :
+  // on ne s'en sert jamais comme d'une vraie clé cloud.
+  return process.env.AI_CLOUD_API_KEY?.trim() || realOpenAIKey() || null;
 }
 
 function getModel(): string {

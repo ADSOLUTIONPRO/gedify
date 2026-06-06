@@ -70,6 +70,19 @@ export type AIProvider = {
   analyzeDocument(context: AnalyzeContext): Promise<AnalyzeResult>;
 };
 
+/**
+ * Fausse clé locale utilisée par Ollama en mode OpenAI-compatible (déploiement
+ * Synology). Ce n'est JAMAIS une vraie clé cloud : partout où l'on teste la
+ * présence d'une clé OpenAI réelle, on l'ignore via `realOpenAIKey()`.
+ */
+export const OLLAMA_LOCAL_API_KEY = "ollama-local";
+
+/** Vraie clé OpenAI (ni vide, ni la fausse clé locale Ollama), sinon null. */
+export function realOpenAIKey(): string | null {
+  const k = process.env.OPENAI_API_KEY?.trim();
+  return k && k !== OLLAMA_LOCAL_API_KEY ? k : null;
+}
+
 /** Un cloud OpenAI-compatible (AI_CLOUD_*) est-il configuré ? */
 function cloudConfigured(): boolean {
   return Boolean(process.env.AI_CLOUD_API_KEY && process.env.AI_CLOUD_BASE_URL);
@@ -87,9 +100,10 @@ export function getActiveAIProvider(): AIProvider {
   console.log("[AI] getActiveAIProvider provider=", requested, "cloudConfigured=", cloudConfigured());
   switch (requested) {
     case "openai": {
-      if (!process.env.OPENAI_API_KEY) {
-        // Pas de clé OPENAI_* mais un cloud OpenAI-compatible (AI_CLOUD_*) est
-        // configuré → on l'utilise plutôt que de retomber sur le mock.
+      // `realOpenAIKey()` ignore la fausse clé locale « ollama-local » : avec
+      // celle-ci on retombe sur le cloud AI_CLOUD_* ou le mock plutôt que
+      // d'appeler api.openai.com avec une clé bidon.
+      if (!realOpenAIKey()) {
         if (cloudConfigured()) {
           console.log("[AI] OPENAI_API_KEY absente — bascule sur le cloud AI_CLOUD_*");
           return cloudWithFallback();
@@ -105,6 +119,26 @@ export function getActiveAIProvider(): AIProvider {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const ollamaMod = require("./ollama-provider") as typeof import("./ollama-provider");
       console.log("[AI] provider=ollama model=", process.env.OLLAMA_MODEL ?? "qwen2.5:3b");
+      return wrapWithStrictHandling(ollamaMod.ollamaProvider);
+    }
+    case "auto": {
+      // Auto : OpenAI/cloud SEULEMENT si une vraie clé est présente (≠ fausse clé
+      // locale « ollama-local »), sinon Ollama local. Sert au déploiement Synology
+      // où OPENAI_API_KEY=ollama-local doit signifier « pas de cloud → Ollama ».
+      const realKey = realOpenAIKey();
+      if (realKey) {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const mod = require("./openai-provider") as typeof import("./openai-provider");
+        console.log("[AI] provider=auto → OpenAI (clé réelle présente)");
+        return wrapWithMockFallback(mod.openAIProvider);
+      }
+      if (cloudConfigured()) {
+        console.log("[AI] provider=auto → cloud AI_CLOUD_*");
+        return cloudWithFallback();
+      }
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const ollamaMod = require("./ollama-provider") as typeof import("./ollama-provider");
+      console.log("[AI] provider=auto → Ollama local model=", process.env.OLLAMA_MODEL ?? "qwen2.5:3b");
       return wrapWithStrictHandling(ollamaMod.ollamaProvider);
     }
     case "hybrid": {

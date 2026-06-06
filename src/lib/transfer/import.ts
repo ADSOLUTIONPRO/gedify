@@ -26,7 +26,7 @@ import {
 import { mimeFromExt } from "@/lib/engine/helpers";
 import { makeThumbnail } from "@/lib/engine/thumbnails";
 import { makePreview } from "@/lib/engine/previews";
-import { pgStorageActive } from "@/lib/db/pg-store";
+import { postgresActive } from "@/lib/db/pg-store";
 import { restorePostgres, type PgDump } from "@/lib/transfer/pg-backup";
 import { reindexAll } from "@/lib/engine/search";
 import { EXPORT_FORMAT } from "./export";
@@ -381,7 +381,7 @@ export async function importFromZip(
   // 4 bis) Restauration du dump PostgreSQL (mode postgres) : source de vérité des
   // domaines en base (projets, budget, mails…). Écrase les tables avec le dump,
   // donc à exécuter AVANT la réindexation pour refléter l'état final.
-  if (pgStorageActive()) {
+  if (postgresActive()) {
     const dump = await readZipJson<PgDump>(zip, "postgres/dump.json");
     if (dump?.tables) {
       try {

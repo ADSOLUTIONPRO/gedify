@@ -36,7 +36,8 @@ ENV NODE_ENV=production \
     DATA_DIR=/app/.data \
     TESSERACT_LANG_PATH=/app/tessdata \
     TESSERACT_CORE_PATH=/app/node_modules/tesseract.js-core \
-    AI_FAST_MODE=true
+    AI_FAST_MODE=true \
+    NODE_OPTIONS=--experimental-sqlite
 
 # su-exec : bascule root→nextjs après chown du volume. fontconfig/dejavu : rendu PDF.
 # libc6-compat : filet de sécurité pour le chargement des binaires natifs (sharp).
@@ -67,6 +68,9 @@ RUN node -e "try{const{createCanvas}=require('@napi-rs/canvas');const c=createCa
 # en mode json pg est inutile ; en mode postgres, readStore retombe sur le JSON
 # si pg ne se charge pas (ENABLE_JSON_FALLBACK).
 RUN node -e "import('pg').then(()=>console.log('[build] pg OK (mode postgres disponible)')).catch(e=>console.warn('[build] pg indisponible (mode json OK, postgres en repli JSON):',e.message))" || true
+# node:sqlite (intégré, mode GEDIFY_STORAGE_MODE=sqlite). Échoue le build si le
+# module n'est pas disponible dans l'image (sinon le mode sqlite serait mort).
+RUN node -e "const {DatabaseSync}=require('node:sqlite'); const d=new DatabaseSync(':memory:'); d.exec('PRAGMA journal_mode=WAL'); d.exec('CREATE TABLE t(x)'); d.prepare('INSERT INTO t VALUES(1)').run(); console.log('[build] node:sqlite OK', d.prepare('SELECT COUNT(*) AS n FROM t').get().n)"
 
 # Répertoire de données persistant (point de montage du volume Coolify).
 RUN mkdir -p /app/.data && chown -R nextjs:nodejs /app/.data
@@ -79,6 +83,14 @@ RUN mkdir -p /app/.data && chown -R nextjs:nodejs /app/.data
 COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
+# Scripts de déploiement Synology (génération des secrets + démarrage). Présents
+# dans toutes les images mais invoqués UNIQUEMENT par docker-compose.sqlite.yml
+# (Synology) — aucun effet sur les autres environnements (Coolify/Postgres).
+COPY --from=builder --chown=nextjs:nodejs /app/deploy/synology ./deploy/synology
+RUN chmod +x ./deploy/synology/scripts/*.sh \
+ && sh -n ./deploy/synology/scripts/init-secrets.sh \
+ && sh -n ./deploy/synology/scripts/start-synology.sh \
+ && echo "[build] scripts Synology OK"
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
 RUN rm -rf node_modules/@prisma/engines node_modules/@prisma/dev \
            node_modules/@prisma/studio-core node_modules/@prisma/fetch-engine \
@@ -89,6 +101,12 @@ RUN node -e "const s=require('./package.json').scripts||{}; if(!s['gedify:migrat
 RUN node scripts/gedify-migrate-json.mjs --dry-run >/dev/null 2>&1 \
  && echo "[build] migration toolchain OK (dry-run)" \
  || (echo "[build] migration toolchain KO" && exit 1)
+# Chaîne SQLite : crée une base jetable, vérifie tables + PRAGMA, puis la supprime.
+RUN DATA_DIR=/tmp/sqlite-selftest node scripts/gedify-sqlite-init.mjs >/dev/null 2>&1 \
+ && DATA_DIR=/tmp/sqlite-selftest node scripts/gedify-sqlite-inspect.mjs >/dev/null 2>&1 \
+ && rm -rf /tmp/sqlite-selftest \
+ && echo "[build] sqlite toolchain OK (init+inspect)" \
+ || (echo "[build] sqlite toolchain KO" && exit 1)
 
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh

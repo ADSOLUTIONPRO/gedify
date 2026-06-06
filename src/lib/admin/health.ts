@@ -13,7 +13,8 @@ import {
 } from "@/lib/engine/stores";
 import { getBackupsDir, legacyMediaSubdir } from "@/lib/storage/ged-paths";
 import { listProjectFolders } from "@/lib/projects/project-store";
-import { pgStorageActive } from "@/lib/db/pg-store";
+import { postgresActive, getStorageMode } from "@/lib/db/pg-store";
+import { realOpenAIKey } from "@/lib/ai/ai-provider";
 import { jobStats } from "@/lib/jobs/job-store";
 import { duplicateStats } from "@/lib/documents/duplicate-detection";
 import { computeClassificationStats, type ClassificationStats } from "@/lib/admin/classification-stats";
@@ -47,7 +48,24 @@ export type GedHealth = {
     backups: DirUsage;
     totalBytes: number;
   };
-  database: { mode: string; postgres: boolean; ok: boolean; detail: string | null };
+  database: {
+    mode: string;
+    postgres: boolean;
+    sqlite: boolean;
+    ok: boolean;
+    detail: string | null;
+    /** SQLite indisponible mais ENABLE_JSON_FALLBACK actif → repli JSON. */
+    fallbackActive: boolean;
+    sqliteInfo: {
+      path: string;
+      walActive: boolean;
+      foreignKeys: boolean;
+      sizeBytes: number;
+      walSizeBytes: number;
+      appliedMigrations: number;
+      counts: Record<string, number>;
+    } | null;
+  };
   services: { openaiConfigured: boolean };
   lastBackup: { file: string; at: string } | null;
   pipeline: { pending: number; processing: number; failed: number; total: number; lastFinishedAt: string | null };
@@ -112,19 +130,56 @@ function isPending(s: EngineDocument["thumbnail_status"]): boolean {
 }
 
 async function databaseHealth(): Promise<GedHealth["database"]> {
-  const mode = process.env.GEDIFY_STORAGE_MODE?.trim().toLowerCase() || "json";
-  const postgres = pgStorageActive();
-  if (!postgres) {
-    return { mode, postgres: false, ok: true, detail: "Stockage JSON (PostgreSQL non actif)." };
+  const mode = getStorageMode();
+  const base = { mode, postgres: false, sqlite: false, fallbackActive: false, sqliteInfo: null };
+
+  if (mode === "postgres") {
+    if (!postgresActive()) {
+      return { ...base, postgres: true, ok: false, detail: "Mode postgres mais DATABASE_URL absent." };
+    }
+    try {
+      const { getPool } = await import("@/lib/db/pg");
+      const pool = await getPool();
+      await pool.query("SELECT 1");
+      return { ...base, postgres: true, ok: true, detail: "Connexion PostgreSQL OK." };
+    } catch (e) {
+      return { ...base, postgres: true, ok: false, detail: e instanceof Error ? e.message : String(e) };
+    }
   }
-  try {
-    const { getPool } = await import("@/lib/db/pg");
-    const pool = await getPool();
-    await pool.query("SELECT 1");
-    return { mode, postgres: true, ok: true, detail: "Connexion PostgreSQL OK." };
-  } catch (e) {
-    return { mode, postgres: true, ok: false, detail: e instanceof Error ? e.message : String(e) };
+
+  if (mode === "sqlite") {
+    const { sqliteHealth } = await import("@/lib/db/sqlite/client");
+    const h = sqliteHealth();
+    const fallback = process.env.ENABLE_JSON_FALLBACK !== "false";
+    if (h.ok) {
+      return {
+        ...base,
+        sqlite: true,
+        ok: true,
+        detail: `SQLite OK — ${h.path}`,
+        sqliteInfo: {
+          path: h.path,
+          walActive: h.walActive,
+          foreignKeys: h.foreignKeys,
+          sizeBytes: h.sizeBytes,
+          walSizeBytes: h.walSizeBytes,
+          appliedMigrations: h.appliedMigrations,
+          counts: h.counts,
+        },
+      };
+    }
+    return {
+      ...base,
+      sqlite: true,
+      ok: fallback, // repli JSON toléré → état OK ; sinon erreur
+      fallbackActive: fallback,
+      detail: fallback
+        ? `SQLite indisponible — fallback JSON actif (${h.error}).`
+        : `SQLite indisponible : ${h.error}`,
+    };
   }
+
+  return { ...base, ok: true, detail: "Stockage JSON (fichiers)." };
 }
 
 async function lastBackup(): Promise<GedHealth["lastBackup"]> {
@@ -250,10 +305,11 @@ export async function computeGedHealth(): Promise<GedHealth> {
     storage: { originals, thumbnails, previews, pages, backups, totalBytes },
     database,
     services: {
-      // Vrai si OpenAI direct (OPENAI_API_KEY) OU un cloud OpenAI-compatible
-      // (AI_CLOUD_API_KEY + AI_CLOUD_BASE_URL) est configuré — les deux activent l'IA.
+      // Vrai si une VRAIE clé OpenAI (≠ fausse clé locale « ollama-local ») OU un
+      // cloud OpenAI-compatible (AI_CLOUD_API_KEY + AI_CLOUD_BASE_URL) est configuré.
+      // L'IA locale Ollama (Synology) n'est PAS un cloud → openaiConfigured=false.
       openaiConfigured: Boolean(
-        process.env.OPENAI_API_KEY?.trim() ||
+        realOpenAIKey() ||
           (process.env.AI_CLOUD_API_KEY?.trim() && process.env.AI_CLOUD_BASE_URL?.trim()),
       ),
     },

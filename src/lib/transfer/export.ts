@@ -5,7 +5,7 @@ import path from "node:path";
 import JSZip from "jszip";
 import { getDataDir } from "@/lib/storage/data-dir";
 import { paperlessFetch, paperlessFetchRaw } from "@/lib/paperless";
-import { pgStorageActive } from "@/lib/db/pg-store";
+import { postgresActive, sqliteActive } from "@/lib/db/pg-store";
 import { dumpPostgres } from "@/lib/transfer/pg-backup";
 import type { PaperlessDocument, PaperlessListResponse } from "@/lib/paperless-types";
 
@@ -215,13 +215,35 @@ export async function buildExportZip(options: ExportOptions = {}): Promise<Expor
   // 4 bis) Dump logique PostgreSQL (mode postgres) — source de vérité des
   // domaines en base, là où l'overlay JSON n'est plus à jour.
   let postgres: Record<string, number> | undefined;
-  if (pgStorageActive()) {
+  if (postgresActive()) {
     try {
       const dump = await dumpPostgres();
       zip.file("postgres/dump.json", JSON.stringify(dump));
       postgres = dump.counts;
     } catch (e) {
       errors.push(`Dump PostgreSQL : ${e instanceof Error ? e.message : e}`);
+    }
+  }
+
+  // 4 ter) Snapshot SQLite (mode sqlite) : checkpoint WAL (TRUNCATE) pour replier
+  // le journal dans le fichier principal, puis copie du fichier gedify.sqlite
+  // (+ -wal/-shm s'ils subsistent). La base est la source de vérité des
+  // métadonnées ; les binaires restent dans files/ (ajoutés plus bas).
+  if (sqliteActive()) {
+    try {
+      const { checkpointSqlite, resolveGedifyDatabaseUrl } = await import("@/lib/db/sqlite/client");
+      checkpointSqlite();
+      const dbPath = resolveGedifyDatabaseUrl();
+      for (const suffix of ["", "-wal", "-shm"]) {
+        try {
+          const buf = await fs.readFile(`${dbPath}${suffix}`);
+          zip.file(`sqlite/gedify.sqlite${suffix}`, buf);
+        } catch {
+          /* -wal/-shm peuvent ne plus exister après le checkpoint : normal */
+        }
+      }
+    } catch (e) {
+      errors.push(`Snapshot SQLite : ${e instanceof Error ? e.message : e}`);
     }
   }
 

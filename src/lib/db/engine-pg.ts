@@ -1,17 +1,26 @@
 import "server-only";
 
 import { getPool } from "@/lib/db/pg";
+import { postgresActive, sqliteActive } from "@/lib/db/pg-store";
+import {
+  sqliteReadSetting,
+  sqliteWriteSetting,
+  sqliteReadCollection,
+  sqliteWriteCollection,
+  sqliteNextId,
+} from "@/lib/db/sqlite/engine";
 
 /* ────────────────────────────────────────────────────────────────────────
-   Backend Postgres du cœur moteur (Phase 2, round 1).
+   Backend base structurée du cœur moteur (Postgres OU SQLite).
 
-   Lit/écrit les collections moteur depuis Postgres en PRÉSERVANT la forme JSON
-   exacte attendue par l'app : chaque table porte une colonne `raw` (l'objet
-   d'origine intégral). `readCollectionPg("documents")` renvoie donc le même
-   tableau d'objets que l'ancien `documents.json` → aucun appelant à modifier.
+   Lit/écrit les collections moteur en PRÉSERVANT la forme JSON exacte attendue
+   par l'app : chaque table porte une colonne `raw` (l'objet d'origine intégral).
+   `readCollectionPg("documents")` renvoie donc le même tableau d'objets que
+   l'ancien `documents.json` → aucun appelant à modifier.
 
-   Round 1 : documents, tags, document_types, correspondents, custom_fields,
-   counters. Les autres collections restent en JSON (repli).
+   En mode `sqlite`, chaque fonction délègue au jumeau SQLite (aucun pool pg).
+   Collections branchées : documents, tags, document_types, correspondents,
+   custom_fields, users, counters. Les autres restent en JSON (repli).
    ──────────────────────────────────────────────────────────────────────── */
 
 // La colonne « blob JSON intégral » varie selon la table (raw vs metadata).
@@ -25,10 +34,7 @@ const TABLES: Record<string, { table: string; blob: string }> = {
 };
 
 export function postgresEngineEnabled(): boolean {
-  return (
-    process.env.GEDIFY_STORAGE_MODE?.trim().toLowerCase() === "postgres" &&
-    Boolean(process.env.DATABASE_URL)
-  );
+  return postgresActive() || sqliteActive();
 }
 
 export function engineCollectionSupported(name: string): boolean {
@@ -50,6 +56,7 @@ export function engineSettingSupported(name: string): boolean {
 
 /** Lit la valeur (objet JSON) d'un réglage, ou null si absent. */
 export async function readSettingPg(key: string): Promise<unknown | null> {
+  if (sqliteActive()) return sqliteReadSetting(key);
   const pool = await getPool();
   const { rows } = await pool.query("SELECT value FROM settings WHERE key = $1", [key]);
   return rows.length ? rows[0].value : null;
@@ -57,6 +64,7 @@ export async function readSettingPg(key: string): Promise<unknown | null> {
 
 /** Upsert d'un réglage clé/valeur. */
 export async function writeSettingPg(key: string, value: unknown): Promise<void> {
+  if (sqliteActive()) return sqliteWriteSetting(key, value);
   const pool = await getPool();
   await pool.query(
     "INSERT INTO settings(key, value) VALUES($1, $2) ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value",
@@ -66,6 +74,7 @@ export async function writeSettingPg(key: string, value: unknown): Promise<void>
 
 /** Lecture d'une collection moteur → même forme que le JSON d'origine. */
 export async function readCollectionPg(name: string): Promise<unknown> {
+  if (sqliteActive()) return sqliteReadCollection(name);
   const pool = await getPool();
   if (name === "counters") {
     const { rows } = await pool.query("SELECT name, value FROM counters");
@@ -98,6 +107,7 @@ export async function readCollectionPg(name: string): Promise<unknown> {
  * lignes absentes du nouvel état, en transaction.
  */
 export async function writeCollectionPg(name: string, data: unknown): Promise<void> {
+  if (sqliteActive()) return sqliteWriteCollection(name, data);
   const pool = await getPool();
   const client = await pool.connect();
   try {
@@ -173,8 +183,9 @@ export async function writeCollectionPg(name: string, data: unknown): Promise<vo
   }
 }
 
-/** Séquence d'ID atomique côté Postgres (table counters). */
+/** Séquence d'ID atomique côté base structurée (table counters). */
 export async function nextIdPg(seq: string): Promise<number> {
+  if (sqliteActive()) return sqliteNextId(seq);
   const pool = await getPool();
   const { rows } = await pool.query(
     "INSERT INTO counters(name, value) VALUES($1, 1) ON CONFLICT(name) DO UPDATE SET value = counters.value + 1, updated_at = now() RETURNING value",

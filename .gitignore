@@ -29,6 +29,12 @@
 /.data/
 /data/
 
+# secrets internes générés automatiquement (Synology) — NE JAMAIS committer
+secrets.env
+**/secrets.env
+onlyoffice.env
+**/onlyoffice.env
+
 # debug
 npm-debug.log*
 yarn-debug.log*

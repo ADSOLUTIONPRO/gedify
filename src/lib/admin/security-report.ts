@@ -3,6 +3,7 @@ import "server-only";
 import { listUsers } from "@/lib/engine/users";
 import { roleOf, type Role } from "@/lib/auth/permissions";
 import { listGmailTokensPublic, isGmailStoreSecure } from "@/lib/connectors/gmail/gmail-token-store";
+import { realOpenAIKey } from "@/lib/ai/ai-provider";
 
 /* ────────────────────────────────────────────────────────────────────────
    Rapport de SÉCURITÉ (Partie 7) pour la Santé GED. LECTURE SEULE.
@@ -23,6 +24,8 @@ export type SecurityReport = {
     /** Mode de déploiement lisible (Docker / Bureau / Web) + dossier de données. */
     runtime: string;
     dataDir: string;
+    /** Provider IA actif lisible (ex. « Ollama local (qwen3:4b) », « OpenAI »). */
+    aiProvider: string;
   };
   users: { total: number; admins: number; activeAdmins: number; noPassword: number; byRole: Record<Role, number> };
   mailTokens: { total: number; expired: number; encryptionConfigured: boolean };
@@ -58,24 +61,48 @@ export async function computeSecurityReport(): Promise<SecurityReport> {
 
   const storageModeRaw = process.env.GEDIFY_STORAGE_MODE?.trim().toLowerCase() || "json";
   const runtimeRaw = process.env.GEDIFY_RUNTIME?.trim().toLowerCase();
+  const deploymentTarget = process.env.GEDIFY_DEPLOYMENT_TARGET?.trim().toLowerCase();
   const runtimeLabel =
-    runtimeRaw === "docker"
-      ? "Docker"
-      : process.env.GEDIFY_LOCAL_NO_AUTH === "1"
-        ? "Application bureau"
-        : "Web / serveur";
-  // « sqlite » utilise aujourd'hui le stockage local autonome → libellé clair.
-  const storageLabel = storageModeRaw === "postgres" ? "PostgreSQL" : storageModeRaw === "sqlite" ? "Local (SQLite à venir)" : "Local (fichiers)";
+    deploymentTarget === "synology"
+      ? "Synology Docker"
+      : runtimeRaw === "docker"
+        ? "Docker"
+        : process.env.GEDIFY_LOCAL_NO_AUTH === "1"
+          ? "Application bureau"
+          : "Web / serveur";
+  const storageLabel =
+    storageModeRaw === "postgres" ? "PostgreSQL" : storageModeRaw === "sqlite" ? "SQLite" : "Local (fichiers)";
+
+  // Provider IA lisible. La fausse clé locale « ollama-local » n'est jamais
+  // comptée comme une vraie clé OpenAI (cf. realOpenAIKey).
+  const aiProviderRaw = process.env.AI_PROVIDER?.trim().toLowerCase() || "";
+  const ollamaModel = process.env.OLLAMA_MODEL?.trim();
+  const hasRealKey = Boolean(realOpenAIKey());
+  const cloudConfigured = Boolean(
+    process.env.AI_CLOUD_API_KEY?.trim() && process.env.AI_CLOUD_BASE_URL?.trim(),
+  );
+  const aiProviderLabel =
+    aiProviderRaw === "ollama" || (aiProviderRaw === "auto" && !hasRealKey && !cloudConfigured)
+      ? `Ollama local${ollamaModel ? ` (${ollamaModel})` : ""}`
+      : aiProviderRaw === "openai" || (aiProviderRaw === "auto" && hasRealKey)
+        ? hasRealKey
+          ? "OpenAI"
+          : "OpenAI (clé absente)"
+        : cloudConfigured
+          ? "Cloud OpenAI-compatible"
+          : "Local (règles)";
 
   const env = {
     authSecret: present("AUTH_SECRET"),
     databaseUrl: present("DATABASE_URL"),
     storageMode: storageLabel,
     cookieSecure: process.env.COOKIE_SECURE?.trim() || "(défaut)",
-    openaiKey: present("OPENAI_API_KEY"),
+    // « ollama-local » est une fausse clé locale → reportée comme « absent ».
+    openaiKey: realOpenAIKey() ? ("présent" as const) : ("absent" as const),
     connectorSecret: isGmailStoreSecure() ? ("présent" as const) : ("absent" as const),
     runtime: runtimeLabel,
     dataDir: process.env.DATA_DIR?.trim() || "(défaut)",
+    aiProvider: aiProviderLabel,
   };
 
   const warnings: string[] = [];

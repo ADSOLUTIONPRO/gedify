@@ -1,20 +1,51 @@
 import "server-only";
 
 import { getPool } from "@/lib/db/pg";
+import {
+  sqliteReadAll,
+  sqliteReadByJsonIds,
+  sqliteWriteAll,
+  sqliteReadScoped,
+  sqliteWriteScoped,
+  sqliteReadDocCorrespondents,
+  sqliteWriteDocCorrespondents,
+} from "@/lib/db/sqlite/store";
 
 /* ────────────────────────────────────────────────────────────────────────
-   Helper générique pour brancher un store « collection JSON » sur Postgres
-   (Phase 2). Chaque table porte une colonne `raw` (objet d'origine intégral),
-   donc `pgReadAll` renvoie la MÊME forme que l'ancien tableau JSON → aucun
-   appelant à changer. `pgWriteAll` remplace l'état complet (upsert + suppression
-   des lignes absentes), comme un writeAll JSON.
+   Helper générique pour brancher un store « collection JSON » sur une base
+   structurée (Postgres OU SQLite). Chaque table porte une colonne blob (`raw`/
+   `metadata`) reprenant l'objet d'origine intégral, donc `pgReadAll` renvoie la
+   MÊME forme que l'ancien tableau JSON → aucun appelant à changer. `pgWriteAll`
+   remplace l'état complet (upsert + suppression des lignes absentes).
+
+   Routage : en mode `sqlite`, chaque fonction délègue à son jumeau SQLite (aucun
+   pool Postgres ouvert). En mode `postgres`, on utilise le pool pg. On ne
+   MÉLANGE jamais les deux backends.
    ──────────────────────────────────────────────────────────────────────── */
 
+/** Mode de stockage déclaré (`json` par défaut). */
+export function getStorageMode(): "postgres" | "sqlite" | "json" {
+  const m = process.env.GEDIFY_STORAGE_MODE?.trim().toLowerCase();
+  return m === "postgres" || m === "sqlite" ? m : "json";
+}
+
+/** Postgres réellement actif (nécessite le pool pg + DATABASE_URL). */
+export function postgresActive(): boolean {
+  return getStorageMode() === "postgres" && Boolean(process.env.DATABASE_URL);
+}
+
+/** SQLite réellement actif (fichier local `gedify.sqlite`). */
+export function sqliteActive(): boolean {
+  return getStorageMode() === "sqlite";
+}
+
+/**
+ * Stockage STRUCTURÉ actif (Postgres OU SQLite) : vrai dès qu'un store doit
+ * passer par la base plutôt que par les fichiers JSON. Les stores branchés
+ * testent ce drapeau ; le routage interne (postgres vs sqlite) est transparent.
+ */
 export function pgStorageActive(): boolean {
-  return (
-    process.env.GEDIFY_STORAGE_MODE?.trim().toLowerCase() === "postgres" &&
-    Boolean(process.env.DATABASE_URL)
-  );
+  return postgresActive() || sqliteActive();
 }
 
 export function jsonFallback(): boolean {
@@ -26,6 +57,7 @@ export function jsonFallback(): boolean {
  * JSON d'origine). `blobCol` = "raw" (défaut) ou "metadata" selon la table.
  */
 export async function pgReadAll<T>(table: string, idCol = "id", blobCol = "raw"): Promise<T[]> {
+  if (sqliteActive()) return sqliteReadAll<T>(table, idCol, blobCol);
   const pool = await getPool();
   const { rows } = await pool.query(`SELECT "${blobCol}" AS blob FROM "${table}" ORDER BY "${idCol}"`);
   return rows.map((r) => r.blob as T);
@@ -50,6 +82,7 @@ export async function pgReadByJsonIds<T>(
   blobCol = "raw",
 ): Promise<T[]> {
   if (ids.length === 0) return [];
+  if (sqliteActive()) return sqliteReadByJsonIds<T>(table, jsonKey, ids, blobCol);
   const pool = await getPool();
   const { rows } = await pool.query(
     `SELECT "${blobCol}" AS blob FROM "${table}" WHERE ("${blobCol}"->>'${jsonKey}')::bigint = ANY($1::bigint[])`,
@@ -76,6 +109,7 @@ export async function pgWriteAll<T>(
   blobCol = "raw",
   extraColumns?: PgExtraColumn<T>[],
 ): Promise<void> {
+  if (sqliteActive()) return sqliteWriteAll<T>(table, idCol, idOf, items, blobCol, extraColumns);
   const extras = extraColumns ?? [];
   const pool = await getPool();
   const client = await pool.connect();
@@ -127,6 +161,7 @@ export async function pgReadScoped<T>(
   idCol = "id",
   blobCol = "raw",
 ): Promise<T[]> {
+  if (sqliteActive()) return sqliteReadScoped<T>(table, scopeCol, scopeVal, idCol, blobCol);
   const pool = await getPool();
   const { rows } = await pool.query(
     `SELECT "${blobCol}" AS blob FROM "${table}" WHERE "${scopeCol}" = $1 ORDER BY "${idCol}"`,
@@ -143,6 +178,7 @@ export async function pgWriteScoped<T>(
   items: T[],
   opts: { scopeCol: string; scopeVal: string; blobCol?: string },
 ): Promise<void> {
+  if (sqliteActive()) return sqliteWriteScoped<T>(table, idCol, idOf, items, opts);
   const blobCol = opts.blobCol ?? "raw";
   const { scopeCol, scopeVal } = opts;
   const pool = await getPool();
@@ -186,6 +222,7 @@ export async function pgWriteScoped<T>(
 export type DocCorrespondentEntry = { documentId: number; correspondentIds: number[] };
 
 export async function pgReadDocCorrespondents(role: string): Promise<DocCorrespondentEntry[]> {
+  if (sqliteActive()) return sqliteReadDocCorrespondents(role);
   const pool = await getPool();
   const { rows } = await pool.query(
     `SELECT document_id, correspondent_id FROM document_correspondents WHERE role = $1 ORDER BY document_id, correspondent_id`,
@@ -205,6 +242,7 @@ export async function pgWriteDocCorrespondents(
   role: string,
   entries: DocCorrespondentEntry[],
 ): Promise<void> {
+  if (sqliteActive()) return sqliteWriteDocCorrespondents(role, entries);
   const pool = await getPool();
   const client = await pool.connect();
   try {

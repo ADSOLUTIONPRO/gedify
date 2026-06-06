@@ -61,7 +61,23 @@ type GedHealth = {
     backups: DirUsage;
     totalBytes: number;
   };
-  database: { mode: string; postgres: boolean; ok: boolean; detail: string | null };
+  database: {
+    mode: string;
+    postgres: boolean;
+    sqlite: boolean;
+    ok: boolean;
+    detail: string | null;
+    fallbackActive: boolean;
+    sqliteInfo: {
+      path: string;
+      walActive: boolean;
+      foreignKeys: boolean;
+      sizeBytes: number;
+      walSizeBytes: number;
+      appliedMigrations: number;
+      counts: Record<string, number>;
+    } | null;
+  };
   services: { openaiConfigured: boolean };
   lastBackup: { file: string; at: string } | null;
   pipeline: { pending: number; processing: number; failed: number; total: number; lastFinishedAt: string | null };
@@ -82,7 +98,7 @@ type IntegrityReport = {
 
 type SecurityReport = {
   status: "ok" | "warning" | "error";
-  env: { authSecret: string; databaseUrl: string; storageMode: string; cookieSecure: string; openaiKey: string; connectorSecret: string; runtime: string; dataDir: string };
+  env: { authSecret: string; databaseUrl: string; storageMode: string; cookieSecure: string; openaiKey: string; connectorSecret: string; runtime: string; dataDir: string; aiProvider: string };
   users: { total: number; admins: number; activeAdmins: number; noPassword: number };
   mailTokens: { total: number; expired: number; encryptionConfigured: boolean };
   warnings: string[];
@@ -344,8 +360,26 @@ export function HealthDashboard() {
 
         <SectionCard icon={Database} title="Base de données" description="Mode de stockage actif">
           <div className="space-y-2.5 text-sm">
-            <Row label="Mode" value={health!.database.mode} tone={health!.database.postgres ? "violet" : "blue"} />
-            <Row label="PostgreSQL" value={health!.database.postgres ? (health!.database.ok ? "OK" : "Erreur") : "Inactif"} tone={!health!.database.postgres ? "slate" : health!.database.ok ? "emerald" : "rose"} />
+            <Row label="Mode" value={health!.database.mode} tone={health!.database.postgres ? "violet" : health!.database.sqlite ? "emerald" : "blue"} />
+            {health!.database.postgres ? (
+              <Row label="PostgreSQL" value={health!.database.ok ? "OK" : "Erreur"} tone={health!.database.ok ? "emerald" : "rose"} />
+            ) : null}
+            {health!.database.sqlite ? (
+              <Row
+                label="SQLite"
+                value={health!.database.fallbackActive ? "Indisponible — repli JSON" : health!.database.ok ? "OK" : "Erreur"}
+                tone={health!.database.fallbackActive ? "amber" : health!.database.ok ? "emerald" : "rose"}
+              />
+            ) : null}
+            {health!.database.sqliteInfo ? (
+              <>
+                <Row label="Journal WAL" value={health!.database.sqliteInfo.walActive ? "Actif" : "Inactif"} tone={health!.database.sqliteInfo.walActive ? "emerald" : "amber"} />
+                <Row label="Clés étrangères" value={health!.database.sqliteInfo.foreignKeys ? "Actives" : "Inactives"} tone={health!.database.sqliteInfo.foreignKeys ? "emerald" : "amber"} />
+                <Row label="Taille base" value={`${formatBytes(health!.database.sqliteInfo.sizeBytes)}${health!.database.sqliteInfo.walSizeBytes ? ` (+${formatBytes(health!.database.sqliteInfo.walSizeBytes)} WAL)` : ""}`} tone="slate" />
+                <Row label="Migrations" value={String(health!.database.sqliteInfo.appliedMigrations)} tone="blue" />
+                <Row label="Documents en base" value={String(health!.database.sqliteInfo.counts.documents ?? 0)} tone="violet" />
+              </>
+            ) : null}
             <Row label="Orphelins (vignettes)" value={String(health!.orphans.thumbnails)} tone={health!.orphans.thumbnails ? "amber" : "emerald"} />
             <Row label="Orphelins (aperçus)" value={String(health!.orphans.previews)} tone={health!.orphans.previews ? "amber" : "emerald"} />
             <Row label="Doublons possibles" value={`${health!.duplicates.groups} groupe(s)`} tone={health!.duplicates.groups ? "amber" : "emerald"} />
@@ -394,6 +428,7 @@ export function HealthDashboard() {
               <Row label="Mode de déploiement" value={security.env.runtime} tone="blue" />
               <Row label="Stockage" value={security.env.storageMode} tone="blue" />
               <Row label="Dossier de données" value={security.env.dataDir} tone="slate" />
+              <Row label="Provider IA" value={security.env.aiProvider} tone={security.env.aiProvider.startsWith("Ollama") ? "violet" : security.env.aiProvider === "OpenAI" ? "emerald" : "slate"} />
               <Row label="OPENAI_API_KEY" value={security.env.openaiKey} tone={security.env.openaiKey === "présent" ? "emerald" : "slate"} />
               <Row label="Chiffrement tokens mail" value={security.env.connectorSecret === "présent" ? "configuré" : "absent"} tone={security.env.connectorSecret === "présent" ? "emerald" : security.mailTokens.total ? "amber" : "slate"} />
             </div>
