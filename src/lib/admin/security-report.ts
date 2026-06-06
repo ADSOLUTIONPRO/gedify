@@ -20,6 +20,9 @@ export type SecurityReport = {
     cookieSecure: string;
     openaiKey: "présent" | "absent";
     connectorSecret: "présent" | "absent";
+    /** Mode de déploiement lisible (Docker / Bureau / Web) + dossier de données. */
+    runtime: string;
+    dataDir: string;
   };
   users: { total: number; admins: number; activeAdmins: number; noPassword: number; byRole: Record<Role, number> };
   mailTokens: { total: number; expired: number; encryptionConfigured: boolean };
@@ -53,13 +56,26 @@ export async function computeSecurityReport(): Promise<SecurityReport> {
   }
   const expired = tokens.filter((t) => t.expired === true).length;
 
+  const storageModeRaw = process.env.GEDIFY_STORAGE_MODE?.trim().toLowerCase() || "json";
+  const runtimeRaw = process.env.GEDIFY_RUNTIME?.trim().toLowerCase();
+  const runtimeLabel =
+    runtimeRaw === "docker"
+      ? "Docker"
+      : process.env.GEDIFY_LOCAL_NO_AUTH === "1"
+        ? "Application bureau"
+        : "Web / serveur";
+  // « sqlite » utilise aujourd'hui le stockage local autonome → libellé clair.
+  const storageLabel = storageModeRaw === "postgres" ? "PostgreSQL" : storageModeRaw === "sqlite" ? "Local (SQLite à venir)" : "Local (fichiers)";
+
   const env = {
     authSecret: present("AUTH_SECRET"),
     databaseUrl: present("DATABASE_URL"),
-    storageMode: process.env.GEDIFY_STORAGE_MODE?.trim() || "json",
+    storageMode: storageLabel,
     cookieSecure: process.env.COOKIE_SECURE?.trim() || "(défaut)",
     openaiKey: present("OPENAI_API_KEY"),
     connectorSecret: isGmailStoreSecure() ? ("présent" as const) : ("absent" as const),
+    runtime: runtimeLabel,
+    dataDir: process.env.DATA_DIR?.trim() || "(défaut)",
   };
 
   const warnings: string[] = [];

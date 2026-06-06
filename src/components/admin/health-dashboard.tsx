@@ -82,7 +82,7 @@ type IntegrityReport = {
 
 type SecurityReport = {
   status: "ok" | "warning" | "error";
-  env: { authSecret: string; databaseUrl: string; storageMode: string; cookieSecure: string; openaiKey: string; connectorSecret: string };
+  env: { authSecret: string; databaseUrl: string; storageMode: string; cookieSecure: string; openaiKey: string; connectorSecret: string; runtime: string; dataDir: string };
   users: { total: number; admins: number; activeAdmins: number; noPassword: number };
   mailTokens: { total: number; expired: number; encryptionConfigured: boolean };
   warnings: string[];
@@ -391,8 +391,9 @@ export function HealthDashboard() {
         >
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="space-y-2.5 text-sm">
-              <Row label="AUTH_SECRET" value={security.env.authSecret} tone={security.env.authSecret === "présent" ? "emerald" : "rose"} />
-              <Row label="DATABASE_URL" value={security.env.databaseUrl} tone={security.env.databaseUrl === "présent" ? "emerald" : "slate"} />
+              <Row label="Mode de déploiement" value={security.env.runtime} tone="blue" />
+              <Row label="Stockage" value={security.env.storageMode} tone="blue" />
+              <Row label="Dossier de données" value={security.env.dataDir} tone="slate" />
               <Row label="OPENAI_API_KEY" value={security.env.openaiKey} tone={security.env.openaiKey === "présent" ? "emerald" : "slate"} />
               <Row label="Chiffrement tokens mail" value={security.env.connectorSecret === "présent" ? "configuré" : "absent"} tone={security.env.connectorSecret === "présent" ? "emerald" : security.mailTokens.total ? "amber" : "slate"} />
             </div>

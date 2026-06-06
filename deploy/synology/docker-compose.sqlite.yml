@@ -1,0 +1,77 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Gedify — Synology (Container Manager / docker compose), 1 conteneur + 1 volume.
+# Stockage LOCAL AUTONOME (aucun PostgreSQL requis) : toutes les données (métadonnées
+# + fichiers + miniatures + OCR + budget…) vivent dans le volume unique /app/.data.
+#
+# ⚠️ NOTE « SQLite » : un backend SQLite dédié (DATABASE_URL=file:…) est PRÉVU mais
+# pas encore actif. Aujourd'hui le mode autonome stocke les données en fichiers
+# (JSON + binaires) dans /app/.data — même résultat pratique : 1 conteneur, 1
+# volume persistant, zéro base externe. Voir docs/synology-installation.md.
+#
+# Lancement :  docker compose -f docker-compose.sqlite.yml up -d --build
+# Accès     :  http://IP_DU_NAS:3210
+# ─────────────────────────────────────────────────────────────────────────────
+services:
+  gedify:
+    container_name: gedify
+    restart: unless-stopped
+
+    # Option A (par défaut) : construire l'image localement depuis le dépôt.
+    # Le contexte est la racine de l'app Next autonome (apps-devices/nopp).
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    # Option B : utiliser une image pré-publiée (registre). Commentez `build:`
+    # ci-dessus et décommentez la ligne suivante :
+    # image: gedify/gedify:latest
+
+    # Hôte 3210 → conteneur 3200 (PORT ci-dessous). Changez 3210 si déjà pris.
+    ports:
+      - "3210:3200"
+
+    environment:
+      NODE_ENV: "production"
+      # Le serveur Next écoute sur ce port DANS le conteneur (= côté droit du mapping).
+      PORT: "3200"
+      HOSTNAME: "0.0.0.0"
+
+      # Identité de déploiement (affichée dans Santé GED).
+      GEDIFY_RUNTIME: "docker"
+
+      # Stockage local autonome dans le volume unique (sans PostgreSQL).
+      # « sqlite » est accepté ; en attendant le backend SQLite dédié, il utilise
+      # le stockage local autonome (fichiers dans DATA_DIR). 100 % dans le volume.
+      GEDIFY_STORAGE_MODE: "sqlite"
+      DATA_DIR: "/app/.data"
+      # Réservé au futur backend SQLite (non utilisé aujourd'hui) :
+      DATABASE_URL: "file:/app/.data/gedify.sqlite"
+
+      # IA OpenAI (renseignez VOTRE clé). Ne jamais committer une vraie clé ici.
+      AI_PROVIDER: "openai"
+      OPENAI_BASE_URL: "https://api.openai.com/v1"
+      AI_CLOUD_BASE_URL: "https://api.openai.com/v1"
+      AI_CLOUD_MODEL: "gpt-4.1-mini"
+      OPENAI_MODEL: "gpt-4.1-mini"
+      OPENAI_API_KEY: ""
+      AI_CLOUD_API_KEY: ""
+      AI_API_KEY: ""
+
+      # Secrets (OBLIGATOIRE : générez 32+ caractères aléatoires, voir la doc).
+      AUTH_SECRET: "change-me-32-characters-minimum"
+      CONNECTOR_SECRET_KEY: "change-me-32-characters-minimum"
+      MAIL_CONNECTOR_KEY: "change-me-32-characters-minimum"
+
+      # Cookie de session sur HTTP (accès local par IP, sans HTTPS) → false.
+      # Passez à "true" derrière un reverse proxy HTTPS Synology.
+      COOKIE_SECURE: "false"
+
+    volumes:
+      # NAS (gauche) → conteneur (droite). Créez le dossier NAS au préalable.
+      - /volume1/docker/gedify/data:/app/.data
+
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3200/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s

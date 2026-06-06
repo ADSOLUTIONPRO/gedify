@@ -22,6 +22,9 @@ const PUBLIC_PREFIXES = [
   "/api/auth/login",
   "/api/auth/logout",
   "/api/auth/session",
+  // Liveness publique (healthcheck Docker/Synology, reverse proxy) — aucune donnée
+  // sensible, statut « ok » uniquement.
+  "/api/health",
   // Déclencheur planifié : sécurisé par CRON_SECRET dans la route elle-même,
   // pas par la session (appelé par un planificateur externe).
   "/api/cron/",

@@ -1,0 +1,70 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Gedify — Synology, VARIANTE AVANCÉE avec PostgreSQL (2 conteneurs).
+# La version recommandée pour la plupart des NAS reste SQLite/local autonome
+# (docker-compose.sqlite.yml). N'utilisez PostgreSQL que si vous savez pourquoi.
+#
+# Lancement : docker compose -f docker-compose.postgres.yml up -d --build
+# Accès     : http://IP_DU_NAS:3210
+# ─────────────────────────────────────────────────────────────────────────────
+services:
+  gedify-db:
+    image: postgres:16-alpine
+    container_name: gedify-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: "gedify"
+      POSTGRES_PASSWORD: "change-me-strong-password"
+      POSTGRES_DB: "gedify"
+    volumes:
+      - /volume1/docker/gedify/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gedify -d gedify"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  gedify:
+    container_name: gedify
+    restart: unless-stopped
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    # image: gedify/gedify:latest   # alternative : image pré-publiée
+    depends_on:
+      gedify-db:
+        condition: service_healthy
+    ports:
+      - "3210:3200"
+    environment:
+      NODE_ENV: "production"
+      PORT: "3200"
+      HOSTNAME: "0.0.0.0"
+      GEDIFY_RUNTIME: "docker"
+
+      # PostgreSQL. Les FICHIERS (originaux, miniatures, OCR…) restent dans le volume.
+      GEDIFY_STORAGE_MODE: "postgres"
+      DATABASE_URL: "postgresql://gedify:change-me-strong-password@gedify-db:5432/gedify"
+      ENABLE_JSON_FALLBACK: "false"
+      DATA_DIR: "/app/.data"
+
+      AI_PROVIDER: "openai"
+      OPENAI_BASE_URL: "https://api.openai.com/v1"
+      AI_CLOUD_BASE_URL: "https://api.openai.com/v1"
+      AI_CLOUD_MODEL: "gpt-4.1-mini"
+      OPENAI_MODEL: "gpt-4.1-mini"
+      OPENAI_API_KEY: ""
+      AI_CLOUD_API_KEY: ""
+      AI_API_KEY: ""
+
+      AUTH_SECRET: "change-me-32-characters-minimum"
+      CONNECTOR_SECRET_KEY: "change-me-32-characters-minimum"
+      MAIL_CONNECTOR_KEY: "change-me-32-characters-minimum"
+      COOKIE_SECURE: "false"
+    volumes:
+      - /volume1/docker/gedify/data:/app/.data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3200/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
