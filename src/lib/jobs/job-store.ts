@@ -202,6 +202,44 @@ export async function retryFailedJobs(type?: JobType): Promise<number> {
   });
 }
 
+/**
+ * Reprise des jobs INTERROMPUS : un job resté « processing » au-delà de `maxAgeMs`
+ * (redémarrage du conteneur en plein traitement, ou étape figée passée au travers
+ * des timeouts) est relancé — repassé en `pending` (nouvelle tentative) ou marqué
+ * `failed` si les tentatives sont épuisées. À appeler au démarrage + périodiquement.
+ * Délai par défaut : GEDIFY_JOB_STUCK_MS (sinon 15 min) — bien au-delà des timeouts
+ * d'étape, donc ne récupère JAMAIS un job légitimement en cours.
+ */
+export async function reclaimStuckJobs(maxAgeMs?: number): Promise<number> {
+  const limit = (() => {
+    if (typeof maxAgeMs === "number" && maxAgeMs > 0) return maxAgeMs;
+    const n = Number(process.env.GEDIFY_JOB_STUCK_MS);
+    return Number.isFinite(n) && n > 0 ? n : 15 * 60_000;
+  })();
+  return withLock(async () => {
+    const jobs = await readAllRaw();
+    const cutoff = Date.now() - limit;
+    let n = 0;
+    for (const j of jobs) {
+      if (j.status !== "processing") continue;
+      const started = j.startedAt ? Date.parse(j.startedAt) : 0;
+      if (started && started > cutoff) continue; // encore dans les temps
+      if (j.attempts >= j.maxAttempts) {
+        j.status = "failed";
+        j.finishedAt = new Date().toISOString();
+        j.lastError = j.lastError ?? "interrompu (redémarrage ou blocage prolongé)";
+      } else {
+        j.status = "pending"; // sera repris par le worker
+        j.startedAt = null;
+        j.lastError = "repris après interruption";
+      }
+      n += 1;
+    }
+    if (n > 0) await writeAllRaw(prune(jobs));
+    return n;
+  });
+}
+
 /** Plafonne les jobs terminés/échoués (les plus anciens supprimés). */
 function prune(jobs: PipelineJob[]): PipelineJob[] {
   const active = jobs.filter((j) => j.status === "pending" || j.status === "processing");

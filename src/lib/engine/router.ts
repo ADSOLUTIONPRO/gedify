@@ -384,8 +384,10 @@ async function postDocument(body: unknown): Promise<Response> {
     created: (body.get("created") as string) || null,
     custom_fields,
   });
-  // Paperless renvoie l'UUID de tâche (chaîne JSON).
-  return json(task.task_id, 200);
+  // Tâche complète (task_id + related_document + status) → le proxy d'import
+  // expose le documentId au frontend pour le suivi de traitement. Les consommateurs
+  // historiques (mail-connector) restent compatibles : ils lisent task_id.
+  return json(task, 200);
 }
 
 /* ════════════════ Documents : bulk_edit ════════════════ */

@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 type PaperlessTaskResponse = {
   id?: string | number;
   uuid?: string;
+  task_id?: string;
   task_file_name?: string;
   status?: string;
   result?: string;
@@ -42,16 +43,24 @@ export async function POST(req: NextRequest) {
       { method: "POST", body: paperlessFormData },
     );
 
-    const taskId = task?.id ?? task?.uuid ?? null;
+    const taskId = task?.task_id ?? task?.uuid ?? (typeof task?.id === "string" ? task.id : null);
+    const documentId = typeof task?.related_document === "number" ? task.related_document : null;
+    const failed = task?.status === "FAILURE";
     const aiEnabled = Boolean(process.env.AI_PROVIDER && process.env.AI_PROVIDER !== "mock");
 
+    // L'import répond DÈS que le fichier est écrit + le document créé. L'OCR,
+    // l'indexation et l'IA se font en arrière-plan (file de jobs, un par document).
     return NextResponse.json({
-      ok: true,
+      ok: !failed,
       taskId,
+      documentId,
       fileName,
-      status: "imported",
+      status: failed ? "failed" : "imported",
       aiEnabled,
-      message: "Document envoyé à Gedify. OCR et indexation en cours.",
+      message: failed
+        ? (task?.result ?? "Import refusé par le moteur.")
+        : "Fichier importé — traitement en arrière-plan.",
+      error: failed ? (task?.result ?? "Import refusé.") : undefined,
       links: {
         documents: "/documents",
         ia: "/ia",

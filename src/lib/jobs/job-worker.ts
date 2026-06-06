@@ -1,6 +1,6 @@
 import "server-only";
 
-import { claimNextJob, markJobDone, markJobFailed } from "@/lib/jobs/job-store";
+import { claimNextJob, markJobDone, markJobFailed, reclaimStuckJobs } from "@/lib/jobs/job-store";
 import { runJob } from "@/lib/jobs/job-handlers";
 
 /* ────────────────────────────────────────────────────────────────────────
@@ -49,7 +49,17 @@ export function startJobWorker(): void {
   started = true;
   const period = intervalMs();
   console.log(`[jobs] worker pipeline démarré (intervalle ${period} ms).`);
-  const timer = setInterval(() => void tick(), period);
+  // Reprise au démarrage : jobs laissés en « processing » par un arrêt brutal.
+  void reclaimStuckJobs()
+    .then((n) => { if (n) console.log(`[jobs] ${n} job(s) interrompu(s) repris au démarrage.`); })
+    .catch(() => {});
+  let ticks = 0;
+  const timer = setInterval(() => {
+    ticks += 1;
+    // Reprise périodique (~ toutes les 60 s) : filet de sécurité anti-blocage.
+    if (ticks % Math.max(1, Math.round(60_000 / period)) === 0) void reclaimStuckJobs().catch(() => {});
+    void tick();
+  }, period);
   timer.unref?.();
 }
 

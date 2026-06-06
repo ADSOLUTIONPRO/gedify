@@ -19,6 +19,7 @@ import { dlog } from "@/lib/engine/desktop-log";
 import { indexDocument } from "@/lib/engine/search";
 import { loadNameMaps, mimeFromExt } from "@/lib/engine/helpers";
 import { enqueueJob, type PipelineJob } from "@/lib/jobs/job-store";
+import { withTimeout, STEP_TIMEOUTS } from "@/lib/jobs/with-timeout";
 
 /** Analyse IA automatique après OCR : activée par GEDIFY_AI_AUTO=1 (coût OpenAI). */
 function aiAutoEnabled(): boolean {
@@ -56,7 +57,12 @@ async function runOcr(documentId: number, fromImport = false): Promise<void> {
 
   const startedIso = new Date().toISOString();
   await patchDoc(documentId, { ocr_status: "processing", ocr_started_at: startedIso });
-  const r = await extractText(orig, mimeOf(doc), extOf(doc));
+  // Timeout dur : un PDF qui fige pdf.js/Tesseract ne doit JAMAIS bloquer la file.
+  const r = await withTimeout(
+    extractText(orig, mimeOf(doc), extOf(doc)),
+    STEP_TIMEOUTS.ocr(),
+    `OCR doc#${documentId}`,
+  );
   const text = r.text;
   const ocrStatus: EngineDocument["ocr_status"] = text.trim() ? "ready" : "skipped";
   await patchDoc(documentId, {
@@ -101,7 +107,11 @@ async function runAi(documentId: number): Promise<void> {
   const { runDocumentAnalysis } = await import("@/lib/ai/run-document-analysis");
   const { withDocumentAnalysisLock } = await import("@/lib/ai/analysis-lock");
   const lock = await withDocumentAnalysisLock(documentId, () =>
-    runDocumentAnalysis(documentId, { force: false, createFinancialItems: true, autoApply: true }),
+    withTimeout(
+      runDocumentAnalysis(documentId, { force: false, createFinancialItems: true, autoApply: true }),
+      STEP_TIMEOUTS.ai(),
+      `analyse IA doc#${documentId}`,
+    ),
   );
   if (!lock.acquired) {
     await patchDoc(documentId, { ai_status: "pending" }); // déjà en cours ailleurs
@@ -142,7 +152,11 @@ async function runThumbnail(documentId: number): Promise<void> {
   const orig = await readOriginal(doc.storedFilename);
   if (!orig) throw new Error("fichier original introuvable");
   dlog(`import documentId=${documentId} source=${mimeOf(doc) || extOf(doc)}`);
-  const thumb = await makeThumbnail(orig, mimeOf(doc), extOf(doc));
+  const thumb = await withTimeout(
+    makeThumbnail(orig, mimeOf(doc), extOf(doc)),
+    STEP_TIMEOUTS.thumbnail(),
+    `miniature doc#${documentId}`,
+  );
   const errCode = takePdfRenderError(); // null si rendu OK ; code si placeholder
 
   // Panne INFRA dure (canvas/worker absent du build) → on fait ÉCHOUER le job pour
@@ -170,7 +184,11 @@ async function runPreview(documentId: number): Promise<void> {
   if (!doc) throw new Error("document introuvable");
   const orig = await readOriginal(doc.storedFilename);
   if (!orig) throw new Error("fichier original introuvable");
-  const preview = await makePreview(orig, mimeOf(doc), extOf(doc));
+  const preview = await withTimeout(
+    makePreview(orig, mimeOf(doc), extOf(doc)),
+    STEP_TIMEOUTS.preview(),
+    `aperçu doc#${documentId}`,
+  );
   if (preview) {
     await savePreview(documentId, preview);
     await patchDoc(documentId, { preview_status: "ready" });

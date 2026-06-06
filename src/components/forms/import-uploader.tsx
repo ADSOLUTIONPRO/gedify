@@ -1,32 +1,52 @@
 "use client";
 
-import { useRef, useState, type DragEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, Clock, FileText, Loader2, Sparkles, TriangleAlert, Upload, XCircle } from "lucide-react";
 
 type ImportResult = {
-  ok: true;
+  ok: boolean;
   taskId: string | null;
+  documentId: number | null;
   fileName: string;
   aiEnabled: boolean;
+  status: "imported" | "failed";
   message: string;
+  error?: string;
 };
 
 type UploadItem = {
   name: string;
+  /** uploading = envoi réel du fichier ; success = importé (traitement de fond) ; error = import refusé. */
   status: "pending" | "uploading" | "success" | "error";
   result?: ImportResult;
   error?: string;
+  documentId?: number | null;
+  /** Étape de traitement de fond (renvoyée par /api/documents/import-status). */
+  processingLabel?: string;
+  processingDone?: boolean;
+  processingError?: string | null;
 };
+
+type StatusRow = {
+  id: number;
+  found: boolean;
+  label?: string;
+  done?: boolean;
+  error?: string | null;
+  currentStep?: string;
+};
+
+const POLL_MS = 3000;
 
 export function ImportUploader() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [items, setItems] = useState<UploadItem[]>([]);
   const [dragging, setDragging] = useState(false);
 
-  function updateItem(name: string, patch: Partial<UploadItem>) {
+  const updateItem = useCallback((name: string, patch: Partial<UploadItem>) => {
     setItems((prev) => prev.map((i) => (i.name === name ? { ...i, ...patch } : i)));
-  }
+  }, []);
 
   async function uploadFiles(files: FileList | File[]) {
     const selected = Array.from(files);
@@ -34,22 +54,25 @@ export function ImportUploader() {
 
     setItems(selected.map((f) => ({ name: f.name, status: "pending" })));
 
+    // Envoi séquentiel des octets : chaque POST répond DÈS que le fichier est
+    // écrit + le document créé (traitement en arrière-plan) → plus de blocage.
     for (const file of selected) {
       updateItem(file.name, { status: "uploading" });
-
       const fd = new FormData();
       fd.append("document", file, file.name);
-
       try {
         const res = await fetch("/api/documents/import", { method: "POST", body: fd });
-
-        if (!res.ok) {
-          const err = (await res.json()) as { error?: string };
-          throw new Error(err.error ?? "Import échoué.");
+        const data = (await res.json().catch(() => ({}))) as Partial<ImportResult> & { error?: string };
+        if (!res.ok || data.ok === false || data.status === "failed") {
+          throw new Error(data.error ?? data.message ?? "Import refusé.");
         }
-
-        const data = (await res.json()) as ImportResult;
-        updateItem(file.name, { status: "success", result: data });
+        updateItem(file.name, {
+          status: "success",
+          result: data as ImportResult,
+          documentId: data.documentId ?? null,
+          processingLabel: "Importé — traitement en arrière-plan",
+          processingDone: false,
+        });
       } catch (err) {
         updateItem(file.name, {
           status: "error",
@@ -59,14 +82,53 @@ export function ImportUploader() {
     }
   }
 
+  /* ── Polling du traitement de fond (OCR/index/IA) document par document ──── */
+  useEffect(() => {
+    const pending = items.filter(
+      (i) => i.status === "success" && typeof i.documentId === "number" && !i.processingDone,
+    );
+    if (pending.length === 0) return;
+
+    let cancelled = false;
+    const timer = setInterval(async () => {
+      const ids = pending.map((i) => i.documentId).join(",");
+      try {
+        const res = await fetch(`/api/documents/import-status?ids=${ids}`, { cache: "no-store" });
+        if (!res.ok) return;
+        const data = (await res.json()) as { documents?: StatusRow[] };
+        if (cancelled || !data.documents) return;
+        setItems((prev) =>
+          prev.map((it) => {
+            if (it.status !== "success" || typeof it.documentId !== "number") return it;
+            const row = data.documents!.find((d) => d.id === it.documentId);
+            if (!row || !row.found) return it;
+            return {
+              ...it,
+              processingLabel: row.label ?? it.processingLabel,
+              processingDone: Boolean(row.done),
+              processingError: row.currentStep === "failed" ? (row.error ?? "Traitement échoué.") : null,
+            };
+          }),
+        );
+      } catch {
+        /* réseau best-effort — on retentera au prochain tick */
+      }
+    }, POLL_MS);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [items]);
+
   function onDrop(e: DragEvent<HTMLDivElement>) {
     e.preventDefault();
     setDragging(false);
     void uploadFiles(e.dataTransfer.files);
   }
 
-  const allDone = items.length > 0 && items.every((i) => i.status === "success" || i.status === "error");
   const anySuccess = items.some((i) => i.status === "success");
+  const allUploaded = items.length > 0 && items.every((i) => i.status === "success" || i.status === "error");
   const isUploading = items.some((i) => i.status === "uploading" || i.status === "pending");
 
   return (
@@ -93,8 +155,8 @@ export function ImportUploader() {
           Déposez vos fichiers ici
         </p>
         <p className="mt-1.5 max-w-sm text-[13px] leading-relaxed" style={{ color: "var(--text-muted)" }}>
-          PDF, images, DOCX — transmis à Gedify via le serveur.
-          OCR et indexation s&apos;effectuent côté Gedify.
+          PDF, images, DOCX — importés immédiatement. L&apos;OCR, l&apos;indexation et
+          l&apos;analyse IA se poursuivent en arrière-plan.
         </p>
         <button
           type="button"
@@ -104,7 +166,7 @@ export function ImportUploader() {
           style={{ background: "#0B5CFF" }}
         >
           {isUploading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
-          {isUploading ? "Import en cours…" : "Sélectionner des fichiers"}
+          {isUploading ? "Envoi en cours…" : "Sélectionner des fichiers"}
         </button>
         <input
           ref={inputRef}
@@ -119,49 +181,82 @@ export function ImportUploader() {
       {/* Liste des fichiers */}
       {items.length > 0 ? (
         <div className="mt-4 space-y-2">
-          {items.map((item) => (
-            <div
-              key={item.name}
-              className="rounded-xl border px-3 py-2.5"
-              style={{ borderColor: "var(--border)" }}
-            >
-              <div className="flex items-center gap-2.5">
-                {item.status === "uploading" || item.status === "pending" ? (
-                  <Loader2 className="h-4 w-4 shrink-0 animate-spin text-blue-500" aria-hidden="true" />
-                ) : item.status === "success" ? (
-                  <CheckCircle2 className="h-4 w-4 shrink-0" style={{ color: "#16A34A" }} aria-hidden="true" />
-                ) : (
-                  <XCircle className="h-4 w-4 shrink-0" style={{ color: "var(--danger)" }} aria-hidden="true" />
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13px] font-semibold" style={{ color: "var(--text-main)" }}>
-                    {item.name}
-                  </p>
-                  {item.status === "uploading" || item.status === "pending" ? (
-                    <p className="text-[11.5px]" style={{ color: "var(--text-muted)" }}>Envoi en cours…</p>
-                  ) : item.status === "success" ? (
-                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                      <span className="flex items-center gap-1 text-[11.5px]" style={{ color: "#16A34A" }}>
-                        <Clock className="h-3 w-3" strokeWidth={1.75} /> OCR et indexation en cours côté Gedify
-                      </span>
-                      {item.result?.aiEnabled ? (
-                        <span className="flex items-center gap-1 text-[11.5px]" style={{ color: "#7C3AED" }}>
-                          <Sparkles className="h-3 w-3" strokeWidth={1.75} /> Analyse IA disponible
-                        </span>
-                      ) : null}
-                    </div>
+          {items.map((item) => {
+            const uploading = item.status === "uploading" || item.status === "pending";
+            const failedProcessing = Boolean(item.processingError);
+            return (
+              <div key={item.name} className="rounded-xl border px-3 py-2.5" style={{ borderColor: "var(--border)" }}>
+                <div className="flex items-center gap-2.5">
+                  {uploading ? (
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin text-blue-500" aria-hidden="true" />
+                  ) : item.status === "success" && !failedProcessing ? (
+                    item.processingDone ? (
+                      <CheckCircle2 className="h-4 w-4 shrink-0" style={{ color: "#16A34A" }} aria-hidden="true" />
+                    ) : (
+                      <Loader2 className="h-4 w-4 shrink-0 animate-spin" style={{ color: "#16A34A" }} aria-hidden="true" />
+                    )
                   ) : (
-                    <p className="text-[11.5px]" style={{ color: "var(--danger)" }}>{item.error}</p>
+                    <XCircle className="h-4 w-4 shrink-0" style={{ color: "var(--danger)" }} aria-hidden="true" />
                   )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-semibold" style={{ color: "var(--text-main)" }}>
+                      {item.name}
+                    </p>
+                    {uploading ? (
+                      <p className="text-[11.5px]" style={{ color: "var(--text-muted)" }}>Envoi en cours…</p>
+                    ) : item.status === "error" ? (
+                      <p className="text-[11.5px]" style={{ color: "var(--danger)" }}>{item.error}</p>
+                    ) : failedProcessing ? (
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <span className="text-[11.5px]" style={{ color: "var(--danger)" }}>
+                          {item.processingError}
+                        </span>
+                        {typeof item.documentId === "number" ? (
+                          <Link
+                            href={`/documents/${item.documentId}`}
+                            className="text-[11.5px] font-semibold underline"
+                            style={{ color: "#0B5CFF" }}
+                          >
+                            Ouvrir le document
+                          </Link>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                        <span className="flex items-center gap-1 text-[11.5px]" style={{ color: item.processingDone ? "#16A34A" : "var(--text-muted)" }}>
+                          {item.processingDone ? (
+                            <CheckCircle2 className="h-3 w-3" strokeWidth={1.75} />
+                          ) : (
+                            <Clock className="h-3 w-3" strokeWidth={1.75} />
+                          )}
+                          {item.processingLabel ?? "Importé — traitement en arrière-plan"}
+                        </span>
+                        {item.result?.aiEnabled && !item.processingDone ? (
+                          <span className="flex items-center gap-1 text-[11.5px]" style={{ color: "#7C3AED" }}>
+                            <Sparkles className="h-3 w-3" strokeWidth={1.75} /> IA disponible
+                          </span>
+                        ) : null}
+                        {typeof item.documentId === "number" ? (
+                          <Link
+                            href={`/documents/${item.documentId}`}
+                            className="text-[11.5px] font-semibold underline"
+                            style={{ color: "#0B5CFF" }}
+                          >
+                            Ouvrir
+                          </Link>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : null}
 
-      {/* Actions post-import */}
-      {allDone && anySuccess ? (
+      {/* Actions post-import (dès l'upload terminé : pas besoin d'attendre le traitement) */}
+      {allUploaded && anySuccess ? (
         <div
           className="mt-4 rounded-xl border p-4"
           style={{ borderColor: "rgba(11,92,255,0.15)", background: "rgba(11,92,255,0.03)" }}
@@ -169,7 +264,8 @@ export function ImportUploader() {
           <div className="mb-3 flex items-center gap-2">
             <TriangleAlert className="h-4 w-4 shrink-0" style={{ color: "#F59E0B" }} strokeWidth={1.75} aria-hidden="true" />
             <p className="text-[12.5px] font-semibold" style={{ color: "var(--text-main)" }}>
-              Gedify traite le document — quelques secondes à quelques minutes selon l&apos;OCR.
+              Fichiers importés. Le traitement (OCR, indexation, IA) continue en
+              arrière-plan — vous pouvez fermer cette fenêtre.
             </p>
           </div>
           <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">

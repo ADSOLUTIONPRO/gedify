@@ -56,10 +56,24 @@ export async function uploadAttachmentToPaperless(
       method: "POST",
       body: form,
     });
-    const taskId = (await response.text()).trim();
+    // Le moteur renvoie désormais la tâche complète (objet JSON) ; on reste
+    // compatible avec l'ancien format (chaîne UUID JSON) en lisant prudemment.
+    const raw = (await response.text()).trim();
+    let taskId: string | null = null;
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (parsed && typeof parsed === "object") {
+        const t = parsed as { task_id?: unknown; id?: unknown };
+        taskId = (typeof t.task_id === "string" ? t.task_id : typeof t.id === "string" ? t.id : null);
+      } else if (typeof parsed === "string") {
+        taskId = parsed;
+      }
+    } catch {
+      taskId = raw.length > 0 ? raw.replace(/^"|"$/g, "") : null;
+    }
     return {
       ok: true,
-      taskId: taskId.length > 0 ? taskId.replace(/^"|"$/g, "") : null,
+      taskId,
       message: "Document envoyé à Paperless.",
     };
   } catch (error) {

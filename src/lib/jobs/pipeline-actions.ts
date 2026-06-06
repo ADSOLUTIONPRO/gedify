@@ -7,7 +7,7 @@ import {
   previewExists,
   type EngineDocument,
 } from "@/lib/engine/stores";
-import { enqueueJob, retryFailedJobs, type JobType } from "@/lib/jobs/job-store";
+import { enqueueJob, retryFailedJobs, reclaimStuckJobs, type JobType } from "@/lib/jobs/job-store";
 import { kickJobWorker } from "@/lib/jobs/job-worker";
 
 /* Actions de retraitement du pipeline, partagées par l'API admin et l'assistant
@@ -22,6 +22,7 @@ export const PIPELINE_ACTIONS = [
   "ai-unclassified",
   "ai-all",
   "retry-failed",
+  "reclaim-stuck",
 ] as const;
 export type PipelineActionName = (typeof PIPELINE_ACTIONS)[number];
 
@@ -40,6 +41,14 @@ export type PipelineActionResult = { action: string; queued?: number; requeued?:
 export async function runPipelineAction(action: string): Promise<PipelineActionResult> {
   if (action === "retry-failed") {
     const requeued = await retryFailedJobs();
+    kickJobWorker();
+    return { action, requeued };
+  }
+
+  // « Relancer les traitements bloqués » : jobs coincés en « processing »
+  // (interruption / blocage) → repassés en attente (forçage immédiat, maxAge 0).
+  if (action === "reclaim-stuck") {
+    const requeued = await reclaimStuckJobs(0);
     kickJobWorker();
     return { action, requeued };
   }
