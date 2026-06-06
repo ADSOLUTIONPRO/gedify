@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { jsonError } from "@/lib/api-utils";
 import { uploadAttachmentToPaperless } from "@/lib/mail-connector/paperless-upload";
 import { convertDocxToPdf } from "@/lib/writer/onlyoffice-convert";
-import { getGedifyInternalBaseUrl } from "@/lib/writer/onlyoffice-config";
+import { buildDocumentFileUrl } from "@/lib/writer/onlyoffice-config";
 import {
   getWriterDocument,
   recordPaperlessSend,
@@ -24,8 +24,8 @@ export async function POST(_request: NextRequest, ctx: Ctx) {
     const conversion = await convertDocxToPdf({
       documentId: id,
       documentKey: `${id}-v${document.version}-send`,
-      // URL fetchée PAR ONLYOFFICE → base interne (joignable depuis le conteneur).
-      sourceUrl: `${getGedifyInternalBaseUrl()}/api/writer/documents/${id}/file`,
+      // URL fetchée PAR ONLYOFFICE → URL publique + oo_token (joignable sans session).
+      sourceUrl: await buildDocumentFileUrl(id),
       title: document.fileName,
     });
 

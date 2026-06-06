@@ -62,23 +62,27 @@ export function isOnlyOfficeConfigured(): boolean {
   return Boolean(getOnlyOfficeServerUrl());
 }
 
-/** URL PUBLIQUE de Gedify (navigateur). GEDIFY_PUBLIC_URL en priorité. */
+/**
+ * URL PUBLIQUE de Gedify, utilisée pour construire les URLs que le SERVEUR
+ * ONLYOFFICE va appeler (téléchargement du .docx + callback de sauvegarde).
+ * Elle DOIT être joignable par ONLYOFFICE : GEDIFY_PUBLIC_URL en priorité
+ * (ex. https://gedify.azserver.fr en Coolify, http://IP_NAS:3210 en Synology),
+ * puis APP_PUBLIC_URL / NEXT_PUBLIC_APP_URL. JAMAIS localhost/127.0.0.1/un nom
+ * Docker interne en production : si rien n'est configuré, on loggue une erreur
+ * claire (l'URL de repli localhost ne serait pas joignable par ONLYOFFICE).
+ */
 export function getGedifyPublicBaseUrl(): string {
   const fromEnv =
     process.env.GEDIFY_PUBLIC_URL ?? process.env.APP_PUBLIC_URL ?? process.env.NEXT_PUBLIC_APP_URL;
-  if (fromEnv) return fromEnv.replace(/\/+$/, "");
+  if (fromEnv && fromEnv.trim()) return fromEnv.trim().replace(/\/+$/, "");
+  if (process.env.NODE_ENV === "production") {
+    console.error(
+      "[ONLYOFFICE] GEDIFY_PUBLIC_URL non défini en production : ONLYOFFICE ne pourra " +
+        "PAS télécharger/sauvegarder les documents (repli localhost injoignable). " +
+        "Définissez GEDIFY_PUBLIC_URL (ex. https://gedify.azserver.fr ou http://IP_NAS:3210).",
+    );
+  }
   return "http://localhost:3000";
-}
-
-/**
- * URL de Gedify joignable PAR ONLYOFFICE (téléchargement du document source +
- * callback de sauvegarde). En Docker, GEDIFY_INTERNAL_URL=http://gedify:3200
- * (réseau interne) ; sinon on retombe sur l'URL publique. Sur Coolify (sans
- * GEDIFY_INTERNAL_URL), ONLYOFFICE joint Gedify via l'URL publique — inchangé.
- */
-export function getGedifyInternalBaseUrl(): string {
-  const internal = process.env.GEDIFY_INTERNAL_URL?.replace(/\/+$/, "");
-  return internal || getGedifyPublicBaseUrl();
 }
 
 export async function signOnlyOfficePayload(payload: Record<string, unknown>): Promise<string> {
@@ -106,13 +110,75 @@ export async function verifyOnlyOfficeToken(token: string): Promise<Record<strin
   return payload as Record<string, unknown>;
 }
 
+/* ────────────────────────────────────────────────────────────────────────
+   Jeton d'accès SERVEUR (oo_token) : permet au serveur ONLYOFFICE (qui n'a PAS
+   de cookie de session navigateur) de télécharger le .docx et de poster le
+   callback de sauvegarde. Signé/vérifié côté Gedify, lié à un documentId + un
+   « scope » (file/callback), à durée de vie bornée. AUTH_SECRET (toujours
+   présent) sert de secret, sinon ONLYOFFICE_JWT_SECRET.
+   ──────────────────────────────────────────────────────────────────────── */
+export type DocAccessScope = "file" | "callback";
+
+function docAccessSecret(): Uint8Array {
+  const s = process.env.AUTH_SECRET?.trim() || getOnlyOfficeJwtSecret() || "gedify-onlyoffice";
+  return new TextEncoder().encode(s);
+}
+
+export async function signDocAccessToken(documentId: string, scope: DocAccessScope): Promise<string> {
+  return new SignJWT({ documentId: String(documentId), scope })
+    .setProtectedHeader({ alg: "HS256", typ: "JWT" })
+    .setIssuedAt()
+    .setExpirationTime("7d") // une session d'édition peut durer ; ré-ouvrir régénère
+    .sign(docAccessSecret());
+}
+
+export async function verifyDocAccessToken(
+  token: string,
+  documentId: string,
+  scope: DocAccessScope,
+): Promise<boolean> {
+  try {
+    const { payload } = await jwtVerify(token, docAccessSecret(), { algorithms: ["HS256"] });
+    return payload.documentId === String(documentId) && payload.scope === scope;
+  } catch {
+    return false;
+  }
+}
+
+/** URL publique de téléchargement du .docx pour ONLYOFFICE (avec oo_token). */
+export async function buildDocumentFileUrl(documentId: string): Promise<string> {
+  const token = await signDocAccessToken(documentId, "file");
+  return `${getGedifyPublicBaseUrl()}/api/writer/documents/${documentId}/file?oo_token=${token}`;
+}
+
+/** URL publique de callback de sauvegarde pour ONLYOFFICE (avec oo_token). */
+export async function buildDocumentCallbackUrl(documentId: string): Promise<string> {
+  const token = await signDocAccessToken(documentId, "callback");
+  return `${getGedifyPublicBaseUrl()}/api/writer/documents/${documentId}/onlyoffice-callback?oo_token=${token}`;
+}
+
+/** Masque la valeur d'un oo_token dans une URL pour les logs (jamais en clair). */
+export function maskOoToken(url: string): string {
+  return url.replace(/([?&]oo_token=)[^&]+/i, "$1***");
+}
+
 export async function buildEditorConfig(
   document: WriterDocument,
   options: { mode?: "edit" | "view" } = {},
 ): Promise<OnlyOfficeEditorConfig> {
   // `document.url` et `callbackUrl` sont appelées PAR le serveur ONLYOFFICE
-  // (téléchargement + sauvegarde) → URL interne joignable côté serveur/Docker.
-  const baseUrl = getGedifyInternalBaseUrl();
+  // (téléchargement + sauvegarde) → URL PUBLIQUE joignable par ONLYOFFICE, et
+  // protégées par un oo_token signé (pas de cookie de session côté ONLYOFFICE).
+  const publicBaseUrl = getGedifyPublicBaseUrl();
+  const documentUrl = await buildDocumentFileUrl(document.id);
+  const callbackUrl = await buildDocumentCallbackUrl(document.id);
+  // Log de diagnostic (secrets masqués) : URLs réellement envoyées à ONLYOFFICE.
+  console.log(
+    `[ONLYOFFICE] config docId=${document.id} mode=${options.mode ?? "edit"} ` +
+      `publicBaseUrl=${publicBaseUrl} documentServerUrl=${getOnlyOfficeServerUrl() ?? "(non configuré)"} ` +
+      `documentUrl=${maskOoToken(documentUrl)} callbackUrl=${maskOoToken(callbackUrl)} ` +
+      `jwt=${getOnlyOfficeJwtSecret() ? "on" : "off"}`,
+  );
   const key = `${document.id}-v${document.version}`;
   const config: OnlyOfficeEditorConfig = {
     documentType: "word",
@@ -120,7 +186,7 @@ export async function buildEditorConfig(
       fileType: "docx",
       key,
       title: document.title || "Document",
-      url: `${baseUrl}/api/writer/documents/${document.id}/file`,
+      url: documentUrl,
       permissions: {
         edit: options.mode !== "view",
         download: true,
@@ -129,7 +195,7 @@ export async function buildEditorConfig(
       },
     },
     editorConfig: {
-      callbackUrl: `${baseUrl}/api/writer/documents/${document.id}/onlyoffice-callback`,
+      callbackUrl,
       lang: "fr",
       user: { id: "ged-azserver", name: "Utilisateur GED" },
       customization: {

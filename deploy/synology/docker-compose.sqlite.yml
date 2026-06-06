@@ -186,10 +186,11 @@ services:
       # ONLYOFFICE_JWT_SECRET : généré par init-host.sh (secrets.env), chargé par
       # start-synology.sh. MÊME valeur que côté ONLYOFFICE (onlyoffice.env).
 
-      # URL PUBLIQUE Gedify (navigateur) et INTERNE (ONLYOFFICE → Gedify pour
-      # télécharger/sauvegarder les documents via le réseau Docker).
+      # URL PUBLIQUE Gedify. Sert AUSSI à ONLYOFFICE pour télécharger/sauvegarder
+      # les documents (download + callback, protégés par un jeton signé oo_token).
+      # Doit être joignable par le conteneur ONLYOFFICE → IP réelle du NAS (pas
+      # un nom Docker interne, pas localhost).
       GEDIFY_PUBLIC_URL: "http://${GEDIFY_SYNOLOGY_HOST:-192.168.1.17}:3210"
-      GEDIFY_INTERNAL_URL: "http://gedify:3200"
 
       # Secrets internes : générés par init-host.sh (et, en repli in-conteneur,
       # par start-synology.sh) dans /app/.data/secrets.env. Jamais écrasés.

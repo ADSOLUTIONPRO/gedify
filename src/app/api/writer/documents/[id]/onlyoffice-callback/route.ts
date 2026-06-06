@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { jsonError } from "@/lib/api-utils";
 import {
   getOnlyOfficeJwtSecret,
+  verifyDocAccessToken,
   verifyOnlyOfficeToken,
 } from "@/lib/writer/onlyoffice-config";
 import {
@@ -35,12 +36,22 @@ type CallbackPayload = {
 export async function POST(request: NextRequest, ctx: Ctx) {
   try {
     const { id } = await ctx.params;
+
+    // Jeton d'accès serveur (oo_token) : ONLYOFFICE n'a pas de session navigateur.
+    const ooToken = request.nextUrl.searchParams.get("oo_token");
+    if (ooToken && !(await verifyDocAccessToken(ooToken, id, "callback"))) {
+      console.warn(`[ONLYOFFICE] callback docId=${id} : oo_token invalide → 401`);
+      return NextResponse.json({ error: 1, message: "Jeton d'accès invalide" }, { status: 401 });
+    }
+
     const document = await getWriterDocument(id);
     if (!document) {
+      console.warn(`[ONLYOFFICE] callback docId=${id} : document introuvable → 404`);
       return NextResponse.json({ error: 1 }, { status: 404 });
     }
 
     const payload = (await request.json()) as CallbackPayload;
+    console.log(`[ONLYOFFICE] callback docId=${id} status=${payload.status ?? "?"}`);
 
     // Verify JWT when ONLYOFFICE_JWT_SECRET is set.
     if (getOnlyOfficeJwtSecret()) {

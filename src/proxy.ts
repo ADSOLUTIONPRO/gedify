@@ -46,6 +46,19 @@ function isPublic(pathname: string): boolean {
   );
 }
 
+/* Routes appelées par le SERVEUR ONLYOFFICE (téléchargement du .docx + callback
+   de sauvegarde). ONLYOFFICE n'a pas de cookie de session : ces requêtes portent
+   un `oo_token` signé (vérifié DANS la route). On ne les laisse passer sans
+   session QUE si ce token est présent — sinon le contrôle de session normal
+   s'applique (un navigateur sans session reste bloqué). */
+const ONLYOFFICE_SERVER_ROUTE = /^\/api\/writer\/documents\/[^/]+\/(file|onlyoffice-callback)$/;
+function isOnlyOfficeServerRequest(req: NextRequest): boolean {
+  return (
+    ONLYOFFICE_SERVER_ROUTE.test(req.nextUrl.pathname) &&
+    req.nextUrl.searchParams.has("oo_token")
+  );
+}
+
 function secret(): Uint8Array {
   return new TextEncoder().encode(process.env.AUTH_SECRET ?? "");
 }
@@ -131,6 +144,12 @@ export async function proxy(req: NextRequest) {
 
   // Routes publiques : login, assets Next.js, routes auth API
   if (isPublic(pathname)) {
+    return withCsp(NextResponse.next({ request: { headers: requestHeaders } }));
+  }
+
+  // Téléchargement / callback ONLYOFFICE (serveur, sans session) : laissés passer
+  // UNIQUEMENT s'ils portent un oo_token signé — la route en vérifie la validité.
+  if (isOnlyOfficeServerRequest(req)) {
     return withCsp(NextResponse.next({ request: { headers: requestHeaders } }));
   }
 
