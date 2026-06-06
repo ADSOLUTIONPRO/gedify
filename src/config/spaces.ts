@@ -5,6 +5,7 @@ import {
   FileText,
   FileType2,
   FolderTree,
+  ListTodo,
   Mail,
   PiggyBank,
   ShieldCheck,
@@ -166,14 +167,14 @@ export const spaces: Space[] = [
   },
   {
     id: "rappels",
-    label: "Rappels",
+    label: "Mes tâches",
     href: "/rappels",
-    icon: Bell,
+    icon: ListTodo,
     image: "/iconesmenu/rappels.png",
     color: "#D06A85",
     description:
-      "Suivez les échéances, rappels récurrents et alertes liées à vos documents et dossiers.",
-    shortDescription: "Échéances & alertes",
+      "Suivez vos tâches, échéances, rappels récurrents et alertes liées à vos documents et dossiers.",
+    shortDescription: "Tâches & échéances",
     quickActions: [
       { label: "Actions & rappels", href: "/actions", icon: Bell },
       { label: "Calendrier", href: "/calendrier", icon: CalendarRange },

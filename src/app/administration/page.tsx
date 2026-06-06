@@ -24,7 +24,6 @@ import {
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
 import { SectionCard } from "@/components/ui/section-card";
-import { SegmentedTabs } from "@/components/ui/segmented-tabs";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusPill } from "@/components/ui/status-pill";
 import { OrphanCleanupButton } from "@/components/admin/orphan-cleanup-button";
@@ -35,18 +34,6 @@ import { ScopedResetButton } from "@/components/admin/scoped-reset-button";
 import { getPaperlessPublicUrl, getPaperlessStatus } from "@/lib/paperless";
 
 export const dynamic = "force-dynamic";
-
-const ADMIN_TABS = [
-  { href: "/administration", label: "Vue d'ensemble", matchPath: "/administration" },
-  { href: "/utilisateurs", label: "Utilisateurs" },
-  { href: "/groupes", label: "Groupes" },
-  { href: "/tokens", label: "Tokens" },
-  { href: "/workflows", label: "Workflows" },
-  { href: "/emails", label: "Emails" },
-  { href: "/journaux", label: "Journaux" },
-  { href: "/statut", label: "Santé système" },
-  { href: "/parametres", label: "Paramètres" },
-];
 
 const ENGINES = [
   { name: "Moteur OCR (local)", description: "OCR par défaut", tone: "blue" as const, icon: Database },
@@ -100,10 +87,6 @@ export default async function AdministrationPage() {
           ) : null
         }
       />
-
-      <div className="overflow-x-auto pb-1">
-        <SegmentedTabs tabs={ADMIN_TABS} activeHref="/administration" />
-      </div>
 
       {/* Row 1: 4 wide stat cards */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Settings, type LucideIcon } from "lucide-react";
+import { Home, type LucideIcon } from "lucide-react";
 import { BrandLogo } from "@/components/ui/brand-logo";
 import { getSpaceById } from "@/config/spaces";
 import { getActiveSpaceId, RAIL_PRIMARY, RAIL_SECONDARY } from "@/config/space-menus";
@@ -78,17 +78,8 @@ export function AppsRail({ userInitials, financeEnabled = true }: { userInitials
         ))}
       </nav>
 
-      {/* Bas : réglages + profil */}
+      {/* Bas : profil (les réglages système sont dans Administration) */}
       <div className="flex w-full flex-col items-center gap-1.5 border-t px-1.5 py-2.5" style={{ borderColor: "var(--border)" }}>
-        <Link
-          href="/parametres"
-          aria-label="Réglages"
-          aria-current={activeId === "parametres" ? "page" : undefined}
-          className="flex w-full cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 transition hover:bg-black/[0.04]"
-        >
-          <Settings className="h-[24px] w-[24px] shrink-0" strokeWidth={1.85} style={{ color: "#6B7280" }} aria-hidden="true" />
-          <span className="text-[10.5px] font-semibold" style={{ color: "#5F6B7A" }}>Réglages</span>
-        </Link>
         <Link href="/profil" title="Mon profil" aria-label="Mon profil" className="flex h-9 w-9 items-center justify-center rounded-full text-[12px] font-bold text-white transition hover:opacity-90" style={{ background: "var(--accent)" }}>
           {userInitials || "?"}
         </Link>

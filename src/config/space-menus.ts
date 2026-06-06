@@ -4,7 +4,6 @@ import {
   AlertTriangle,
   Archive,
   Banknote,
-  Bell,
   Brain,
   Calendar,
   CalendarClock,
@@ -37,6 +36,7 @@ import {
   UserPlus,
   Users,
   Wallet,
+  Workflow,
 } from "lucide-react";
 import { getSpaceByHref } from "@/config/spaces";
 
@@ -101,6 +101,8 @@ export const SPACE_MENUS: Record<string, SpaceMenu> = {
       { label: "Types de documents", href: "/organiser/types", icon: FileType2 },
       { label: "Tags", href: "/organiser/tags", icon: Tags },
       { label: "Vues", href: "/organiser/vues", icon: LayoutGrid },
+      { label: "Workflows", href: "/workflows", icon: Workflow },
+      { label: "Modèles IA appris", href: "/administration/modeles-ia", icon: Brain },
     ],
   },
 
@@ -172,11 +174,11 @@ export const SPACE_MENUS: Record<string, SpaceMenu> = {
 
   rappels: {
     id: "rappels",
-    title: "Rappels",
-    description: "Échéances & alertes",
-    action: { label: "Nouveau rappel", href: "/rappels", icon: Bell },
+    title: "Mes tâches",
+    description: "Tâches, échéances & rappels",
+    action: { label: "Nouvelle tâche", href: "/rappels", icon: ListChecks },
     items: [
-      { label: "Tous les rappels", href: "/rappels", icon: Bell },
+      { label: "Toutes mes tâches", href: "/rappels", icon: ListChecks },
       { label: "À venir", href: "/rappels/a-venir", icon: Clock },
       { label: "En retard", href: "/rappels/en-retard", icon: AlertTriangle },
       { label: "Automatiques", href: "/rappels/recurrents", icon: Repeat },
@@ -191,9 +193,16 @@ export const SPACE_MENUS: Record<string, SpaceMenu> = {
     items: [
       { label: "Vue d'ensemble", href: "/administration", icon: Gauge },
       { label: "Utilisateurs", href: "/utilisateurs", icon: Users },
-      { label: "Modèles IA appris", href: "/administration/modeles-ia", icon: Brain },
+      { label: "Groupes", href: "/groupes", icon: Users },
+      { label: "Tokens", href: "/tokens", icon: Settings },
+      { label: "Emails & connecteurs", href: "/emails", icon: Send },
+      { label: "Journaux", href: "/journaux", icon: History },
+      { label: "Santé système", href: "/statut", icon: Activity },
+      { label: "Santé GED", href: "/administration/sante", icon: Gauge },
+      { label: "Rôles & permissions", href: "/administration/roles", icon: Settings },
+      { label: "Doublons", href: "/administration/doublons", icon: Copy },
+      { label: "Sauvegarde & migration", href: "/administration/sauvegarde", icon: Archive },
       { label: "Paramètres", href: "/parametres", icon: Settings },
-      { label: "Statut système", href: "/statut", icon: Activity },
     ],
   },
 

@@ -7,7 +7,7 @@ import { RemindersOverview } from "@/components/reminders/reminders-overview";
 import { bucketReminders, listReminders } from "@/lib/actions/reminder-store";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Rappels — Gedify" };
+export const metadata: Metadata = { title: "Mes tâches — Gedify" };
 
 export default async function RappelsPage() {
   const reminders = await listReminders();

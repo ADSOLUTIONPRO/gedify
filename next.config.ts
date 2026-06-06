@@ -24,6 +24,17 @@ const nextConfig: NextConfig = {
     "pdfjs-dist",
   ],
 
+  async redirects() {
+    // Alias de navigation (réorganisation des menus) — préservent les favoris.
+    return [
+      // « Mes tâches » : libellé renommé, route /rappels conservée + alias.
+      { source: "/mes-taches", destination: "/rappels", permanent: false },
+      { source: "/tasks", destination: "/rappels", permanent: false },
+      // « Réglages » retiré du rail → renvoyé vers les paramètres (Administration).
+      { source: "/reglages", destination: "/parametres", permanent: false },
+    ];
+  },
+
   async headers() {
     // En-têtes de sécurité STATIQUES. La Content-Security-Policy n'est PAS ici :
     // elle dépend d'une variable RUNTIME (ONLYOFFICE_DOCUMENT_SERVER_URL, inconnue
