@@ -69,7 +69,7 @@ export const RAIL_PRIMARY = [
   "agenda",
 ] as const;
 
-export const RAIL_SECONDARY = ["administration"] as const;
+export const RAIL_SECONDARY = ["organiser", "office", "administration"] as const;
 
 /* ── Menus par espace (allégés : uniquement l'essentiel) ───────────────── */
 
@@ -102,8 +102,6 @@ export const SPACE_MENUS: Record<string, SpaceMenu> = {
       { label: "Types de documents", href: "/organiser/types", icon: FileType2 },
       { label: "Tags", href: "/organiser/tags", icon: Tags },
       { label: "Vues", href: "/organiser/vues", icon: LayoutGrid },
-      { label: "Dossiers / Projets", href: "/dossiers", icon: FolderTree },
-      { label: "Rédaction", href: "/redaction", icon: PenLine },
       { label: "Workflows", href: "/workflows", icon: Workflow },
       { label: "Modèles IA appris", href: "/documents/modeles-ia", icon: Brain },
     ],
@@ -264,7 +262,7 @@ const ORPHAN_PREFIXES: [string, string][] = [
   ["/types", "documents"],
   ["/tags", "documents"],
   ["/import", "documents"],
-  ["/dossiers", "documents"],
+  ["/dossiers", "organiser"],
   ["/budget", "finances"],
   ["/redaction", "office"],
   ["/emails", "administration"],
@@ -295,8 +293,9 @@ export function getActiveSpaceId(pathname: string): string {
   if (pathname === "/correspondants" || pathname.startsWith("/correspondants/")) return "contacts";
   // - Agenda & tâches = calendrier + actions + rappels (Mes tâches).
   if (/^\/(actions|rappels|calendrier)(\/|$)/.test(pathname)) return "agenda";
-  // - Documents = + Organiser + Office (Rédaction).
-  if (/^\/(organiser|office|redaction)(\/|$)/.test(pathname)) return "documents";
+  // - Taxonomies sous /organiser/* (types/tags/vues) rattachées à Documents
+  //   (l'espace Organiser garde Dossiers/Projets).
+  if (/^\/organiser\/(types|tags|vues)(\/|$)/.test(pathname)) return "documents";
   const space = getSpaceByHref(pathname);
   if (space && SPACE_MENUS[space.id]) return space.id;
   for (const [prefix, id] of ORPHAN_PREFIXES) {

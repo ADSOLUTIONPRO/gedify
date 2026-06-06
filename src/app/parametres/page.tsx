@@ -1,11 +1,9 @@
 import {
-  Bell,
   Database,
   Eye,
   HardDrive,
   KeyRound,
   Link2,
-  Moon,
   Palette,
   ShieldCheck,
   SlidersHorizontal,
@@ -255,38 +253,6 @@ export default async function ParametresPage() {
                 checked
                 readOnly
                 className="h-5 w-5 rounded border-slate-300 text-blue-600"
-              />
-            </label>
-            <label className="flex items-center justify-between gap-4 rounded-xl border border-slate-200/60 bg-white/60 p-4">
-              <span className="flex items-center gap-3">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
-                  <Moon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                </span>
-                <span>
-                  <span className="block text-sm font-semibold text-slate-900">Thème sombre</span>
-                  <span className="block text-xs text-slate-500">Prévu pour une prochaine étape</span>
-                </span>
-              </span>
-              <input
-                type="checkbox"
-                disabled
-                className="h-5 w-5 rounded border-slate-300"
-              />
-            </label>
-            <label className="flex items-center justify-between gap-4 rounded-xl border border-slate-200/60 bg-white/60 p-4">
-              <span className="flex items-center gap-3">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
-                  <Bell className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                </span>
-                <span>
-                  <span className="block text-sm font-semibold text-slate-900">Notifications</span>
-                  <span className="block text-xs text-slate-500">À venir</span>
-                </span>
-              </span>
-              <input
-                type="checkbox"
-                disabled
-                className="h-5 w-5 rounded border-slate-300"
               />
             </label>
           </div>
