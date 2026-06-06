@@ -91,132 +91,140 @@ export function DocumentFilters({
   }
 
   return (
-    <div className="rounded-xl border bg-white" style={{ borderColor: "var(--border)", boxShadow: "var(--shadow-xs)" }}>
-      <form ref={formRef} action={basePath} className="p-2">
-        {Object.entries(hidden ?? {}).map(([name, value]) => (
-          <input key={name} type="hidden" name={name} value={value} />
-        ))}
+    <form ref={formRef} action={basePath}>
+      {Object.entries(hidden ?? {}).map(([name, value]) => (
+        <input key={name} type="hidden" name={name} value={value} />
+      ))}
 
-        {/* Ligne principale compacte (langage proche de la barre de sélection, bordure neutre) */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          {/* Recherche */}
-          <div className="relative min-w-0 flex-1" style={{ minWidth: "150px", maxWidth: "320px" }}>
-            <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" strokeWidth={1.75} />
-            <input
-              name="query"
-              type="search"
-              defaultValue={values.query}
-              placeholder="Titre, contenu, ASN…"
-              className={`${fieldClass} pl-7`}
-              style={{ borderColor: "var(--border)", color: "var(--text-main)", borderRadius: 8 }}
-            />
+      {/* ── TRI (séparé, au-dessus de la barre de filtres) ── */}
+      <div className="mb-2 flex items-center gap-2">
+        <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Trier</span>
+        <select
+          name="ordering"
+          defaultValue={values.ordering ?? "-added"}
+          onChange={(e) => e.currentTarget.form?.requestSubmit()}
+          className={fieldClass}
+          style={{ borderColor: "var(--border)", color: "var(--text-main)", borderRadius: 8, width: "auto", minWidth: "150px" }}
+        >
+          <option value="-added">Plus récent</option>
+          <option value="added">Plus ancien</option>
+          <option value="title">Titre A-Z</option>
+          <option value="-created">Date du document récente</option>
+          <option value="created">Date du document ancienne</option>
+        </select>
+      </div>
+
+      {/* ── BARRE DE FILTRES ── */}
+      <div className="rounded-xl border bg-white" style={{ borderColor: "var(--border)", boxShadow: "var(--shadow-xs)" }}>
+        <div className="p-2">
+          {/* Filtres toujours visibles : mots-clés · Type · Correspondant · Tag · État */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <div className="relative min-w-0 flex-1" style={{ minWidth: "150px", maxWidth: "320px" }}>
+              <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" strokeWidth={1.75} />
+              <input
+                name="query"
+                type="search"
+                defaultValue={values.query}
+                placeholder="Mots-clés (titre, contenu, ASN…)"
+                className={`${fieldClass} pl-7`}
+                style={{ borderColor: "var(--border)", color: "var(--text-main)", borderRadius: 8 }}
+              />
+            </div>
+
+            <select name="document_type" defaultValue={values.document_type} className={fieldClass} style={{ borderColor: "var(--border)", color: "var(--text-main)", borderRadius: 8, width: "auto", minWidth: "112px" }}>
+              <option value="">Type…</option>
+              {types.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+
+            <select name="correspondent" defaultValue={values.correspondent} className={fieldClass} style={{ borderColor: "var(--border)", color: "var(--text-main)", borderRadius: 8, width: "auto", minWidth: "112px" }}>
+              <option value="">Correspondant…</option>
+              {correspondents.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+
+            <select name="tag" defaultValue={values.tag} className={fieldClass} style={{ borderColor: "var(--border)", color: "var(--text-main)", borderRadius: 8, width: "auto", minWidth: "98px" }}>
+              <option value="">Tag…</option>
+              {tags.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+
+            <select name="etat" defaultValue={values.etat} className={fieldClass} style={{ borderColor: "var(--border)", color: "var(--text-main)", borderRadius: 8, width: "auto", minWidth: "112px" }}>
+              <option value="">État…</option>
+              {Object.entries(ETAT_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+
+            <button
+              type="submit"
+              className="inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg px-4 text-[12px] font-bold text-white transition hover:opacity-90"
+              style={{ background: "var(--gedify-navy)", borderRadius: 8 }}
+            >
+              Filtrer
+            </button>
+
+            {/* « ··· » : filtres secondaires (dates, ASN) */}
+            <button
+              type="button"
+              onClick={() => setShowAdvanced((v) => !v)}
+              aria-label="Plus de filtres"
+              className="inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-lg border px-3 text-[12px] font-semibold transition hover:bg-[var(--bg-card-soft)]"
+              style={{ borderColor: "var(--border-strong)", color: "var(--text-muted)", borderRadius: 8 }}
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={1.75} />
+              {showAdvanced ? "Moins" : "Plus de filtres"}
+            </button>
+
+            {activeChips.length > 0 && (
+              <Link
+                href={resetHref}
+                className="inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-lg px-3 text-[12.5px] font-semibold transition hover:bg-slate-50"
+                style={{ color: "var(--text-muted)" }}
+              >
+                <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.75} />
+                Reset
+              </Link>
+            )}
           </div>
 
-          {/* Type */}
-          <select name="document_type" defaultValue={values.document_type} className={fieldClass} style={{ borderColor: "var(--border)", color: "var(--text-main)", borderRadius: 8, width: "auto", minWidth: "112px" }}>
-            <option value="">Type…</option>
-            {types.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </select>
-
-          {/* Correspondant */}
-          <select name="correspondent" defaultValue={values.correspondent} className={fieldClass} style={{ borderColor: "var(--border)", color: "var(--text-main)", borderRadius: 8, width: "auto", minWidth: "112px" }}>
-            <option value="">Correspondant…</option>
-            {correspondents.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-
-          {/* Tag */}
-          <select name="tag" defaultValue={values.tag} className={fieldClass} style={{ borderColor: "var(--border)", color: "var(--text-main)", borderRadius: 8, width: "auto", minWidth: "98px" }}>
-            <option value="">Tag…</option>
-            {tags.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </select>
-
-          {/* État IA / OCR / budget */}
-          <select name="etat" defaultValue={values.etat} className={fieldClass} style={{ borderColor: "var(--border)", color: "var(--text-main)", borderRadius: 8, width: "auto", minWidth: "112px" }}>
-            <option value="">État…</option>
-            {Object.entries(ETAT_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select>
-
-          {/* Tri */}
-          <select name="ordering" defaultValue={values.ordering ?? "-added"} className={fieldClass} style={{ borderColor: "var(--border)", color: "var(--text-main)", borderRadius: 8, width: "auto", minWidth: "118px" }}>
-            <option value="-added">Plus récent</option>
-            <option value="added">Plus ancien</option>
-            <option value="title">Titre A-Z</option>
-            <option value="-created">Date doc récente</option>
-            <option value="created">Date doc ancienne</option>
-          </select>
-
-          {/* Boutons */}
-          <button
-            type="submit"
-            className="inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg px-4 text-[12px] font-bold text-white transition hover:opacity-90"
-            style={{ background: "var(--gedify-navy)", borderRadius: 8 }}
-          >
-            Filtrer
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setShowAdvanced((v) => !v)}
-            className="inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-lg border px-3 text-[12px] font-semibold transition hover:bg-[var(--bg-card-soft)]"
-            style={{ borderColor: "var(--border-strong)", color: "var(--text-muted)", borderRadius: 8 }}
-          >
-            <SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={1.75} />
-            {showAdvanced ? "Moins" : "Avancés"}
-          </button>
-
-          {activeChips.length > 0 && (
-            <Link
-              href={resetHref}
-              className="inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-lg px-3 text-[12.5px] font-semibold transition hover:bg-slate-50"
-              style={{ color: "var(--text-muted)" }}
-            >
-              <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.75} />
-              Reset
-            </Link>
+          {/* Filtres avancés (dans le « ··· ») */}
+          {showAdvanced && (
+            <div className="mt-3 grid grid-cols-2 gap-2 border-t pt-3 sm:grid-cols-3 lg:grid-cols-4" style={{ borderColor: "var(--border-soft)" }}>
+              <label className="flex flex-col gap-1">
+                <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Date document depuis</span>
+                <input type="date" name="created_from" defaultValue={values.created_from} className={fieldClass} style={{ borderColor: "var(--border)", color: "var(--text-main)", borderRadius: 8 }} />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Ajouté depuis</span>
+                <input type="date" name="added_from" defaultValue={values.added_from} className={fieldClass} style={{ borderColor: "var(--border)", color: "var(--text-main)", borderRadius: 8 }} />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>ASN</span>
+                <select name="asn" defaultValue={values.asn} className={fieldClass} style={{ borderColor: "var(--border)", color: "var(--text-main)", borderRadius: 8 }}>
+                  <option value="">Tous</option>
+                  <option value="with">Avec ASN</option>
+                  <option value="without">Sans ASN</option>
+                </select>
+              </label>
+            </div>
           )}
         </div>
 
-        {/* Filtres avancés */}
-        {showAdvanced && (
-          <div className="mt-3 grid grid-cols-2 gap-2 border-t pt-3 sm:grid-cols-3 lg:grid-cols-4" style={{ borderColor: "var(--border-soft)" }}>
-            <label className="flex flex-col gap-1">
-              <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Date document depuis</span>
-              <input type="date" name="created_from" defaultValue={values.created_from} className={fieldClass} style={{ borderColor: "var(--border)", color: "var(--text-main)", borderRadius: 8 }} />
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Ajouté depuis</span>
-              <input type="date" name="added_from" defaultValue={values.added_from} className={fieldClass} style={{ borderColor: "var(--border)", color: "var(--text-main)", borderRadius: 8 }} />
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>ASN</span>
-              <select name="asn" defaultValue={values.asn} className={fieldClass} style={{ borderColor: "var(--border)", color: "var(--text-main)", borderRadius: 8 }}>
-                <option value="">Tous</option>
-                <option value="with">Avec ASN</option>
-                <option value="without">Sans ASN</option>
-              </select>
-            </label>
+        {/* Chips des filtres actifs */}
+        {activeChips.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 border-t px-3.5 py-2.5" style={{ borderColor: "var(--border-soft)" }}>
+            <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Actifs :</span>
+            {activeChips.map((chip) => (
+              <button
+                key={chip.key}
+                type="button"
+                onClick={() => removeFilter(chip.key)}
+                className="inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-[11.5px] font-semibold transition hover:opacity-80"
+                style={{ borderColor: "rgba(247,92,141,0.3)", background: "var(--accent-soft)", color: "var(--accent)" }}
+              >
+                {chip.label}
+                <X className="h-3 w-3" strokeWidth={2.5} />
+              </button>
+            ))}
           </div>
         )}
-      </form>
-
-      {/* Chips des filtres actifs */}
-      {activeChips.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5 border-t px-3.5 py-2.5" style={{ borderColor: "var(--border-soft)" }}>
-          <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Actifs :</span>
-          {activeChips.map((chip) => (
-            <button
-              key={chip.key}
-              type="button"
-              onClick={() => removeFilter(chip.key)}
-              className="inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-[11.5px] font-semibold transition hover:opacity-80"
-              style={{ borderColor: "rgba(247,92,141,0.3)", background: "var(--accent-soft)", color: "var(--accent)" }}
-            >
-              {chip.label}
-              <X className="h-3 w-3" strokeWidth={2.5} />
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+      </div>
+    </form>
   );
 }
