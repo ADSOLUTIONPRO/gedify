@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   CheckCircle2,
-  ExternalLink,
   FileText,
   Inbox,
   Pencil,
@@ -52,7 +51,6 @@ export function TaxonomyManager({
   items,
   apiBase,
   detailBase,
-  paperlessOriginalBase,
   documentParam,
   noun,
   nounPlural,
@@ -427,94 +425,73 @@ export function TaxonomyManager({
             </div>
           )
         ) : (
-          <ul className="divide-y divide-slate-100">
+          <ul className="divide-y" style={{ borderColor: "var(--border-soft)" }}>
             {filteredItems.map((item) => (
               <li
                 key={item.id}
-                className="grid gap-3 p-4 transition hover:bg-slate-50/60 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:p-5"
+                className="flex items-center gap-2.5 px-4 py-2 transition odd:bg-[var(--bg-card-soft)] hover:bg-slate-50/70"
               >
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    {mergeMode ? (
-                      <input
-                        type="checkbox"
-                        checked={mergeSel.has(item.id)}
-                        onChange={() => toggleMergeSel(item.id)}
-                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                        aria-label={`Sélectionner ${item.name}`}
-                      />
-                    ) : null}
-                    {colorEnabled ? (
-                      <span
-                        aria-hidden="true"
-                        className="h-3 w-3 rounded-full ring-2 ring-white shadow"
-                        style={{ backgroundColor: item.color || "#94a3b8" }}
-                      />
-                    ) : (
-                      <span
-                        aria-hidden="true"
-                        className="flex h-7 w-7 items-center justify-center rounded-lg"
-                        style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
-                      >
-                        <Tag className="h-3.5 w-3.5" strokeWidth={2} />
-                      </span>
-                    )}
-                    <Link
-                      href={`${detailBase}/${item.id}`}
-                      className="break-words text-base font-bold hover:opacity-70"
-                      style={{ color: "var(--gedify-navy)" }}
-                    >
-                      {item.name}
-                    </Link>
-                    {item.user_can_change === false ? (
-                      <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                        Lecture seule
-                      </span>
-                    ) : null}
-                  </div>
-                  <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-500">
-                    <FileText className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
-                    {item.document_count ?? 0} document(s) associé(s)
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap gap-1.5 md:justify-end">
+                {mergeMode ? (
+                  <input
+                    type="checkbox"
+                    checked={mergeSel.has(item.id)}
+                    onChange={() => toggleMergeSel(item.id)}
+                    className="h-4 w-4 shrink-0 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    aria-label={`Sélectionner ${item.name}`}
+                  />
+                ) : null}
+                {colorEnabled ? (
+                  <span aria-hidden="true" className="h-3 w-3 shrink-0 rounded-full ring-2 ring-white shadow" style={{ backgroundColor: item.color || "#94a3b8" }} />
+                ) : (
+                  <span aria-hidden="true" className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg" style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>
+                    <Tag className="h-3 w-3" strokeWidth={2} />
+                  </span>
+                )}
+                <Link
+                  href={`${detailBase}/${item.id}`}
+                  className="min-w-0 flex-1 truncate text-[14px] font-bold hover:opacity-70"
+                  style={{ color: "var(--gedify-navy)" }}
+                  title={item.name}
+                >
+                  {item.name}
+                </Link>
+                {item.user_can_change === false ? (
+                  <span className="hidden shrink-0 items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 sm:inline-flex">
+                    Lecture seule
+                  </span>
+                ) : null}
+                <span className="hidden shrink-0 items-center gap-1 text-[11.5px] text-slate-500 sm:flex" title={`${item.document_count ?? 0} document(s)`}>
+                  <FileText className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
+                  {item.document_count ?? 0}
+                </span>
+                <div className="flex shrink-0 items-center gap-1">
                   <Link
                     href={`/documents?${documentParam}=${item.id}`}
                     title="Voir les documents"
-                    className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                    aria-label="Voir les documents"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border bg-white text-slate-600 transition hover:bg-slate-50"
+                    style={{ borderColor: "var(--border)" }}
                   >
-                    Documents
-                    <ArrowRight className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
+                    <ArrowRight className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
                   </Link>
-                  {paperlessOriginalBase ? (
-                    <a
-                      href={`${paperlessOriginalBase}/${item.id}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      title="Ouvrir le document"
-                      className="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
-                    </a>
-                  ) : null}
                   <button
                     type="button"
                     onClick={() => startEdit(item)}
                     disabled={item.user_can_change === false}
                     title="Modifier"
-                    className="inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                    aria-label="Modifier"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                     style={{ background: "var(--gedify-navy)" }}
                   >
-                    <Pencil className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
-                    Modifier
+                    <Pencil className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
                   </button>
                   <button
                     type="button"
                     onClick={() => setPendingDelete(item)}
                     disabled={item.user_can_change === false}
                     title="Supprimer"
-                    className="inline-flex h-9 items-center justify-center rounded-xl border bg-white px-2.5 text-xs font-semibold transition hover:bg-[var(--gedify-red-soft)] disabled:cursor-not-allowed disabled:opacity-40"
+                    aria-label="Supprimer"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border bg-white transition hover:bg-[var(--gedify-red-soft)] disabled:cursor-not-allowed disabled:opacity-40"
                     style={{ borderColor: "rgba(239,68,68,0.3)", color: "#DC2626" }}
                   >
                     <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
