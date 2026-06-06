@@ -210,6 +210,8 @@ export const SPACE_MENUS: Record<string, SpaceMenu> = {
       { label: "Rôles & permissions", href: "/administration/roles", icon: Settings },
       { label: "Doublons", href: "/administration/doublons", icon: Copy },
       { label: "Sauvegarde & migration", href: "/administration/sauvegarde", icon: Archive },
+      { label: "Stockage", href: "/stockage", icon: Archive },
+      { label: "Champs personnalisés", href: "/champs-personnalises", icon: Sliders },
       { label: "Paramètres", href: "/parametres", icon: Settings },
     ],
   },

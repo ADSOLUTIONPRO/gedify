@@ -32,6 +32,8 @@ const nextConfig: NextConfig = {
       { source: "/tasks", destination: "/rappels", permanent: false },
       // « Réglages » retiré du rail → renvoyé vers les paramètres (Administration).
       { source: "/reglages", destination: "/parametres", permanent: false },
+      // Vues enregistrées : page unique sous Documents (évite le doublon /vues).
+      { source: "/vues", destination: "/organiser/vues", permanent: false },
     ];
   },
 
