@@ -74,3 +74,9 @@ tessdata/
 
 # Copies locales avec secrets (clé OpenAI…) — NE JAMAIS committer
 *.local.yml
+
+# Artefacts/notes locaux Synology (contiennent potentiellement la clé OpenAI,
+# des .zip, .DS_Store, doublons de compose) — NE JAMAIS committer.
+/deploy/synology/SYNOLOGY GEDIFY/
+/deploy/synology/INSTALLATION.rtf
+/deploy/synology/*copie*.yml
