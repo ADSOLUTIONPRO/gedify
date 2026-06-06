@@ -82,6 +82,58 @@ export async function bulkUpsertEmailContacts(
   await writeAll(Array.from(byId.values()));
 }
 
+/** Supprime un contact (manuel ou détecté). Renvoie true si supprimé. */
+export async function removeEmailContact(resourceName: string): Promise<boolean> {
+  const all = await readAll();
+  const next = all.filter((c) => c.resourceName !== resourceName);
+  if (next.length === all.length) return false;
+  await writeAll(next);
+  return true;
+}
+
+/**
+ * Fusionne plusieurs contacts dans un contact « gardé » : union des emails,
+ * complète téléphone/société/correspondant manquants, supprime les autres.
+ * Ne supprime jamais sans appel explicite (confirmation côté UI).
+ */
+export async function mergeEmailContacts(
+  keepResourceName: string,
+  dropResourceNames: string[],
+): Promise<EmailContactRecord | null> {
+  const all = await readAll();
+  const keep = all.find((c) => c.resourceName === keepResourceName);
+  if (!keep) return null;
+  const drops = all.filter((c) => dropResourceNames.includes(c.resourceName) && c.resourceName !== keepResourceName);
+
+  const emails = new Set<string>();
+  for (const e of [...(keep.emails ?? []), ...(keep.email ? [keep.email] : [])]) emails.add(e.toLowerCase());
+  let phone = keep.phone;
+  let organization = keep.organization;
+  let correspondentId = keep.correspondentId;
+  for (const d of drops) {
+    for (const e of [...(d.emails ?? []), ...(d.email ? [d.email] : [])]) emails.add(e.toLowerCase());
+    phone = phone ?? d.phone;
+    organization = organization ?? d.organization;
+    correspondentId = correspondentId ?? d.correspondentId;
+  }
+
+  const merged: EmailContactRecord = {
+    ...keep,
+    emails: Array.from(emails),
+    phone,
+    organization,
+    correspondentId,
+    status: correspondentId ? "linked" : keep.status,
+    updatedAt: new Date().toISOString(),
+  };
+  const dropSet = new Set(dropResourceNames.filter((r) => r !== keepResourceName));
+  const next = all
+    .filter((c) => !dropSet.has(c.resourceName))
+    .map((c) => (c.resourceName === keepResourceName ? merged : c));
+  await writeAll(next);
+  return merged;
+}
+
 export async function setContactCorrespondent(
   resourceName: string,
   correspondentId: number | null

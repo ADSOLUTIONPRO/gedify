@@ -14,13 +14,16 @@ import { ContactsList } from "@/components/messaging/contacts-list";
 import { getGmailOAuthConfig } from "@/lib/connectors/gmail/oauth";
 import { firstParam, type PageSearchParams } from "@/lib/page-params";
 import type { EmailContactRecord } from "@/lib/messaging/email-types";
+import { findDuplicateGroups } from "@/lib/contacts/duplicates";
+import { ContactsDuplicates } from "@/components/messaging/contacts-duplicates";
+import { ManualContactsPanel, ContactFromCorrespondentButton } from "@/components/messaging/contacts-manual";
 
 export const dynamic = "force-dynamic";
 
-type Source = "all" | "google" | "imap_email" | "manual" | "correspondents";
+type Source = "all" | "google" | "imap_email" | "manual" | "correspondents" | "doublons";
 
 function clampSource(value: string | undefined): Source {
-  const valid: Source[] = ["all", "google", "imap_email", "manual", "correspondents"];
+  const valid: Source[] = ["all", "google", "imap_email", "manual", "correspondents", "doublons"];
   return (valid as string[]).includes(value ?? "") ? (value as Source) : "all";
 }
 
@@ -41,16 +44,20 @@ export default async function MessagerieContactsPage({ searchParams }: { searchP
     documentCount: typeof c.document_count === "number" ? c.document_count : null,
   }));
 
-  // Contacts emails (Google + détectés), seulement si une boîte est connectée.
-  const allContacts = account ? await listEmailContacts(account.accountId) : [];
+  // Tous les contacts (Google + détectés + manuels) — les manuels restent
+  // visibles même sans compte mail connecté.
+  const allContacts = await listEmailContacts();
   const visible = allContacts.filter((c) => c.status !== "ignored");
+  const duplicateGroups = findDuplicateGroups(visible);
+  const manualContacts = visible.filter((c) => c.source === "manual");
 
   const counts = {
     all: visible.length,
     google: visible.filter(isGoogle).length,
     imap_email: visible.filter((c) => c.source === "imap_email").length,
-    manual: visible.filter((c) => c.source === "manual").length,
+    manual: manualContacts.length,
     correspondents: correspondents.length,
+    doublons: duplicateGroups.length,
   };
 
   const tabs = [
@@ -59,6 +66,7 @@ export default async function MessagerieContactsPage({ searchParams }: { searchP
     { href: "/messagerie/contacts?source=imap_email", label: "Emails", count: counts.imap_email },
     { href: "/messagerie/contacts?source=manual", label: "Manuels", count: counts.manual },
     { href: "/messagerie/contacts?source=correspondents", label: "Correspondants GEDify", count: counts.correspondents },
+    { href: "/messagerie/contacts?source=doublons", label: "Doublons", count: counts.doublons },
   ];
 
   const emailContacts =
@@ -90,7 +98,22 @@ export default async function MessagerieContactsPage({ searchParams }: { searchP
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0 space-y-4">
-          {source === "correspondents" ? (
+          {source === "doublons" ? (
+            <SectionCard title={`Doublons possibles (${duplicateGroups.length})`} description="Contacts partageant une adresse email. Choisissez celui à conserver puis fusionnez (jamais automatique).">
+              <ContactsDuplicates
+                groups={duplicateGroups.map((g) => ({
+                  key: g.key,
+                  contacts: g.contacts.map((c) => ({ resourceName: c.resourceName, displayName: c.displayName, email: c.email, source: c.source, correspondentId: c.correspondentId })),
+                }))}
+              />
+            </SectionCard>
+          ) : source === "manual" ? (
+            <SectionCard title={`Contacts manuels (${manualContacts.length})`} description="Contacts saisis à la main ou créés depuis un correspondant.">
+              <ManualContactsPanel
+                contacts={manualContacts.map((c) => ({ resourceName: c.resourceName, displayName: c.displayName, email: c.email, phone: c.phone, organization: c.organization }))}
+              />
+            </SectionCard>
+          ) : source === "correspondents" ? (
             <SectionCard title={`Correspondants GEDify (${correspondents.length})`} description="Correspondants documentaires internes — source de classement de vos documents.">
               {correspondents.length === 0 ? (
                 <EmptyState icon={Users} title="Aucun correspondant GEDify" description="Les correspondants sont créés au fil du classement de vos documents." />
@@ -105,11 +128,14 @@ export default async function MessagerieContactsPage({ searchParams }: { searchP
                         <p className="truncate text-[13.5px] font-semibold" style={{ color: "var(--text-main)" }}>{c.name}</p>
                         <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10.5px] font-semibold text-slate-600">Correspondant GEDify</span>
                       </div>
-                      {c.documentCount != null ? (
-                        <a href={`/documents?correspondent=${c.id}`} className="shrink-0 text-[11.5px] font-semibold underline" style={{ color: "#0B5CFF" }}>
-                          {c.documentCount} doc(s)
-                        </a>
-                      ) : null}
+                      <div className="flex shrink-0 items-center gap-3">
+                        <ContactFromCorrespondentButton name={c.name} correspondentId={c.id} />
+                        {c.documentCount != null ? (
+                          <a href={`/documents?correspondent=${c.id}`} className="text-[11.5px] font-semibold underline" style={{ color: "#0B5CFF" }}>
+                            {c.documentCount} doc(s)
+                          </a>
+                        ) : null}
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -121,8 +147,7 @@ export default async function MessagerieContactsPage({ searchParams }: { searchP
               description={
                 source === "google" ? "Contacts importés depuis Google People."
                 : source === "imap_email" ? "Contacts détectés dans vos emails (expéditeurs / destinataires)."
-                : source === "manual" ? "Contacts saisis manuellement."
-                : "Tous les contacts emails (Google + détectés)."
+                : "Tous les contacts emails (Google + détectés + manuels)."
               }
             >
               {!account ? (
@@ -139,7 +164,6 @@ export default async function MessagerieContactsPage({ searchParams }: { searchP
                   title={
                     source === "google" ? "Aucun contact Google synchronisé"
                     : source === "imap_email" ? "Aucun contact détecté dans les emails"
-                    : source === "manual" ? "Aucun contact manuel"
                     : "Aucun contact"
                   }
                   description={
