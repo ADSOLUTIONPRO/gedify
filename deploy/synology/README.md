@@ -1,84 +1,71 @@
 # Installation GEDify Synology SQLite
 
 Version **autonome** pour Synology Container Manager : GEDify + SQLite + IA locale
-**Ollama** + édition Office **ONLYOFFICE Docs**, secrets et clé JWT **générés
-automatiquement**. Une seule chose à faire avant l'import : lancer le script
-d'initialisation hôte.
+**Ollama** + édition Office **ONLYOFFICE Docs**. Les **secrets** et la **clé JWT**
+ONLYOFFICE sont **générés automatiquement** par un service `init-secrets` intégré
+au compose.
 
-> ⚠️ **Pourquoi un script d'init hôte ?**
-> Container Manager (docker compose) lit `env_file` **au moment du parsing**. Si
-> `onlyoffice.env` n'existe pas encore, la création du projet échoue avec
-> `Failed to load …/data/onlyoffice.env: no such file or directory` — **avant**
-> qu'un quelconque conteneur n'ait pu le créer. Le script `init-host.sh` crée
-> donc les dossiers + les fichiers d'environnement **côté NAS**, en amont.
+> ✅ **Plus besoin de créer `onlyoffice.env` à la main, ni de SSH.**
+> Le service `init-secrets` crée `secrets.env` + `onlyoffice.env` dans le volume
+> **au démarrage**, AVANT GEDify et ONLYOFFICE. Le compose ne contient plus
+> d'`env_file` obligatoire → Container Manager peut importer le YAML directement.
 
 ---
 
-## 1. Préparation des dossiers et secrets (OBLIGATOIRE avant l'import)
+## Option A — Installation 100 % Container Manager (recommandée)
 
-En SSH sur le NAS, depuis le dossier du dépôt (`apps-devices/nopp`) :
+**Aucune commande SSH.** Tout est généré automatiquement au premier démarrage.
 
-**Cas standard (volume1) :**
-
-```bash
-export SYNOLOGY_DOCKER_ROOT=/volume1/docker/gedify
-sh deploy/synology/init-host.sh
-```
-
-**Cas volume5 (exemple) :**
-
-```bash
-export SYNOLOGY_DOCKER_ROOT=/volume5/docker/gedify
-sh deploy/synology/init-host.sh
-```
-
-Le script (idempotent — relançable sans risque) :
-
-- crée `…/data`, `…/onlyoffice/{logs,data,lib,db}`, `…/ollama` ;
-- crée `…/data/onlyoffice.env` (clé JWT ONLYOFFICE) **s'il est absent** ;
-- crée/complète `…/data/secrets.env` (secrets internes GEDify) ;
-- garde **exactement la même** clé JWT côté GEDify et côté ONLYOFFICE ;
-- écrit `deploy/synology/.env` (pointeur `SYNOLOGY_DOCKER_ROOT`) pour que les
-  chemins du compose pointent vers le bon volume ;
-- met les fichiers en `chmod 600` et **n'affiche jamais la clé en clair**.
-
-## 2. Vérifier les fichiers créés
-
-```bash
-ls -lah "$SYNOLOGY_DOCKER_ROOT/data"
-cat "$SYNOLOGY_DOCKER_ROOT/data/onlyoffice.env"
-```
-
-`onlyoffice.env` doit contenir :
-
-```
-ONLYOFFICE_JWT_SECRET=<clé>
-JWT_SECRET=<même clé>
-JWT_ENABLED=true
-JWT_HEADER=Authorization
-```
-
-> 🔒 **Ne partagez JAMAIS** le contenu de `onlyoffice.env` ni de `secrets.env` :
-> ce sont des secrets (clé JWT, clés de session/chiffrement).
-
-## 3. Importer dans Container Manager
-
-1. Ouvrez **Container Manager → Projet → Créer**.
-2. Source : sélectionnez le fichier `deploy/synology/docker-compose.sqlite.v2.yml`
-   du dépôt (de préférence par **chemin**, pour que le `deploy/synology/.env`
-   voisin soit lu automatiquement).
-3. **Adaptez 2 valeurs** dans `docker-compose.sqlite.v2.yml` (chemins/IP en clair,
-   pas de variable à interpoler → fiable dans Container Manager) :
-   - le volume `/volume5/docker/gedify` → **votre** volume (le MÊME que celui
-     passé à `init-host.sh`) ;
-   - l'IP `192.168.1.17` → l'**IP réelle de votre NAS**, sur les deux lignes
+1. **Créez les dossiers** du volume (File Station ou SSH), par ex. :
+   `/volume5/docker/gedify` (sous-dossiers `data`, `ollama`, `onlyoffice` créés au besoin).
+2. **Adaptez 2 valeurs** dans `deploy/synology/docker-compose.sqlite.v2.yml`
+   (valeurs en clair, pas d'interpolation → fiable dans Container Manager) :
+   - le volume `/volume5/docker/gedify` → **votre** volume ;
+   - l'IP `192.168.1.17` → l'**IP réelle du NAS**, sur les deux lignes
      `ONLYOFFICE_DOCUMENT_SERVER_URL` (`:8082`) et `GEDIFY_PUBLIC_URL` (`:3210`).
-4. **Lancez** le projet.
+3. **Container Manager → Projet → Créer** → importez (ou collez)
+   `docker-compose.sqlite.v2.yml` → **Lancez**.
+
+Au démarrage, dans l'ordre :
+`init-secrets` (crée `secrets.env` + `onlyoffice.env`) → `ollama` →
+`ollama-init` (télécharge `qwen3:4b`) → `onlyoffice` (démarre avec la clé JWT
+générée) → `gedify` (récupère la **même** `ONLYOFFICE_JWT_SECRET`).
 
 > `GEDIFY_PUBLIC_URL` sert aussi à ONLYOFFICE pour télécharger/sauvegarder les
 > documents : elle DOIT pointer vers l'IP réelle du NAS (jamais `localhost`).
 
-## 4. Services inclus
+## Fichiers générés automatiquement
+
+Dans `/volume5/docker/gedify/data/` (créés par `init-secrets`) :
+
+| Fichier | Contenu |
+|---|---|
+| `secrets.env` | secrets internes GEDify (`AUTH_SECRET`, `JWT_SECRET`, …, `ONLYOFFICE_JWT_SECRET`) |
+| `onlyoffice.env` | `ONLYOFFICE_JWT_SECRET` + `JWT_SECRET` (même valeur) + `JWT_ENABLED` + `JWT_HEADER` |
+
+- 🔒 **Ne partagez JAMAIS** ces fichiers (clé JWT, clés de session/chiffrement).
+- ⚠️ **Ne les supprimez pas** sauf réinitialisation complète volontaire (sinon
+  sessions invalidées + erreurs « Invalid token » côté ONLYOFFICE).
+- La clé ONLYOFFICE existante n'est **jamais écrasée** (idempotent).
+
+## Option B — Pré-initialisation manuelle (avancé, facultatif)
+
+Si vous préférez générer les fichiers **avant** l'import (ou auditer la clé), le
+script hôte `init-host.sh` fait la même chose en SSH :
+
+```bash
+export SYNOLOGY_DOCKER_ROOT=/volume5/docker/gedify   # ou /volume1/...
+sh deploy/synology/init-host.sh
+```
+
+Il crée `data/onlyoffice.env` + `data/secrets.env` (clé JWT partagée, `chmod 600`,
+jamais affichée). C'est **optionnel** avec l'Option A. Vérifier ensuite :
+
+```bash
+cat "$SYNOLOGY_DOCKER_ROOT/data/onlyoffice.env"
+```
+
+## Services inclus
 
 | Service | Conteneur | Rôle |
 |---|---|---|
@@ -87,7 +74,7 @@ JWT_HEADER=Authorization
 | ONLYOFFICE Docs | `gedify-onlyoffice` | Édition Office en ligne (.docx) |
 | Ollama | `gedify-ollama` (+ `gedify-ollama-init`) | IA locale (modèle `qwen3:4b`) |
 
-## 5. Ports
+## Ports
 
 | Service | Port | Exposition |
 |---|---|---|
@@ -95,7 +82,7 @@ JWT_HEADER=Authorization
 | ONLYOFFICE | **8082** | publié (réseau local) |
 | Ollama | 11434 | **non publié** (interne) sauf choix contraire |
 
-## 6. Tester ONLYOFFICE
+## Tester ONLYOFFICE
 
 Dans un navigateur du réseau local :
 
@@ -107,7 +94,7 @@ http://IP_DU_NAS:8082/web-apps/apps/api/documents/api.js   → un script JavaScr
 > Le **1er démarrage** d'ONLYOFFICE prend ~1 min (l'image est volumineuse) avant
 > que `/healthcheck` renvoie `true`.
 
-## 7. Tester GEDify
+## Tester GEDify
 
 ```
 http://IP_DU_NAS:3210
@@ -116,12 +103,19 @@ http://IP_DU_NAS:3210
 Puis : **Office → Rédaction → Nouveau courrier** → l'éditeur ONLYOFFICE doit
 s'afficher dans GEDify.
 
-## 8. Dépannage
+## Dépannage
 
-**`Failed to load onlyoffice.env`** (échec à la création du projet)
-- `init-host.sh` n'a pas été lancé → relancez-le (section 1).
-- mauvais volume : vérifiez `SYNOLOGY_DOCKER_ROOT` (`/volume1` vs `/volume5`).
-- vérifiez : `ls -lah "$SYNOLOGY_DOCKER_ROOT/data/onlyoffice.env"`.
+**`Failed to load onlyoffice.env`** — **ne devrait plus arriver** : le compose v2
+n'utilise plus d'`env_file`. Si vous le voyez encore, vous importez un ancien
+compose → réimportez `docker-compose.sqlite.v2.yml` à jour.
+
+**ONLYOFFICE ne démarre pas / pas de clé JWT**
+- vérifiez les logs d'init : `docker logs gedify-init-secrets` (doit afficher
+  « Secrets Synology prets. ») ;
+- vérifiez que le fichier a bien été généré :
+  `ls -lah /volume5/docker/gedify/data/onlyoffice.env` ;
+- vérifiez `docker logs gedify-onlyoffice` (le script charge la clé puis lance
+  `/app/ds/run-document-server.sh`).
 
 **`Invalid token`** (côté ONLYOFFICE)
 - `ONLYOFFICE_JWT_SECRET` et `JWT_SECRET` doivent être **identiques** :
