@@ -129,7 +129,8 @@ Règles impératives :
 - Si bulletin de salaire détecté par pré-classification : correspondant = employeur (PAS URSSAF/CAF/CPAM).
 - Si "prélèvement à la source" présent dans un bulletin de salaire : c'est un champ de paie, PAS un avis d'imposition.
 - Priorité des types : Bulletin de salaire > Facture > Avis d'imposition > CAF > CPAM.
-- Utiliser la pré-classification locale comme guide, pas comme contrainte absolue.`;
+- Utiliser la pré-classification locale comme guide, pas comme contrainte absolue.
+- BUDGET : "financialImpact" ne contient AU PLUS QU'UN montant : le PRINCIPAL réellement à payer/encaisser. Facture/relance → total TTC / net à payer / solde dû (kind=expense ; jamais HT/TVA/lignes). Bulletin de salaire → net à payer après impôt (kind=income, category=Salaire ; jamais brut/net imposable/cotisations). Informatif ou doute → financialImpact: []. Tous les autres montants → detectedAmounts uniquement.`;
 
 // ─── Prompt builder ───────────────────────────────────────────────────────────
 

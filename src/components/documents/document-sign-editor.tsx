@@ -15,6 +15,13 @@ import {
 import { openComposer } from "@/lib/messaging/mail-composer-store";
 import { SignaturePad } from "@/components/documents/signature-pad";
 
+/** Log de diagnostic UNIQUEMENT en app de bureau (UA « GedifyDesktop »). */
+function slog(...args: unknown[]) {
+  if (typeof navigator !== "undefined" && navigator.userAgent.includes("GedifyDesktop")) {
+    console.log("[desktop/signature]", ...args);
+  }
+}
+
 type FieldType = "signature" | "paraphe" | "date" | "lieu" | "photo" | "text";
 
 /** Élément apposé sur le PDF (coordonnées normalisées 0–1, origine haut-gauche). */
@@ -117,8 +124,6 @@ export function DocumentSignEditor({ documentId, title }: { documentId: number; 
 
   const bytesRef = useRef<Uint8Array | null>(null);
   const pdfRef = useRef<unknown>(null);
-  const canvasRefs = useRef<(HTMLCanvasElement | null)[]>([]);
-  const thumbRefs = useRef<(HTMLCanvasElement | null)[]>([]);
   const pageWrapRefs = useRef<(HTMLDivElement | null)[]>([]);
   const mainRef = useRef<HTMLElement | null>(null);
   const ghostRef = useRef<HTMLDivElement | null>(null);
@@ -129,20 +134,25 @@ export function DocumentSignEditor({ documentId, title }: { documentId: number; 
     let cancelled = false;
     (async () => {
       try {
+        slog(`open documentId=${documentId}`);
         const res = await fetch(`/api/paperless/documents/${documentId}/download`, { credentials: "include", cache: "no-store" });
+        slog(`download status=${res.status}`);
         if (!res.ok) throw new Error(`Téléchargement impossible (${res.status})`);
         const buf = new Uint8Array(await res.arrayBuffer());
         if (cancelled) return;
         bytesRef.current = buf;
+        slog(`pdf bytes=${buf.length}`);
         const pdfjs = await import("pdfjs-dist");
         // Worker « enveloppé » : polyfill Uint8Array (toHex/…) chargé avant pdf.js.
         pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.polyfilled.mjs";
         const pdf = await pdfjs.getDocument({ data: new Uint8Array(buf) }).promise;
         if (cancelled) return;
         pdfRef.current = pdf;
+        slog(`pdf loaded pages=${pdf.numPages}`);
         setNumPages(pdf.numPages);
         setLoading(false);
       } catch (e) {
+        slog(`load failed: ${e instanceof Error ? e.message : String(e)}`);
         if (!cancelled) { setLoadError(e instanceof Error ? e.message : "Erreur de chargement du PDF."); setLoading(false); }
       }
     })();
@@ -157,56 +167,43 @@ export function DocumentSignEditor({ documentId, title }: { documentId: number; 
     void Promise.resolve().then(() => setLieuCity(localStorage.getItem(LIEU_KEY) ?? ""));
   }, []);
 
-  // ── Rendu des pages (re-rendu au zoom) ──
+  // ── Dimensions des pages (pour le cadre + le placement des champs) ──
+  // Le RENDU visuel passe par les images de pages rendues CÔTÉ SERVEUR
+  // (@napi-rs/canvas, fiable partout). On garde pdf.js UNIQUEMENT pour les
+  // dimensions/ratio par page (getViewport) ; le rendu canvas client de pdf.js
+  // est fragile sous l'ancien Chromium d'Electron (page blanche) → on l'évite.
   const renderPages = useCallback(async () => {
     const pdf = pdfRef.current as { getPage: (n: number) => Promise<unknown> } | null;
     if (!pdf || numPages === 0) return;
     const container = mainRef.current;
     const containerWidth = container ? container.clientWidth - 48 : 800;
     const sizes: PageSize[] = [];
-    for (let i = 1; i <= numPages; i++) {
-      const page = (await pdf.getPage(i)) as {
-        getViewport: (o: { scale: number }) => { width: number; height: number };
-        render: (o: { canvasContext: CanvasRenderingContext2D; viewport: { width: number; height: number } }) => { promise: Promise<void> };
-      };
-      const base = page.getViewport({ scale: 1 });
-      const fit = Math.min(1.8, Math.max(0.4, (containerWidth / base.width)));
-      const scale = fit * zoom;
-      const viewport = page.getViewport({ scale });
-      const canvas = canvasRefs.current[i - 1];
-      sizes[i - 1] = { w: viewport.width, h: viewport.height };
-      if (canvas) {
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        canvas.style.width = `${viewport.width}px`;
-        canvas.style.height = `${viewport.height}px`;
-        const ctx = canvas.getContext("2d");
-        if (ctx) await page.render({ canvasContext: ctx, viewport }).promise;
+    try {
+      for (let i = 1; i <= numPages; i++) {
+        const page = (await pdf.getPage(i)) as {
+          getViewport: (o: { scale: number }) => { width: number; height: number };
+        };
+        const base = page.getViewport({ scale: 1 });
+        const fit = Math.min(1.8, Math.max(0.4, containerWidth / base.width));
+        const viewport = page.getViewport({ scale: fit * zoom });
+        sizes[i - 1] = { w: viewport.width, h: viewport.height };
       }
+      slog(`page sizes ok ${Math.round(sizes[0]?.w ?? 0)}x${Math.round(sizes[0]?.h ?? 0)} (×${numPages})`);
+      setPageSizes(sizes);
+    } catch (e) {
+      // Repli : ratio A4 si pdf.js ne donne pas les dimensions.
+      slog(`page sizing failed (repli A4): ${e instanceof Error ? e.message : String(e)}`);
+      const w = Math.min(1.8 * 595, containerWidth) * zoom;
+      setPageSizes(Array.from({ length: numPages }, () => ({ w, h: w * 1.414 })));
     }
-    setPageSizes(sizes);
   }, [numPages, zoom]);
 
-  useEffect(() => { if (!loading && !loadError && numPages > 0) void renderPages(); }, [loading, loadError, numPages, zoom, renderPages]);
-
-  // ── Miniatures ──
   useEffect(() => {
     if (loading || loadError || numPages === 0) return;
-    const pdf = pdfRef.current as { getPage: (n: number) => Promise<unknown> } | null;
-    if (!pdf) return;
     let cancelled = false;
-    (async () => {
-      for (let i = 1; i <= numPages; i++) {
-        if (cancelled) return;
-        const page = (await pdf.getPage(i)) as { getViewport: (o: { scale: number }) => { width: number; height: number }; render: (o: { canvasContext: CanvasRenderingContext2D; viewport: { width: number; height: number } }) => { promise: Promise<void> } };
-        const base = page.getViewport({ scale: 1 });
-        const viewport = page.getViewport({ scale: 130 / base.width });
-        const c = thumbRefs.current[i - 1];
-        if (c) { c.width = viewport.width; c.height = viewport.height; const ctx = c.getContext("2d"); if (ctx) await page.render({ canvasContext: ctx, viewport }).promise; }
-      }
-    })();
+    void (async () => { if (!cancelled) await renderPages(); })();
     return () => { cancelled = true; };
-  }, [loading, loadError, numPages]);
+  }, [loading, loadError, numPages, zoom, renderPages]);
 
   // ── Page active selon le scroll (IntersectionObserver) ──
   useEffect(() => {
@@ -451,7 +448,10 @@ export function DocumentSignEditor({ documentId, title }: { documentId: number; 
   if (result) return <ResultView documentId={documentId} result={result} />;
 
   return (
-    <div className="fixed inset-0 z-[80] flex flex-col bg-[#FCFAF7]">
+    <div
+      className="fixed inset-x-0 bottom-0 z-[80] flex flex-col bg-[#FCFAF7]"
+      style={{ top: "var(--titlebar-h, 0px)" }}
+    >
       {/* En-tête */}
       <header className="flex items-center gap-3 border-b bg-white px-4 py-2.5" style={{ borderColor: "var(--border)" }}>
         <Link href={`/documents/${documentId}`} aria-label="Retour" className="flex h-9 w-9 items-center justify-center rounded-lg border hover:bg-[#FCFAF7]" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>
@@ -483,7 +483,7 @@ export function DocumentSignEditor({ documentId, title }: { documentId: number; 
       <div className="flex min-h-0 flex-1">
         {/* Miniatures (gauche) */}
         <aside className="hidden w-44 shrink-0 overflow-y-auto border-r bg-white p-2 lg:block" style={{ borderColor: "var(--border)" }}>
-          <ThumbList numPages={numPages} thumbRefs={thumbRefs} fields={fields} currentPage={currentPage} onPick={(n) => { setCurrentPage(n); pageWrapRefs.current[n - 1]?.scrollIntoView({ behavior: "smooth", block: "start" }); }} />
+          <ThumbList documentId={documentId} numPages={numPages} fields={fields} currentPage={currentPage} onPick={(n) => { setCurrentPage(n); pageWrapRefs.current[n - 1]?.scrollIntoView({ behavior: "smooth", block: "start" }); }} />
         </aside>
 
         {/* Aperçu PDF (centre) */}
@@ -499,7 +499,16 @@ export function DocumentSignEditor({ documentId, title }: { documentId: number; 
           {loading ? (
             <div className="flex h-72 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" style={{ color: "var(--accent)" }} /></div>
           ) : loadError ? (
-            <p className="p-8 text-center text-[13px] font-semibold" style={{ color: "var(--danger)" }}>{loadError}</p>
+            <div className="mx-auto mt-10 max-w-md rounded-2xl border bg-white p-6 text-center" style={{ borderColor: "var(--border)" }}>
+              <p className="text-[14px] font-extrabold" style={{ color: "var(--text-main)" }}>Impossible d’afficher ce PDF</p>
+              <p className="mt-1.5 text-[12.5px]" style={{ color: "var(--text-muted)" }}>
+                Le fichier est introuvable ou le moteur de rendu PDF n’est pas disponible.
+              </p>
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                <button type="button" onClick={() => window.location.reload()} className="inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-[13px] font-bold text-white" style={{ background: "var(--accent)" }}>Réessayer</button>
+                <a href={`/api/paperless/documents/${documentId}/download`} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center gap-1.5 rounded-xl border px-3 text-[13px] font-semibold" style={{ borderColor: "var(--border)", color: "var(--text-main)" }}>Ouvrir le fichier original</a>
+              </div>
+            </div>
           ) : (
             <div className="flex flex-col items-center gap-6 p-4 pb-24">
               {Array.from({ length: numPages }, (_, i) => {
@@ -513,7 +522,15 @@ export function DocumentSignEditor({ documentId, title }: { documentId: number; 
                     style={{ width: size?.w, height: size?.h, background: "#fff", cursor: pending ? "crosshair" : "default", outline: currentPage === i + 1 ? "2px solid var(--accent)" : "none", outlineOffset: "2px" }}
                     onClick={(e) => { if (pending) placeAt(i, e); else setSelectedId(null); }}
                   >
-                    <canvas ref={(el) => { canvasRefs.current[i] = el; }} className="block" />
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`/api/paperless/documents/${documentId}/pages/${i + 1}`}
+                      alt={`Page ${i + 1}`}
+                      draggable={false}
+                      onError={() => slog(`page image ${i + 1} introuvable`)}
+                      className="block h-full w-full select-none"
+                      style={{ objectFit: "contain" }}
+                    />
                     {fields.filter((f) => f.page === i + 1).map((f) => (
                       <FieldBox key={f.id} field={f} selected={selectedId === f.id}
                         onPointerDownMove={(e) => onFieldPointerDown(e, f, "move")}
@@ -552,7 +569,7 @@ export function DocumentSignEditor({ documentId, title }: { documentId: number; 
         <div className="fixed inset-0 z-[95] lg:hidden" role="dialog" aria-modal="true">
           <button type="button" aria-label="Fermer" onClick={() => setShowPagesMobile(false)} className="absolute inset-0 bg-slate-900/40" />
           <div className="absolute inset-y-0 left-0 w-48 overflow-y-auto bg-white p-2 shadow-2xl">
-            <ThumbList numPages={numPages} thumbRefs={thumbRefs} fields={fields} currentPage={currentPage} onPick={(n) => { setCurrentPage(n); setShowPagesMobile(false); pageWrapRefs.current[n - 1]?.scrollIntoView({ behavior: "smooth" }); }} />
+            <ThumbList documentId={documentId} numPages={numPages} fields={fields} currentPage={currentPage} onPick={(n) => { setCurrentPage(n); setShowPagesMobile(false); pageWrapRefs.current[n - 1]?.scrollIntoView({ behavior: "smooth" }); }} />
           </div>
         </div>
       ) : null}
@@ -674,14 +691,15 @@ function PadToggle({ open, onToggle, onGenerate, cta, defaultText = "" }: { open
   );
 }
 
-function ThumbList({ numPages, thumbRefs, fields, currentPage, onPick }: { numPages: number; thumbRefs: React.MutableRefObject<(HTMLCanvasElement | null)[]>; fields: Field[]; currentPage: number; onPick: (n: number) => void }) {
+function ThumbList({ documentId, numPages, fields, currentPage, onPick }: { documentId: number; numPages: number; fields: Field[]; currentPage: number; onPick: (n: number) => void }) {
   const paraPages = new Set(fields.filter((f) => f.type === "paraphe").map((f) => f.page));
   const sigPages = new Set(fields.filter((f) => f.type === "signature").map((f) => f.page));
   return (
     <div className="space-y-2">
       {Array.from({ length: numPages }, (_, i) => (
         <button key={i} type="button" onClick={() => onPick(i + 1)} className="block w-full rounded-lg border p-1 text-left transition" style={{ borderColor: currentPage === i + 1 ? "var(--accent)" : "var(--border)", background: currentPage === i + 1 ? "var(--accent-soft)" : "#fff" }}>
-          <canvas ref={(el) => { thumbRefs.current[i] = el; }} className="mx-auto block w-full rounded border" style={{ borderColor: "var(--border)" }} />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={`/api/paperless/documents/${documentId}/pages/${i + 1}`} alt={`Page ${i + 1}`} loading="lazy" className="mx-auto block w-full rounded border bg-white" style={{ borderColor: "var(--border)", aspectRatio: "1 / 1.414", objectFit: "contain" }} />
           <div className="mt-1 flex items-center justify-between px-0.5">
             <span className="text-[10.5px] font-bold" style={{ color: "var(--text-muted)" }}>Page {i + 1}</span>
             <span className="flex gap-1">
@@ -748,7 +766,7 @@ function FieldBox({ field, selected, onPointerDownMove, onPointerDownResize, onR
 function ResultView({ documentId, result }: { documentId: number; result: SignResult }) {
   const signedId = result.signedDocumentId;
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#FCFAF7] p-6">
+    <div className="fixed inset-x-0 bottom-0 z-[80] flex items-center justify-center bg-[#FCFAF7] p-6" style={{ top: "var(--titlebar-h, 0px)" }}>
       <div className="w-full max-w-md rounded-3xl border bg-white p-6 text-center" style={{ borderColor: "var(--border)" }}>
         <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl" style={{ background: "#EAF8EF" }}>
           <PenLine className="h-6 w-6" style={{ color: "#15803D" }} strokeWidth={2} />

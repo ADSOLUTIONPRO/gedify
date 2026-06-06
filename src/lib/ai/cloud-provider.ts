@@ -105,7 +105,7 @@ Schéma principal (obligatoire) :
   "detectedOrganizations": ["Org"],
   "urgency": "normal",
   "recommendedActions": [{"type": "verify", "title": "Action", "description": "détail", "dueDate": null, "amount": null, "priority": "normal"}],
-  "financialImpact": [{"kind": "income", "amount": 0.00, "currency": "EUR", "dueDate": null, "creditor": null, "category": null}],
+  "financialImpact": [{"kind": "expense", "amount": 0.00, "currency": "EUR", "label": "Total TTC", "reason": "montant final réellement dû", "requiresUserValidation": false, "dueDate": null, "creditor": null, "category": null}],
   "confidence": "high"${isPaySlip ? `,
   "paySlip": {}` : ""}
 }
@@ -115,7 +115,17 @@ Règles fondamentales :
 - Tableaux vides [] si pas de données.
 - Ne jamais inventer de montants ou dates absents du texte.
 - Priorité des règles : Bulletin de salaire > Facture > Avis d'imposition > CAF > CPAM.
-- Dans un bulletin de paie, "prélèvement à la source" est un champ de paie, PAS un avis d'imposition.`;
+- Dans un bulletin de paie, "prélèvement à la source" est un champ de paie, PAS un avis d'imposition.
+
+RÈGLES FINANCIÈRES — CRITIQUES (budget) :
+- "financialImpact" ne contient AU PLUS QU'UN SEUL objet : le montant PRINCIPAL réellement à payer ou à encaisser. NE JAMAIS créer une entrée par ligne de détail.
+- Facture / relance / avis à payer / appel de cotisation : retiens le NET À PAYER / TOTAL TTC / SOLDE DÛ / MONTANT À RÉGLER / RESTE À PAYER. kind="expense". JAMAIS le HT, la TVA, les sous-totaux, les lignes d'articles, les prix unitaires, un acompte déjà versé.
+- Bulletin de salaire / fiche de paie : retiens le NET À PAYER APRÈS IMPÔT (à défaut net payé / net versé). kind="income", category="Salaire". JAMAIS le salaire brut, le net imposable, le prélèvement à la source, les cotisations, les cumuls.
+- Remboursement (CPAM, assurance…) : kind="refund", montant remboursé.
+- Document informatif sans somme claire à régler/encaisser (attestation, convocation, notification, contrat sans échéance immédiate…) : "financialImpact": [].
+- Incertitude, ou le seul montant trouvé est un brut / net imposable / HT / TVA : "financialImpact": [] ET mets "requiresUserValidation": true sur rien (laisse vide). Le montant va alors UNIQUEMENT dans "detectedAmounts".
+- TOUS les autres montants (TVA, HT, brut, net imposable, cotisations, lignes de détail, anciens montants payés) → "detectedAmounts" UNIQUEMENT.
+- "label" = nature du montant retenu (ex. "Total TTC", "Net à payer après impôt", "Solde dû"). "reason" = pourquoi ce montant. "requiresUserValidation"=true si doute.`;
 
   if (!isPaySlip) return basePrompt;
 
