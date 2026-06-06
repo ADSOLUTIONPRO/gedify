@@ -6,9 +6,11 @@ import {
   FileBox,
   Inbox,
   Mail,
+  PenSquare,
   Plug,
   Plus,
   ShieldAlert,
+  ShieldCheck,
   Sparkles,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
@@ -23,6 +25,11 @@ import { PROVIDERS } from "@/lib/mail-connector/providers";
 import { getMailConnectorStatus } from "@/lib/mail-connector/status";
 import { getPaperlessPublicUrl } from "@/lib/paperless";
 import type { MailAccount } from "@/lib/mail-connector/types";
+import { SignaturesManager } from "@/components/messaging/signatures-manager";
+import { GmailAccountsManager } from "@/components/messaging/gmail-accounts-manager";
+import { listGmailAccounts } from "@/lib/connectors/gmail/gmail-token-store";
+import { listSignatures } from "@/lib/messaging/email-signature-store";
+import { getGmailOAuthConfig } from "@/lib/connectors/gmail/oauth";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +47,13 @@ function formatRelative(iso: string | null): string {
 
 export default async function EmailsPage() {
   const paperlessUrl = getPaperlessPublicUrl();
-  const [accounts, status] = await Promise.all([listAccounts(), getMailConnectorStatus()]);
+  const oauthConfig = getGmailOAuthConfig();
+  const [accounts, status, gmailAccounts, signatures] = await Promise.all([
+    listAccounts(),
+    getMailConnectorStatus(),
+    listGmailAccounts(),
+    listSignatures(),
+  ]);
 
   const recentImports = accounts
     .filter((a) => a.lastSyncAt)
@@ -210,6 +223,51 @@ export default async function EmailsPage() {
             </Link>
           </div>
         )}
+      </SectionCard>
+
+      {/* Comptes Google (OAuth) — fusionné depuis l'ancien /messagerie/parametres */}
+      <SectionCard
+        title={`Comptes Google (OAuth) — ${gmailAccounts.length}`}
+        icon={Mail}
+        description="Connexion Gmail via OAuth (envoi, lecture). Reconnectez si les autorisations changent."
+        bodyClassName="p-5"
+      >
+        <GmailAccountsManager
+          accounts={gmailAccounts.map((a) => ({ accountId: a.accountId, email: a.email, connectedAt: a.connectedAt }))}
+        />
+      </SectionCard>
+
+      {/* Envoi — Signatures mail */}
+      <SectionCard
+        title="Signatures mail"
+        icon={PenSquare}
+        description="Signatures réutilisables insérées en bas de vos nouveaux mails et réponses."
+        bodyClassName="p-5"
+      >
+        <SignaturesManager initial={signatures} />
+      </SectionCard>
+
+      {/* Sécurité — OAuth Google */}
+      <SectionCard title="Sécurité — OAuth Google" icon={ShieldCheck} bodyClassName="p-5">
+        <ul className="space-y-2 text-sm">
+          <li className="flex items-center justify-between">
+            <span style={{ color: "var(--text-muted)" }}>Statut OAuth Google</span>
+            <StatusPill tone={oauthConfig ? "emerald" : "amber"} dot>
+              {oauthConfig ? "Configuré" : "À configurer"}
+            </StatusPill>
+          </li>
+          <li className="flex items-center justify-between gap-3">
+            <span style={{ color: "var(--text-muted)" }}>Redirect URI</span>
+            <span className="truncate font-mono text-[11px]" style={{ color: "var(--text-main)" }}>{oauthConfig?.redirectUri ?? "—"}</span>
+          </li>
+          <li className="flex items-center justify-between">
+            <span style={{ color: "var(--text-muted)" }}>Scopes Google</span>
+            <span className="text-[11px]" style={{ color: "var(--text-main)" }}>{oauthConfig?.scopes.length ?? 0} scope(s)</span>
+          </li>
+          <li className="pt-1 text-[11.5px] leading-snug" style={{ color: "var(--text-muted)" }}>
+            Identifiants chiffrés côté serveur · aucun mot de passe stocké en clair.
+          </li>
+        </ul>
       </SectionCard>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,1fr)]">
