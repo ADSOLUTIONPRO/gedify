@@ -71,3 +71,6 @@ tessdata/
 # Prisma generated client
 /src/generated
 
+
+# Copies locales avec secrets (clé OpenAI…) — NE JAMAIS committer
+*.local.yml

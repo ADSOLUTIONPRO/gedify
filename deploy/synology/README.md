@@ -1,9 +1,13 @@
 # Installation GEDify Synology SQLite
 
-Version **autonome** pour Synology Container Manager : GEDify + SQLite + IA locale
-**Ollama** + édition Office **ONLYOFFICE Docs**. Les **secrets** et la **clé JWT**
-ONLYOFFICE sont **générés automatiquement** par un service `init-secrets` intégré
-au compose.
+Version pour Synology Container Manager : GEDify + SQLite + **IA OpenAI**
+(identique au déploiement Coolify, pleinement fonctionnel) + édition Office
+**ONLYOFFICE Docs**. Les **secrets** et la **clé JWT** ONLYOFFICE sont **générés
+automatiquement** par un service `init-secrets` intégré au compose.
+
+> ℹ️ **IA = OpenAI** (cloud). Ollama (IA locale) est **désactivé** ici car trop
+> lourd pour un NAS. Pour le réactiver sur un NAS puissant, voir le bloc commenté
+> en bas du compose + l'historique git.
 
 > ✅ **Plus besoin de créer `onlyoffice.env` à la main, ni de SSH.**
 > Le service `init-secrets` crée `secrets.env` + `onlyoffice.env` dans le volume

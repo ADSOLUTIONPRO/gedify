@@ -1,16 +1,20 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Gedify — Synology SQLite v2 — IMAGE préconstruite, 100 % Container Manager.
 #
+# IA = OpenAI (comme le déploiement Coolify de base, pleinement fonctionnel).
+# Ollama est DÉSACTIVÉ ici (trop lourd pour un NAS). Pour le réactiver plus tard,
+# voir le bloc commenté en bas + l'historique git.
+#
 # AUCUNE commande SSH préalable n'est requise : le service `init-secrets` génère
-# automatiquement secrets.env + onlyoffice.env dans le volume AVANT que GEDify et
-# ONLYOFFICE ne démarrent. Plus de dépendance à un `env_file` qui doit préexister.
+# automatiquement secrets.env + onlyoffice.env dans le volume AVANT GEDify/ONLYOFFICE.
 #
 # Container Manager → Projet → Créer → importer ce fichier → Lancer.
 #
-# 👉 DEUX valeurs à adapter :
+# 👉 À ADAPTER :
 #      1. /volume5/docker/gedify   → votre volume Synology
 #      2. 192.168.1.17             → l'IP réelle du NAS
-#         (ONLYOFFICE_DOCUMENT_SERVER_URL + GEDIFY_PUBLIC_URL)
+#      3. OPENAI_API_KEY + AI_CLOUD_API_KEY → VOTRE clé OpenAI (sk-…), la MÊME que
+#         celle utilisée sur Coolify.
 #
 # Lancement (image préconstruite — PAS de --build) :
 #   docker compose -f docker-compose.sqlite.v2.yml up -d
@@ -21,8 +25,6 @@ services:
   # Écrit /app/.data/secrets.env (GEDify) + /app/.data/onlyoffice.env (clé JWT
   # partagée GEDify ⇄ ONLYOFFICE). Idempotent : ne réécrit jamais une clé
   # existante. La clé complète n'est JAMAIS affichée dans les logs.
-  # NB : dans un `command:` compose, chaque `$` shell est écrit `$$` (sinon
-  #      docker compose l'interpolerait au parsing et le script recevrait du vide).
   init-secrets:
     image: alpine:latest
     container_name: gedify-init-secrets
@@ -58,58 +60,15 @@ services:
         add ONLYOFFICE_JWT_SECRET "$$OO"
         printf 'ONLYOFFICE_JWT_SECRET=%s\nJWT_SECRET=%s\nJWT_ENABLED=true\nJWT_HEADER=Authorization\n' "$$OO" "$$OO" > "$$ONLYOFFICE_FILE"
         chmod 600 "$$ONLYOFFICE_FILE"
+        # Donne le volume de données à l'utilisateur applicatif (nextjs = uid 1001)
+        # AVANT que GEDify démarre → SQLite peut créer/écrire gedify.sqlite (évite
+        # un 500 « disk I/O / unable to open database » sur un volume root-only).
+        chown -R 1001:1001 /app/.data 2>/dev/null || echo "(chown 1001 ignore - volume deja OK ou non-chownable)"
         echo "Secrets Synology prets."
 
-  # ── IA locale : serveur Ollama (OpenAI-compatible) ──────────────────────────
-  ollama:
-    image: ollama/ollama:latest
-    container_name: gedify-ollama
-    restart: unless-stopped
-    environment:
-      OLLAMA_HOST: "0.0.0.0:11434"
-      OLLAMA_KEEP_ALIVE: "5m"
-      OLLAMA_NUM_PARALLEL: "1"
-      OLLAMA_MAX_LOADED_MODELS: "1"
-    volumes:
-      - /volume5/docker/gedify/ollama:/root/.ollama
-    networks:
-      - gedify-net
-    healthcheck:
-      test: ["CMD", "ollama", "list"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-      start_period: 30s
-
-  # ── Initialisation : télécharge le modèle au 1er lancement puis s'arrête ─────
-  ollama-init:
-    image: ollama/ollama:latest
-    container_name: gedify-ollama-init
-    restart: "no"
-    depends_on:
-      ollama:
-        condition: service_healthy
-    environment:
-      OLLAMA_HOST: "http://ollama:11434"
-      OLLAMA_MODEL: "qwen3:4b"
-    networks:
-      - gedify-net
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        echo "Initialisation du modèle Ollama…"
-        if ollama list | grep -q "$${OLLAMA_MODEL:-qwen3:4b}"; then
-          echo "Modèle déjà présent — aucun téléchargement."
-        else
-          echo "Téléchargement du modèle (peut être long au 1er lancement)…"
-          ollama pull "$${OLLAMA_MODEL:-qwen3:4b}"
-        fi
-        echo "Modèle Ollama prêt."
-
   # ── ONLYOFFICE Docs (édition Office en ligne, local) ────────────────────────
-  # PAS d'env_file (Container Manager le lirait au parsing). La clé JWT est lue au
-  # démarrage depuis le volume data monté en lecture seule (/gedify-data), généré
-  # par init-secrets. `$$` = évalué DANS le conteneur (pas par docker compose).
+  # Pas d'env_file : la clé JWT est lue au démarrage depuis le volume data monté
+  # en lecture seule (/gedify-data), généré par init-secrets.
   onlyoffice:
     image: onlyoffice/documentserver:latest
     container_name: gedify-onlyoffice
@@ -124,7 +83,6 @@ services:
       - /volume5/docker/gedify/onlyoffice/data:/var/www/onlyoffice/Data
       - /volume5/docker/gedify/onlyoffice/lib:/var/lib/onlyoffice
       - /volume5/docker/gedify/onlyoffice/db:/var/lib/postgresql
-      # Volume data GEDify en lecture seule → pour lire la clé JWT générée.
       - /volume5/docker/gedify/data:/gedify-data:ro
     networks:
       - gedify-net
@@ -138,7 +96,6 @@ services:
         export JWT_ENABLED="$${JWT_ENABLED:-true}"
         export JWT_SECRET="$${JWT_SECRET:-$$ONLYOFFICE_JWT_SECRET}"
         export JWT_HEADER="$${JWT_HEADER:-Authorization}"
-        # Script de démarrage officiel de l'image onlyoffice/documentserver.
         exec /app/ds/run-document-server.sh
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost/healthcheck | grep -q true"]
@@ -155,10 +112,6 @@ services:
     depends_on:
       init-secrets:
         condition: service_completed_successfully
-      ollama:
-        condition: service_healthy
-    # start-synology.sh (inclus dans l'image) charge /app/.data/secrets.env
-    # (dont ONLYOFFICE_JWT_SECRET, même valeur que côté ONLYOFFICE) puis démarre.
     command: ["sh", "/app/deploy/synology/scripts/start-synology.sh"]
     ports:
       - "3210:3200"
@@ -176,13 +129,20 @@ services:
       DATABASE_URL: "file:/app/.data/gedify.sqlite"
       ENABLE_JSON_FALLBACK: "false"
 
-      AI_PROVIDER: "ollama"
-      OLLAMA_BASE_URL: "http://ollama:11434"
-      OLLAMA_MODEL: "qwen3:4b"
-      OPENAI_BASE_URL: "http://ollama:11434/v1"
-      OPENAI_API_KEY: "ollama-local"
-      AI_ASSISTANT_MODEL: "qwen3:4b"
+      # ── IA via OpenAI (IDENTIQUE à Coolify) — Ollama désactivé ─────────────
+      # 👉 Renseignez VOTRE clé OpenAI (sk-…) dans OPENAI_API_KEY *et*
+      #    AI_CLOUD_API_KEY (la MÊME clé). Sans clé, l'IA retombe en mode
+      #    « règles locales » (pas d'analyse cloud).
+      AI_PROVIDER: "openai"
+      OPENAI_BASE_URL: "https://api.openai.com/v1"
+      OPENAI_MODEL: "gpt-4.1-mini"
+      OPENAI_API_KEY: ""
+      AI_CLOUD_BASE_URL: "https://api.openai.com/v1"
+      AI_CLOUD_MODEL: "gpt-4.1-mini"
+      AI_CLOUD_API_KEY: ""
+      AI_API_KEY: ""
 
+      # ── Édition Office ONLYOFFICE ──────────────────────────────────────────
       # 👉 Remplacez 192.168.1.17 par l'IP RÉELLE du NAS (les 2 lignes).
       ONLYOFFICE_DOCUMENT_SERVER_URL: "http://192.168.1.17:8082"
       ONLYOFFICE_INTERNAL_URL: "http://onlyoffice"
@@ -201,3 +161,12 @@ services:
 networks:
   gedify-net:
     driver: bridge
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RÉACTIVER OLLAMA PLUS TARD (NAS puissant) : rajoutez les services `ollama` et
+# `ollama-init` (cf. historique git), remettez dans `gedify` :
+#   AI_PROVIDER: "ollama" / OLLAMA_BASE_URL: "http://ollama:11434" /
+#   OLLAMA_MODEL: "qwen3:4b" / OPENAI_BASE_URL: "http://ollama:11434/v1" /
+#   OPENAI_API_KEY: "ollama-local" / AI_ASSISTANT_MODEL: "qwen3:4b"
+# et ajoutez `ollama: { condition: service_healthy }` au depends_on de gedify.
+# ─────────────────────────────────────────────────────────────────────────────

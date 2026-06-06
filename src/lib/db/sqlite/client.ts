@@ -189,6 +189,24 @@ function applyMigrations(handle: SqliteDatabase): void {
   }
 }
 
+/**
+ * Active le mode WAL et VÉRIFIE par une écriture réelle qu'il fonctionne sur ce
+ * volume. Certains montages (bind mounts Synology, partages réseau) ne gèrent pas
+ * la mémoire partagée WAL et lèvent « disk I/O error » dès la 1ʳᵉ écriture : on
+ * détecte ce cas ici pour pouvoir retomber sur le mode DELETE (compatible partout).
+ */
+function tryEnableWal(handle: SqliteDatabase): boolean {
+  try {
+    handle.exec("PRAGMA journal_mode = WAL;");
+    // Sonde : une écriture réelle déclenche la création des fichiers -wal/-shm,
+    // donc l'éventuelle « disk I/O error » d'un volume incompatible WAL.
+    handle.exec('CREATE TABLE IF NOT EXISTS "__wal_probe" ("x" INTEGER); DROP TABLE "__wal_probe";');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Ouvre (paresseusement) la base SQLite, applique PRAGMA + migrations. Idempotent. */
 export function getSqlite(): SqliteDatabase {
   if (db) return db;
@@ -198,18 +216,23 @@ export function getSqlite(): SqliteDatabase {
     fs.mkdirSync(path.dirname(dbPath), { recursive: true });
     const { DatabaseSync } = loadSqliteModule();
     const handle = new DatabaseSync(dbPath);
-    // PRAGMA recommandés : journalisation WAL (lectures concurrentes), intégrité
-    // référentielle, attente sur verrou, durabilité raisonnable. La base DOIT
-    // vivre sur un volume LOCAL (pas un partage réseau) — cf. docs Synology.
-    handle.exec("PRAGMA journal_mode = WAL;");
+    // PRAGMA : intégrité référentielle, attente sur verrou, durabilité raisonnable.
     handle.exec("PRAGMA foreign_keys = ON;");
     handle.exec("PRAGMA busy_timeout = 5000;");
     handle.exec("PRAGMA synchronous = NORMAL;");
+    // WAL (meilleures lectures concurrentes) SI le volume le supporte ; sinon repli
+    // DELETE — évite un crash « disk I/O error » sur certains volumes Synology
+    // (bind mount), tout en gardant la base 100 % fonctionnelle.
+    if (!tryEnableWal(handle)) {
+      handle.exec("PRAGMA journal_mode = DELETE;");
+    }
     applyMigrations(handle);
     db = handle;
     return db;
   } catch (e) {
     initError = e instanceof Error ? e : new Error(String(e));
+    // Trace explicite dans `docker logs gedify` (sinon masqué derrière un 500).
+    console.error(`[sqlite] ouverture impossible (${resolveGedifyDatabaseUrl()}) :`, initError.message);
     throw initError;
   }
 }
