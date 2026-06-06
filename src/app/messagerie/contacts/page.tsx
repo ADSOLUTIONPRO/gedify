@@ -5,8 +5,7 @@ import { PageShell } from "@/components/ui/page-shell";
 import { RightRailCard } from "@/components/ui/right-rail-card";
 import { SectionCard } from "@/components/ui/section-card";
 import { SegmentedTabs } from "@/components/ui/segmented-tabs";
-import { ContactsSyncButton } from "@/components/messaging/contacts-sync-button";
-import { ContactsEmailSyncButton } from "@/components/messaging/contacts-email-sync-button";
+import { ContactsSyncAllButton } from "@/components/messaging/contacts-sync-all-button";
 import { listEmailContacts } from "@/lib/messaging/email-contact-store";
 import { getActiveGmailAccount } from "@/lib/messaging/active-gmail-account";
 import { getCorrespondents } from "@/lib/paperless";
@@ -86,12 +85,7 @@ export default async function MessagerieContactsPage({ searchParams }: { searchP
         backLink={{ href: "/messagerie", label: "Retour à la boîte" }}
         title="Contacts"
         description={account ? `Boîte ${account.email} · ${counts.all} contact(s) email · ${counts.correspondents} correspondant(s)` : `${counts.correspondents} correspondant(s) GEDify`}
-        actions={
-          <div className="flex flex-wrap items-start gap-2">
-            <ContactsSyncButton />
-            {account ? <ContactsEmailSyncButton /> : null}
-          </div>
-        }
+        actions={<ContactsSyncAllButton />}
       />
 
       <SegmentedTabs tabs={tabs} activeHref={`/messagerie/contacts?source=${source}`} />

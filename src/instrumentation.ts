@@ -17,4 +17,11 @@ export async function register() {
   } catch (e) {
     console.error("[instrumentation] amorçage worker pipeline échoué :", e instanceof Error ? e.message : e);
   }
+
+  try {
+    const { startContactsAutoSync } = await import("@/lib/contacts/auto-sync");
+    startContactsAutoSync();
+  } catch (e) {
+    console.error("[instrumentation] amorçage auto-sync contacts échoué :", e instanceof Error ? e.message : e);
+  }
 }
