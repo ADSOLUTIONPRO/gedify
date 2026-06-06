@@ -59,6 +59,21 @@ export type LearnedTemplate = {
   active: boolean;
   createdAt: string;
   updatedAt: string;
+
+  /* ── Édition manuelle (gestion des « Modèles IA appris ») ──────────────────
+     Tous OPTIONNELS → les modèles existants restent valides sans migration. */
+  /** Description libre (affichée dans la fiche). */
+  description?: string | null;
+  /** Prompt système spécifique à CE modèle (consignes IA ciblées). */
+  promptSystem?: string | null;
+  /** Instructions complémentaires (ce qu'il faut extraire, format attendu…). */
+  promptInstructions?: string | null;
+  /** Numéro de version (incrémenté à chaque modification manuelle). */
+  version?: number;
+  /** Auteur de la dernière modification (username si disponible). */
+  updatedBy?: string | null;
+  /** Snapshot du prompt précédent → restauration sur 1 niveau. */
+  previousPrompt?: { promptSystem: string | null; promptInstructions: string | null; at: string } | null;
 };
 
 export type LearnedTemplateInput = Partial<Omit<LearnedTemplate, "id" | "createdAt" | "updatedAt">>;

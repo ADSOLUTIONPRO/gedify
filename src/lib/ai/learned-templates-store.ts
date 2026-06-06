@@ -65,16 +65,87 @@ export async function removeLearnedTemplate(id: string): Promise<boolean> {
   await writeAll(next);
   return true;
 }
+export type LearnedTemplatePatch = Partial<
+  Pick<LearnedTemplate, "active" | "label" | "description" | "promptSystem" | "promptInstructions">
+> & {
+  /** Restaure le prompt précédent (annule la dernière modification de prompt). */
+  restorePrompt?: boolean;
+  /** Auteur de la modification (username), pour l'historique. */
+  updatedBy?: string | null;
+};
+
 export async function updateLearnedTemplate(
   id: string,
-  patch: Partial<Pick<LearnedTemplate, "active" | "label">>,
+  patch: LearnedTemplatePatch,
 ): Promise<LearnedTemplate | null> {
   const all = await readAll();
   const idx = all.findIndex((t) => t.id === id);
   if (idx < 0) return null;
-  all[idx] = { ...all[idx], ...patch, updatedAt: new Date().toISOString() };
+  const cur = all[idx];
+  const now = new Date().toISOString();
+
+  // Restauration du prompt précédent (1 niveau).
+  if (patch.restorePrompt && cur.previousPrompt) {
+    all[idx] = {
+      ...cur,
+      promptSystem: cur.previousPrompt.promptSystem,
+      promptInstructions: cur.previousPrompt.promptInstructions,
+      previousPrompt: null,
+      version: (cur.version ?? 1) + 1,
+      updatedAt: now,
+      updatedBy: patch.updatedBy ?? cur.updatedBy ?? null,
+    };
+    await writeAll(all);
+    return all[idx];
+  }
+
+  const promptChanged =
+    (typeof patch.promptSystem === "string" && patch.promptSystem !== (cur.promptSystem ?? "")) ||
+    (typeof patch.promptInstructions === "string" && patch.promptInstructions !== (cur.promptInstructions ?? ""));
+
+  const next: LearnedTemplate = { ...cur, updatedAt: now };
+  if (typeof patch.active === "boolean") next.active = patch.active;
+  if (typeof patch.label === "string" && patch.label.trim()) next.label = patch.label.trim();
+  if (typeof patch.description === "string") next.description = patch.description;
+  if (promptChanged) {
+    // Snapshot du prompt courant AVANT écrasement (restauration possible).
+    next.previousPrompt = {
+      promptSystem: cur.promptSystem ?? null,
+      promptInstructions: cur.promptInstructions ?? null,
+      at: now,
+    };
+    if (typeof patch.promptSystem === "string") next.promptSystem = patch.promptSystem;
+    if (typeof patch.promptInstructions === "string") next.promptInstructions = patch.promptInstructions;
+    next.version = (cur.version ?? 1) + 1;
+  }
+  if (patch.updatedBy !== undefined) next.updatedBy = patch.updatedBy;
+  all[idx] = next;
   await writeAll(all);
-  return all[idx];
+  return next;
+}
+
+/** Duplique un modèle (copie désactivée, sans compteur ni exemples). */
+export async function duplicateLearnedTemplate(id: string): Promise<LearnedTemplate | null> {
+  const all = await readAll();
+  const src = all.find((t) => t.id === id);
+  if (!src) return null;
+  const now = new Date().toISOString();
+  const copy: LearnedTemplate = {
+    ...src,
+    id: randomUUID(),
+    label: `${src.label} (copie)`,
+    validatedCount: 0,
+    exampleDocumentIds: [],
+    active: false, // copie désactivée → l'utilisateur la révise puis l'active
+    previousPrompt: null,
+    version: 1,
+    createdAt: now,
+    updatedAt: now,
+    lastValidatedAt: now,
+  };
+  all.push(copy);
+  await writeAll(all);
+  return copy;
 }
 
 export type LearnInput = {

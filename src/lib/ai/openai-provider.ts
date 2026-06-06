@@ -94,7 +94,14 @@ async function callOpenAI(context: AnalyzeContext): Promise<AnalyzeResult> {
     response_format: responseFormat,
     temperature: 0.1,
     messages: [
-      { role: "system", content: getActiveSystemPrompt() },
+      {
+        role: "system",
+        // Consignes spécifiques d'un modèle IA appris (le cas échéant) ajoutées
+        // SANS modifier le schéma de sortie ni les garde-fous du prompt global.
+        content: context.extraInstructions
+          ? `${getActiveSystemPrompt()}\n\n--- CONSIGNES SPÉCIFIQUES DU MODÈLE ---\n${context.extraInstructions}`
+          : getActiveSystemPrompt(),
+      },
       { role: "user", content: buildUserPayload(context) },
     ],
   };

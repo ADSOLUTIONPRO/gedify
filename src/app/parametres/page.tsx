@@ -8,6 +8,7 @@ import {
   Moon,
   Palette,
   ShieldCheck,
+  SlidersHorizontal,
   Sparkles,
   TerminalSquare,
   UserCircle,
@@ -17,6 +18,7 @@ import { MetadataGrid } from "@/components/ui/metadata-grid";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { StatCard } from "@/components/ui/stat-card";
+import { FeatureFlagsPanel } from "@/components/settings/feature-flags-panel";
 import { getPaperlessPublicUrl, getPaperlessStatus } from "@/lib/paperless";
 import {
   formatPaperlessValue,
@@ -101,6 +103,16 @@ export default async function ParametresPage() {
           icon={TerminalSquare}
           tone="violet"
         />
+      </section>
+
+      <section className="mb-6">
+        <SectionCard icon={SlidersHorizontal} title="Modules et automatisations">
+          <p className="mb-4 text-[12.5px] leading-relaxed" style={{ color: "var(--text-muted)" }}>
+            Activez ou désactivez des modules de GEDify. Désactiver un module ne supprime
+            aucune donnée existante — vous pouvez le réactiver à tout moment.
+          </p>
+          <FeatureFlagsPanel />
+        </SectionCard>
       </section>
 
       <div className="grid gap-6 xl:grid-cols-2">

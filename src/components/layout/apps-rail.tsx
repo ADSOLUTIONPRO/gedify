@@ -55,10 +55,11 @@ function RailTile({ entry, active }: { entry: RailEntry; active: boolean }) {
  * = #F7F1E7), icône + libellé sous l'icône, actif rose doux. Masqué sous `lg`
  * (navigation via `MobileTabBar`).
  */
-export function AppsRail({ userInitials }: { userInitials: string }) {
+export function AppsRail({ userInitials, financeEnabled = true }: { userInitials: string; financeEnabled?: boolean }) {
   const pathname = usePathname();
   const activeId = getActiveSpaceId(pathname);
-  const entries = buildEntries();
+  // Masque l'espace Finances si le module est désactivé (Paramètres › Modules).
+  const entries = buildEntries().filter((e) => financeEnabled || e.id !== "finances");
 
   return (
     <aside

@@ -106,9 +106,18 @@ async function runAi(documentId: number): Promise<void> {
 
   const { runDocumentAnalysis } = await import("@/lib/ai/run-document-analysis");
   const { withDocumentAnalysisLock } = await import("@/lib/ai/analysis-lock");
+  // Classement budget AUTOMATIQUE seulement si le module est activé : l'analyse IA
+  // (OCR, tags, type, correspondant, montants) continue toujours, mais sans
+  // alimenter le budget si l'utilisateur l'a désactivé dans les Modules.
+  const { getGedifyFeatureFlags } = await import("@/lib/settings/feature-flags");
+  const flags = await getGedifyFeatureFlags();
   const lock = await withDocumentAnalysisLock(documentId, () =>
     withTimeout(
-      runDocumentAnalysis(documentId, { force: false, createFinancialItems: true, autoApply: true }),
+      runDocumentAnalysis(documentId, {
+        force: false,
+        createFinancialItems: flags.autoBudgetClassificationEnabled,
+        autoApply: true,
+      }),
       STEP_TIMEOUTS.ai(),
       `analyse IA doc#${documentId}`,
     ),

@@ -8,6 +8,7 @@ import { SpaceMenuSidebar } from "@/components/layout/space-menu-sidebar";
 import { MailComposer } from "@/components/messaging/mail-composer";
 import { ImportActivityIndicator } from "@/components/layout/import-activity-indicator";
 import { readSession } from "@/lib/auth/session";
+import { getGedifyFeatureFlags } from "@/lib/settings/feature-flags";
 
 type AppShellProps = {
   children: ReactNode;
@@ -29,6 +30,7 @@ export async function AppShell({ children }: AppShellProps) {
   const initials = session?.username ? session.username[0].toUpperCase() : "";
   const ua = (await headers()).get("user-agent") ?? "";
   const isDesktop = ua.includes("GedifyDesktop");
+  const { financeSpaceEnabled } = await getGedifyFeatureFlags().catch(() => ({ financeSpaceEnabled: true }));
 
   return (
     <div
@@ -43,8 +45,8 @@ export async function AppShell({ children }: AppShellProps) {
         />
       ) : null}
 
-      <AppsRail userInitials={initials} />
-      <SpaceMenuSidebar />
+      <AppsRail userInitials={initials} financeEnabled={financeSpaceEnabled} />
+      <SpaceMenuSidebar financeEnabled={financeSpaceEnabled} />
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Bureau (≥ md) : topbar STICKY (reste visible au scroll) */}
         <div
@@ -57,7 +59,7 @@ export async function AppShell({ children }: AppShellProps) {
         {/* pb-24 sous `md` : réserve la place de la barre d'onglets fixe */}
         <main className="w-full pb-24 md:pb-0">{children}</main>
       </div>
-      <MobileTabBar />
+      <MobileTabBar financeEnabled={financeSpaceEnabled} />
       {/* Fenêtre de rédaction globale (persiste pendant la navigation) */}
       <MailComposer />
       {/* Indicateur global non bloquant de traitement (import → OCR/IA/miniatures) */}

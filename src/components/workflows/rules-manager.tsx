@@ -12,6 +12,8 @@ import {
   X,
   Zap,
 } from "lucide-react";
+import { TaxonomyAutocompleteInput } from "@/components/forms/taxonomy-autocomplete-input";
+import type { TaxonomyKind } from "@/lib/taxonomies/taxonomy-kinds";
 
 type Condition = { field: string; operator: string; value: string };
 type Action = { type: string; value: string };
@@ -55,6 +57,22 @@ const fieldLabel = (v: string) => FIELDS.find((f) => f.value === v)?.label ?? v;
 const opLabel = (v: string) => OPERATORS.find((o) => o.value === v)?.label ?? v;
 const actionLabel = (v: string) => ACTIONS.find((a) => a.value === v)?.label ?? v;
 const input = "h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-sm outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100";
+
+/** Champ de condition lié à une taxonomie → autocomplétion (sinon texte libre). */
+function fieldKind(field: string): TaxonomyKind | null {
+  if (field === "tag") return "tag";
+  if (field === "correspondent") return "correspondent";
+  if (field === "document_type") return "document_type";
+  return null;
+}
+/** Action liée à une taxonomie → autocomplétion (sinon texte libre). */
+function actionKind(type: string): TaxonomyKind | null {
+  if (type === "add_tag") return "tag";
+  if (type === "set_correspondent") return "correspondent";
+  if (type === "set_document_type") return "document_type";
+  if (type === "move_to_folder") return "folder";
+  return null;
+}
 
 export function RulesManager() {
   const [rules, setRules] = useState<Workflow[]>([]);
@@ -214,7 +232,10 @@ export function RulesManager() {
 
           <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-slate-500">Si (toutes les conditions)</p>
           <div className="mb-3 flex flex-col gap-2">
-            {conditions.map((c, i) => (
+            {conditions.map((c, i) => {
+              const ck = fieldKind(c.field);
+              const setVal = (v: string) => setConditions((cs) => cs.map((x, j) => (j === i ? { ...x, value: v } : x)));
+              return (
               <div key={i} className="flex flex-wrap items-center gap-2">
                 <select value={c.field} onChange={(e) => setConditions((cs) => cs.map((x, j) => (j === i ? { ...x, field: e.target.value } : x)))} className={input}>
                   {FIELDS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
@@ -222,10 +243,17 @@ export function RulesManager() {
                 <select value={c.operator} onChange={(e) => setConditions((cs) => cs.map((x, j) => (j === i ? { ...x, operator: e.target.value } : x)))} className={input}>
                   {OPERATORS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
-                <input value={c.value} onChange={(e) => setConditions((cs) => cs.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)))} placeholder="valeur" className={`${input} flex-1 min-w-32`} />
+                {ck ? (
+                  <div className="min-w-32 flex-1">
+                    <TaxonomyAutocompleteInput kind={ck} value={c.value} onChange={setVal} className={`${input} w-full`} placeholder="valeur (autocomplétée)" />
+                  </div>
+                ) : (
+                  <input value={c.value} onChange={(e) => setVal(e.target.value)} placeholder="valeur" className={`${input} flex-1 min-w-32`} />
+                )}
                 <button type="button" onClick={() => setConditions((cs) => cs.filter((_, j) => j !== i))} className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600"><X className="h-4 w-4" /></button>
               </div>
-            ))}
+              );
+            })}
             <button type="button" onClick={() => setConditions((cs) => [...cs, { field: "content", operator: "contains", value: "" }])} className="self-start text-xs font-semibold text-blue-600 hover:underline">+ condition</button>
           </div>
 
@@ -233,12 +261,20 @@ export function RulesManager() {
           <div className="mb-3 flex flex-col gap-2">
             {actions.map((a, i) => {
               const meta = ACTIONS.find((x) => x.value === a.type);
+              const ak = actionKind(a.type);
+              const setVal = (v: string) => setActions((as) => as.map((x, j) => (j === i ? { ...x, value: v } : x)));
               return (
                 <div key={i} className="flex flex-wrap items-center gap-2">
                   <select value={a.type} onChange={(e) => setActions((as) => as.map((x, j) => (j === i ? { ...x, type: e.target.value } : x)))} className={input}>
                     {ACTIONS.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}
                   </select>
-                  <input value={a.value} onChange={(e) => setActions((as) => as.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)))} placeholder={meta?.placeholder ?? "valeur"} className={`${input} flex-1 min-w-32`} />
+                  {ak ? (
+                    <div className="min-w-32 flex-1">
+                      <TaxonomyAutocompleteInput kind={ak} value={a.value} onChange={setVal} className={`${input} w-full`} placeholder={meta?.placeholder ?? "valeur"} />
+                    </div>
+                  ) : (
+                    <input value={a.value} onChange={(e) => setVal(e.target.value)} placeholder={meta?.placeholder ?? "valeur"} className={`${input} flex-1 min-w-32`} />
+                  )}
                   <button type="button" onClick={() => setActions((as) => as.filter((_, j) => j !== i))} className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600"><X className="h-4 w-4" /></button>
                 </div>
               );

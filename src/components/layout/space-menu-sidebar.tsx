@@ -134,11 +134,14 @@ function SpaceMenuInner({ onNavigate }: { onNavigate?: () => void }) {
  * Sidebar dédiée à l'espace actif. Le menu change selon la route courante
  * (`getActiveSpaceId`). Masquée sous `lg` → accessible via `MobileSpaceMenu`.
  */
-export function SpaceMenuSidebar() {
+export function SpaceMenuSidebar({ financeEnabled = true }: { financeEnabled?: boolean }) {
   const pathname = usePathname();
   // L'espace Messagerie a sa propre sidebar complète (MessagerieShell) → on masque
   // la sidebar générique d'espace ici pour n'en afficher qu'une seule.
   if (pathname.startsWith("/messagerie")) return null;
+  // Module Finances désactivé : pas de sous-menu finances (l'accès est gardé par
+  // /finances/layout.tsx qui affiche le message « espace désactivé »).
+  if (!financeEnabled && (pathname.startsWith("/finances") || pathname.startsWith("/budget"))) return null;
   return (
     <aside
       className="sticky z-20 hidden w-60 shrink-0 border-r md:block"

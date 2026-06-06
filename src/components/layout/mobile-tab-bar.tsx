@@ -19,8 +19,10 @@ const TABS: Tab[] = [
  * Barre de navigation basse — app mobile (smartphone / tablette, < md).
  * Onglet actif en rose `--accent`. Masquée dès `md` (double sidebar bureau).
  */
-export function MobileTabBar() {
+export function MobileTabBar({ financeEnabled = true }: { financeEnabled?: boolean }) {
   const pathname = usePathname();
+  // Masque l'onglet Finances si le module est désactivé (Paramètres › Modules).
+  const tabs = TABS.filter((t) => financeEnabled || t.href !== "/finances");
 
   return (
     <nav
@@ -28,7 +30,7 @@ export function MobileTabBar() {
       className="fixed inset-x-0 bottom-0 z-40 flex items-stretch border-t bg-white/95 backdrop-blur md:hidden"
       style={{ borderColor: "var(--border)", paddingBottom: "env(safe-area-inset-bottom)" }}
     >
-      {TABS.map((tab) => {
+      {tabs.map((tab) => {
         const Icon = tab.icon;
         const active = tab.match(pathname);
         return (

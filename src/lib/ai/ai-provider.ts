@@ -32,6 +32,12 @@ export type AnalyzeContext = {
   existingDocumentTypes?: string[];
   existingTags?: string[];
   existingFolders?: string[];
+  /**
+   * Consignes additionnelles ajoutées au prompt système (ex. prompt personnalisé
+   * d'un « modèle IA appris »). Optionnel → aucun impact si absent. Ignoré par les
+   * providers qui ne construisent pas de prompt système.
+   */
+  extraInstructions?: string;
 };
 
 export type AnalyzeResult = Pick<
