@@ -169,3 +169,58 @@ Cela génère une nouvelle clé, met à jour `onlyoffice.env` **et** `secrets.en
 Dans `docker-compose.sqlite.v2.yml`, remplacez l'IP `192.168.1.17` sur les deux
 lignes `ONLYOFFICE_DOCUMENT_SERVER_URL` (`:8082`) et `GEDIFY_PUBLIC_URL` (`:3210`),
 puis relancez le projet (`docker compose -f docker-compose.sqlite.v2.yml up -d`).
+
+## Publier l'image GEDify (mainteneur)
+
+Le compose v2 utilise une **image préconstruite** (pas de build sur le NAS) :
+
+```yaml
+image: ${GEDIFY_IMAGE:-ghcr.io/adsolutionpro/gedify:latest}
+```
+
+Cette image est construite et publiée automatiquement sur **GitHub Container
+Registry (GHCR)** par le workflow [`.github/workflows/docker-publish.yml`](../../.github/workflows/docker-publish.yml).
+
+**Procédure :**
+
+1. **Poussez sur `main`** (ou créez un tag `v*`) dans le dépôt GitHub.
+2. **Attendez GitHub Actions** : onglet *Actions* → workflow « Publier l'image
+   GEDify (GHCR) » doit passer au vert (le 1er build peut prendre 10–20 min).
+3. **Vérifiez l'image** : page GitHub du dépôt → *Packages* → `gedify`. Tags
+   produits : `latest` (sur main), `sha-xxxxxxx` (par commit), `vX.Y.Z` (sur tag).
+4. **Rendez le package PUBLIC** (recommandé pour Synology sans login) :
+   Packages → `gedify` → *Package settings* → *Change visibility* → **Public**.
+5. (Sinon, package **privé**) connectez Container Manager / Docker à GHCR sur le NAS :
+   ```bash
+   echo "<TOKEN_GITHUB_classique_avec_read:packages>" | \
+     docker login ghcr.io -u <votre_user_github> --password-stdin
+   ```
+
+Une fois l'image disponible, sur le NAS :
+
+```bash
+# (image préconstruite : PAS de --build)
+docker compose -f docker-compose.sqlite.v2.yml pull
+docker compose -f docker-compose.sqlite.v2.yml up -d
+```
+
+> Owner en MINUSCULES : GHCR exige des noms en minuscules. Le workflow met
+> automatiquement `github.repository_owner` en minuscules → `ghcr.io/adsolutionpro/gedify`.
+> Si votre owner GitHub diffère, surchargez `GEDIFY_IMAGE` (variable d'environnement
+> ou `.env` voisin) avec le nom exact, ex. `GEDIFY_IMAGE=ghcr.io/monorg/gedify:latest`.
+
+### Dépannage du pull GHCR
+
+| Erreur Container Manager | Cause probable | Solution |
+|---|---|---|
+| `manifest unknown` / `not found` | image/tag pas encore publiés | attendre la fin du workflow Actions ; vérifier le tag (`latest`) dans *Packages* |
+| `denied` / `pull access denied` | package **privé** | rendre le package **public** (étape 4) **ou** `docker login ghcr.io` sur le NAS (étape 5) |
+| `unauthorized` | token invalide/expiré | recréer un *Personal Access Token (classic)* avec `read:packages`, refaire `docker login` |
+| mauvais nom d'image | owner/casse incorrects | l'image est `ghcr.io/<owner-minuscule>/gedify` ; ajustez `GEDIFY_IMAGE` si besoin |
+| `no matching manifest for linux/arm64` | NAS ARM | le workflow publie `linux/amd64` (Container Manager = x86_64) ; pour ARM, ajoutez `linux/arm64` aux `platforms` du workflow |
+
+Vérifier manuellement le pull depuis le NAS :
+
+```bash
+docker pull ghcr.io/adsolutionpro/gedify:latest   # doit réussir si public/loggé
+```
