@@ -155,7 +155,9 @@ export type EmailContactRecord = {
   emails: string[];
   phone: string | null;
   organization: string | null;
-  source: "people" | "other_contacts";
+  /** Origine : Google People (`people`/`other_contacts`), détecté dans les
+   *  emails (`imap_email`), ou saisi manuellement (`manual`). */
+  source: "people" | "other_contacts" | "imap_email" | "manual";
   /** ID du correspondant Paperless lié (si déjà associé). */
   correspondentId: number | null;
   /** Si `correspondentId === null` : suggestion automatique du matcher. */
