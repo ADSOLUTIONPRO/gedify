@@ -69,7 +69,7 @@ export default async function WorkflowsPage() {
 
   return (
     <ResourceListView
-      backLink={{ href: "/administration", label: "Administration" }}
+      backLink={{ href: "/documents", label: "Documents" }}
       eyebrow="Automatisation"
       title="Workflows"
       description="Les workflows classent automatiquement vos documents à leur arrivée selon des règles que vous définissez."
