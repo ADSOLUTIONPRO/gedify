@@ -7,6 +7,7 @@ import { Pagination } from "@/components/ui/pagination";
 import { ViewToggle } from "@/components/ui/view-toggle";
 import { SpaceLayout } from "@/components/layout/space-layout";
 import { DocumentSpace } from "@/components/documents/document-space";
+import { PageSizeSelector } from "@/components/documents/page-size-selector";
 import type { DocumentFilterValues } from "@/components/documents/document-filters";
 import { buildDocumentApiParams, buildDocumentVMs, matchesEtat } from "@/lib/documents/document-list-loader";
 import { listAnalyses } from "@/lib/ai/ai-analysis-store";
@@ -24,7 +25,9 @@ import type { PaperlessDocument } from "@/lib/paperless-types";
 
 export const dynamic = "force-dynamic";
 
-const pageSize = 24;
+/** Tailles de page proposées (sélecteur « par page »). */
+const PAGE_SIZES = [24, 48, 96, 200];
+const DEFAULT_PAGE_SIZE = 24;
 
 /** Onglets non encore branchés à un back-end (affichage propre, sans 404). */
 const UNSUPPORTED_TABS = new Set(["favoris", "partages"]);
@@ -50,6 +53,25 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pa
   // Vue grille par défaut ; bascule en liste uniquement si ?view=table explicite.
   const view = firstParam(params, "view", "") === "table" ? "table" : "grid";
   const tab = firstParam(params, "tab", "") ?? "";
+  // Nombre de documents par page (sélecteur), borné aux valeurs autorisées.
+  const reqSize = numberParam(params, "taille", DEFAULT_PAGE_SIZE);
+  const pageSize = PAGE_SIZES.includes(reqSize) ? reqSize : DEFAULT_PAGE_SIZE;
+
+  // Query des filtres courants (préserve l'état dans le sélecteur + sélection « tout »).
+  const currentQueryObj: Record<string, string> = {};
+  for (const [k, v] of Object.entries(params)) {
+    const val = Array.isArray(v) ? v[0] : v;
+    if (typeof val === "string" && val) currentQueryObj[k] = val;
+  }
+  const currentQuery = new URLSearchParams(currentQueryObj).toString();
+  // Filtres seuls (sans page/taille/view) pour /api/documents/ids (sélection totale).
+  const selectAllObj: Record<string, string> = {};
+  for (const k of ["query", "correspondent", "document_type", "tag", "created_from", "added_from", "asn", "ordering", "tab"]) {
+    const val = firstParam(params, k);
+    if (val) selectAllObj[k] = val;
+  }
+  if (tab) selectAllObj.tab = tab;
+  const selectAllQuery = new URLSearchParams(selectAllObj).toString();
 
   try {
     const unsupported = UNSUPPORTED_TABS.has(tab);
@@ -124,6 +146,7 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pa
       "ordering",
       "etat",
       "view",
+      "taille",
     ]);
 
     const message = emptyMessage(tab);
@@ -159,6 +182,7 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pa
         spaceId="documents"
         actions={
           <>
+            <PageSizeSelector value={pageSize} currentQuery={currentQuery} />
             <ViewToggle
               options={[
                 { value: "grid", icon: LayoutGrid, label: "Grille" },
@@ -185,6 +209,7 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pa
         <DocumentSpace
           docs={visibleDocs}
           totalCount={etat ? visibleDocs.length : documentsData.count}
+          selectAllQuery={etat ? undefined : selectAllQuery}
           view={view}
           filterValues={filterValues}
           correspondents={correspondents.map((c) => ({ id: c.id, name: c.name }))}

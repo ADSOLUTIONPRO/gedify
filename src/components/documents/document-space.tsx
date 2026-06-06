@@ -32,6 +32,8 @@ type DocumentSpaceProps = {
   docs: DocumentVM[];
   /** Nombre total de documents de la collection (tous les pages confondues). */
   totalCount: number;
+  /** Query des filtres pour /api/documents/ids (sélection de la TOTALITÉ). */
+  selectAllQuery?: string;
   view: "grid" | "table";
   filterValues: DocumentFilterValues;
   correspondents: Option[];
@@ -77,6 +79,7 @@ async function pollThumbnailJob(docId: number, jobId: string | null, timeoutMs =
 export function DocumentSpace({
   docs,
   totalCount,
+  selectAllQuery,
   view,
   filterValues,
   correspondents,
@@ -93,6 +96,9 @@ export function DocumentSpace({
 }: DocumentSpaceProps) {
   const router = useRouter();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  // Sélection de la TOTALITÉ (tous les documents du filtre, pas juste la page).
+  const [allMatchingSelected, setAllMatchingSelected] = useState(false);
+  const [selectingAll, setSelectingAll] = useState(false);
   // Modale de progression commune (miniature/OCR/IA groupés).
   const progress = useGedifyProgress();
   // Cache-bust par document : bumpé après régénération de miniature pour forcer
@@ -193,12 +199,38 @@ export function DocumentSpace({
     if (!shift && idx >= 0) lastIndexRef.current = idx;
   }
   function toggleAll() {
-    setSelectedIds((prev) => (prev.size === docs.length ? new Set() : new Set(docs.map((d) => d.id))));
+    if (allMatchingSelected || selectedIds.size === docs.length) {
+      setSelectedIds(new Set());
+      setAllMatchingSelected(false);
+    } else {
+      setAllMatchingSelected(false);
+      setSelectedIds(new Set(docs.map((d) => d.id)));
+    }
   }
-  function clearSelection() { setSelectedIds(new Set()); lastIndexRef.current = null; }
+  function clearSelection() { setSelectedIds(new Set()); setAllMatchingSelected(false); lastIndexRef.current = null; }
+
+  /** Sélectionne TOUS les documents du filtre courant (toutes pages). */
+  async function selectAllMatching() {
+    if (!selectAllQuery || selectingAll) return;
+    setSelectingAll(true);
+    try {
+      const res = await fetch(`/api/documents/ids?${selectAllQuery}`, { cache: "no-store" });
+      const data = (await res.json().catch(() => ({}))) as { ids?: number[] };
+      if (Array.isArray(data.ids)) {
+        setSelectedIds(new Set(data.ids));
+        setAllMatchingSelected(true);
+      }
+    } finally {
+      setSelectingAll(false);
+    }
+  }
 
   const primary = selectedDocs[0] ?? activeDoc;
   const allSelected = docs.length > 0 && selectedIds.size === docs.length;
+  // Peut-on proposer la sélection de la totalité ? (page entière sélectionnée +
+  // plus de documents que la page + endpoint dispo + pas déjà tout sélectionné)
+  const canSelectAllMatching =
+    Boolean(selectAllQuery) && allSelected && !allMatchingSelected && totalCount > docs.length;
 
   function downloadSelection() {
     const targets = selectedDocs.length > 0 ? selectedDocs : activeDoc ? [activeDoc] : [];
@@ -351,8 +383,8 @@ export function DocumentSpace({
                   className="inline-flex h-9 items-center gap-1.5 rounded-xl border px-3 text-[12.5px] font-bold transition hover:bg-[var(--bg-card-soft)]"
                   style={{ borderColor: "var(--border-strong)", color: "var(--gedify-navy)" }}
                 >
-                  {allSelected ? <CheckSquare className="h-4 w-4" strokeWidth={2} aria-hidden="true" /> : <Square className="h-4 w-4" strokeWidth={2} aria-hidden="true" />}
-                  {allSelected ? "Tout désélectionner" : "Tout sélectionner"}
+                  {allSelected || allMatchingSelected ? <CheckSquare className="h-4 w-4" strokeWidth={2} aria-hidden="true" /> : <Square className="h-4 w-4" strokeWidth={2} aria-hidden="true" />}
+                  {allSelected || allMatchingSelected ? "Tout désélectionner" : "Tout sélectionner"}
                   {selectedIds.size > 0 ? (
                     <span className="rounded-full px-1.5 text-[11px] font-bold" style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>{selectedIds.size}</span>
                   ) : null}
@@ -360,6 +392,24 @@ export function DocumentSpace({
                 <span className="text-[12.5px] font-semibold" style={{ color: "var(--text-muted)" }}>
                   {totalCount.toLocaleString("fr-FR")} document{totalCount > 1 ? "s" : ""}
                 </span>
+                {canSelectAllMatching ? (
+                  <button
+                    type="button"
+                    onClick={() => void selectAllMatching()}
+                    disabled={selectingAll}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-[12.5px] font-bold text-white transition hover:opacity-90 disabled:opacity-60"
+                    style={{ background: "var(--accent)" }}
+                  >
+                    {selectingAll ? "Sélection…" : `Sélectionner les ${totalCount.toLocaleString("fr-FR")} documents`}
+                  </button>
+                ) : allMatchingSelected ? (
+                  <span
+                    className="inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-[12.5px] font-bold"
+                    style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
+                  >
+                    Toute la liste sélectionnée ({totalCount.toLocaleString("fr-FR")})
+                  </span>
+                ) : null}
               </div>
               <button
                 type="button"
