@@ -9,7 +9,6 @@ import {
   Sparkles,
   TriangleAlert,
 } from "lucide-react";
-import { FeatureGrid } from "@/components/paperless/feature-grid";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionCard } from "@/components/ui/section-card";
 import { StatCard } from "@/components/ui/stat-card";
@@ -68,14 +67,30 @@ export default async function RedactionHubPage() {
           <StatCard label="ONLYOFFICE" value={configured ? "Connecté" : "À connecter"} helper={onlyOfficeUrl ?? "Variable serveur requise"} icon={Sparkles} tone={configured ? "emerald" : "amber"} />
         </section>
 
-        {/* Actions principales */}
-        <FeatureGrid
-          links={[
-            { title: "Nouveau courrier", description: "Assistant pas-à-pas à partir d'un modèle.", href: "/redaction/nouveau", icon: Plus, tone: "blue" },
-            { title: "Modèles DOCX", description: "Courriers administratifs, employeur, CAF, CPAM…", href: "/redaction/modeles", icon: LayoutTemplate, tone: "violet" },
-            { title: "Signatures", description: "Importez ou dessinez votre signature manuscrite.", href: "/redaction/signatures", icon: FileSignature, tone: "emerald" },
-          ]}
-        />
+        {/* Actions principales — boutons simples */}
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/redaction/nouveau"
+            className="inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-bold text-white transition hover:opacity-90"
+            style={{ background: "var(--blue-600)" }}
+          >
+            <Plus className="h-4 w-4" strokeWidth={2} aria-hidden="true" /> Nouveau courrier
+          </Link>
+          <Link
+            href="/redaction/modeles"
+            className="inline-flex h-10 items-center gap-2 rounded-xl border bg-white px-4 text-sm font-semibold transition hover:bg-slate-50"
+            style={{ borderColor: "var(--border)", color: "var(--text-main)" }}
+          >
+            <LayoutTemplate className="h-4 w-4" strokeWidth={1.85} aria-hidden="true" /> Modèles DOCX
+          </Link>
+          <Link
+            href="/redaction/signatures"
+            className="inline-flex h-10 items-center gap-2 rounded-xl border bg-white px-4 text-sm font-semibold transition hover:bg-slate-50"
+            style={{ borderColor: "var(--border)", color: "var(--text-main)" }}
+          >
+            <FileSignature className="h-4 w-4" strokeWidth={1.85} aria-hidden="true" /> Signatures
+          </Link>
+        </div>
 
         {/* Documents en cours — lignes compactes */}
         <SectionCard

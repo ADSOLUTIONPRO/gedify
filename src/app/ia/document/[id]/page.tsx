@@ -6,8 +6,11 @@ import {
   Coins,
   ExternalLink,
   FileText,
+  ScanText,
   Zap,
 } from "lucide-react";
+import { AnalyzeDocumentButton } from "@/components/ai/analyze-document-button";
+import { DocumentOcrInfo } from "@/components/documents/document-ocr-info";
 import { AIConfidenceBadge } from "@/components/ai/ai-confidence-badge";
 import { EntitySuggestionPanel } from "@/components/ai/entity-suggestion-panel";
 import { AIValidationPanel } from "@/components/ai/ai-validation-panel";
@@ -87,7 +90,42 @@ export default async function DocumentAnalysisPage({ params }: Props) {
             eyebrow={`Analyse IA · Document #${documentId}`}
             title={document.title || `Document #${documentId}`}
           />
-          <ErrorState title="OCR non disponible" message={outcome.message} />
+
+          {/* Ce n'est PAS une erreur : l'OCR n'a simplement pas encore produit de texte. */}
+          <div className="max-w-2xl space-y-4">
+            <div
+              className="flex items-start gap-3 rounded-2xl border p-4"
+              style={{ borderColor: "var(--gedify-orange)", background: "var(--gedify-orange-soft)" }}
+            >
+              <ScanText className="mt-0.5 h-6 w-6 shrink-0 text-amber-600" strokeWidth={1.75} aria-hidden="true" />
+              <div className="space-y-1">
+                <p className="text-sm font-bold" style={{ color: "var(--text-main)" }}>
+                  OCR pas encore réalisé
+                </p>
+                <p className="text-[13px] leading-relaxed" style={{ color: "var(--text-muted)" }}>
+                  L&apos;analyse IA a besoin du texte du document, mais l&apos;OCR n&apos;a pas encore
+                  extrait de contenu exploitable. Lancez l&apos;OCR (ou attendez qu&apos;il se termine),
+                  puis <strong>relancez l&apos;analyse</strong> une fois le document reconnu. Ce
+                  n&apos;est pas une erreur d&apos;analyse.
+                </p>
+              </div>
+            </div>
+
+            <SectionCard icon={ScanText} title="État de l'OCR">
+              <DocumentOcrInfo documentId={documentId} />
+            </SectionCard>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <AnalyzeDocumentButton documentId={documentId} force label="Relancer l'analyse IA" />
+              <Link
+                href={`/documents/${documentId}`}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                <FileText className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                Détail document
+              </Link>
+            </div>
+          </div>
         </main>
       );
     } else {
