@@ -21,6 +21,7 @@ import {
   LayoutGrid,
   Link2,
   ListChecks,
+  Mail,
   PenLine,
   Receipt,
   RefreshCw,
@@ -61,14 +62,14 @@ export type SpaceMenu = {
 
 export const RAIL_PRIMARY = [
   "documents",
-  "messagerie",
+  "ia",
   "finances",
-  "calendrier",
+  "messagerie",
   "contacts",
-  "rappels",
+  "agenda",
 ] as const;
 
-export const RAIL_SECONDARY = ["office", "organiser", "actions"] as const;
+export const RAIL_SECONDARY = ["administration"] as const;
 
 /* ── Menus par espace (allégés : uniquement l'essentiel) ───────────────── */
 
@@ -101,6 +102,8 @@ export const SPACE_MENUS: Record<string, SpaceMenu> = {
       { label: "Types de documents", href: "/organiser/types", icon: FileType2 },
       { label: "Tags", href: "/organiser/tags", icon: Tags },
       { label: "Vues", href: "/organiser/vues", icon: LayoutGrid },
+      { label: "Dossiers / Projets", href: "/dossiers", icon: FolderTree },
+      { label: "Rédaction", href: "/redaction", icon: PenLine },
       { label: "Workflows", href: "/workflows", icon: Workflow },
       { label: "Modèles IA appris", href: "/documents/modeles-ia", icon: Brain },
     ],
@@ -162,25 +165,31 @@ export const SPACE_MENUS: Record<string, SpaceMenu> = {
   contacts: {
     id: "contacts",
     title: "Contacts",
-    description: "Correspondants & clients",
-    action: { label: "Nouveau contact", href: "/correspondants", icon: UserPlus },
+    description: "Tous vos contacts, multi-sources",
+    action: { label: "Tout synchroniser", href: "/messagerie/contacts", icon: RefreshCw },
     items: [
-      { label: "Tous les contacts", href: "/correspondants", icon: Users },
-      { label: "Doublons", href: "/correspondants?vue=doublons", icon: Copy },
-      { label: "À relier", href: "/correspondants?vue=a-relier", icon: Link2 },
+      { label: "Tous les contacts", href: "/messagerie/contacts", icon: Users },
+      { label: "Google", href: "/messagerie/contacts?source=google", icon: Link2 },
+      { label: "Emails", href: "/messagerie/contacts?source=imap_email", icon: Mail },
+      { label: "Correspondants GEDify", href: "/messagerie/contacts?source=correspondents", icon: UserPlus },
+      { label: "Manuels", href: "/messagerie/contacts?source=manual", icon: PenLine },
+      { label: "Doublons", href: "/messagerie/contacts?source=doublons", icon: Copy },
     ],
   },
 
-  rappels: {
-    id: "rappels",
-    title: "Mes tâches",
-    description: "Tâches, échéances & rappels",
+  agenda: {
+    id: "agenda",
+    title: "Agenda & tâches",
+    description: "Calendrier, tâches, rappels & échéances",
     action: { label: "Nouvelle tâche", href: "/rappels", icon: ListChecks },
     items: [
-      { label: "Toutes mes tâches", href: "/rappels", icon: ListChecks },
+      { label: "Calendrier", href: "/calendrier", icon: Calendar },
+      { label: "Rendez-vous détectés", href: "/calendrier?vue=detectes", icon: CalendarClock },
+      { label: "Mes tâches", href: "/rappels", icon: ListChecks },
       { label: "À venir", href: "/rappels/a-venir", icon: Clock },
       { label: "En retard", href: "/rappels/en-retard", icon: AlertTriangle },
-      { label: "Automatiques", href: "/rappels/recurrents", icon: Repeat },
+      { label: "Tâches automatiques", href: "/rappels/recurrents", icon: Repeat },
+      { label: "Actions à traiter", href: "/actions", icon: CheckCircle2 },
     ],
   },
 
@@ -278,9 +287,14 @@ const ORPHAN_PREFIXES: [string, string][] = [
 /** Détermine l'id d'espace actif à partir d'un pathname. Toujours défini. */
 export function getActiveSpaceId(pathname: string): string {
   if (pathname === "/") return "accueil";
-  // Taxonomies (types/tags/vues) rattachées à l'espace Documents bien qu'elles
-  // vivent sous /organiser/*.
-  if (/^\/organiser\/(types|tags|vues)(\/|$)/.test(pathname)) return "documents";
+  // Hiérarchie simplifiée : espaces fusionnés (priment sur la résolution par href).
+  // - Contacts = page multi-sources + correspondants.
+  if (pathname.startsWith("/messagerie/contacts")) return "contacts";
+  if (pathname === "/correspondants" || pathname.startsWith("/correspondants/")) return "contacts";
+  // - Agenda & tâches = calendrier + actions + rappels (Mes tâches).
+  if (/^\/(actions|rappels|calendrier)(\/|$)/.test(pathname)) return "agenda";
+  // - Documents = + Organiser + Office (Rédaction).
+  if (/^\/(organiser|office|redaction)(\/|$)/.test(pathname)) return "documents";
   const space = getSpaceByHref(pathname);
   if (space && SPACE_MENUS[space.id]) return space.id;
   for (const [prefix, id] of ORPHAN_PREFIXES) {

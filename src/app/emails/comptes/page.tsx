@@ -3,7 +3,6 @@ import {
   AlertTriangle,
   ArrowRight,
   CheckCircle2,
-  ExternalLink,
   Inbox,
   Plus,
   ShieldAlert,
@@ -15,13 +14,11 @@ import { SectionCard } from "@/components/ui/section-card";
 import { listAccounts } from "@/lib/mail-connector/account-store";
 import { isSecureStorageReady } from "@/lib/mail-connector/encryption";
 import { findProvider } from "@/lib/mail-connector/providers";
-import { getPaperlessPublicUrl } from "@/lib/paperless";
 
 export const dynamic = "force-dynamic";
 
 export default async function EmailComptesPage() {
   const [accounts] = await Promise.all([listAccounts()]);
-  const paperlessUrl = getPaperlessPublicUrl();
   const secureReady = isSecureStorageReady();
 
   return (
@@ -41,17 +38,6 @@ export default async function EmailComptesPage() {
               <Plus className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
               Connecter une boîte
             </Link>
-            {paperlessUrl ? (
-              <a
-                href={`${paperlessUrl}/mail_accounts`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 px-4 text-sm font-semibold text-slate-700 shadow-sm backdrop-blur transition hover:bg-white"
-              >
-                <ExternalLink className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                Mail natif Gedify
-              </a>
-            ) : null}
           </>
         }
       />

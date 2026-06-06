@@ -10,7 +10,6 @@ import {
   Coins,
   CopyCheck,
   DatabaseZap,
-  ExternalLink,
   FileText,
   FileType2,
   FolderKanban,
@@ -123,10 +122,6 @@ export const dailySidebarNavigation: NavigationSection[] = [
  *
  * Une route inexistante est marquée `disabled: true` ⇒ affichée grisée avec
  * un badge « Bientôt ». Ne pas pointer vers une route 404 active.
- *
- * « Ouvrir Paperless » est un cas particulier : `href: ""` car l'URL est
- * résolue à l'exécution côté serveur via `getPaperlessPublicUrl()` et passée
- * au composant client. Si aucune URL n'est configurée, l'item est masqué.
  */
 export const administrationDropdownNavigation: NavigationSection[] = [
   {
@@ -236,7 +231,7 @@ export const administrationDropdownNavigation: NavigationSection[] = [
         label: "Moteurs documentaires",
         href: "/administration/moteurs",
         icon: DatabaseZap,
-        description: "Paperless, GED native, moteurs hybrides.",
+        description: "Moteur GED natif, SQLite/PostgreSQL, moteurs hybrides.",
         badge: "Bientôt",
         disabled: true,
       },
@@ -271,13 +266,6 @@ export const administrationDropdownNavigation: NavigationSection[] = [
         description: "Erreurs techniques et diagnostic.",
         badge: "Bientôt",
         disabled: true,
-      },
-      {
-        label: "Ouvrir Paperless",
-        href: "",
-        icon: ExternalLink,
-        description: "Accès à l'interface Paperless originale.",
-        external: true,
       },
     ],
   },

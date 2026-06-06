@@ -2,7 +2,6 @@ import Link from "next/link";
 import {
   AlertTriangle,
   CheckCircle2,
-  ExternalLink,
   FileBox,
   Inbox,
   Mail,
@@ -23,7 +22,6 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { listAccounts } from "@/lib/mail-connector/account-store";
 import { PROVIDERS } from "@/lib/mail-connector/providers";
 import { getMailConnectorStatus } from "@/lib/mail-connector/status";
-import { getPaperlessPublicUrl } from "@/lib/paperless";
 import type { MailAccount } from "@/lib/mail-connector/types";
 import { SignaturesManager } from "@/components/messaging/signatures-manager";
 import { GmailAccountsManager } from "@/components/messaging/gmail-accounts-manager";
@@ -46,7 +44,6 @@ function formatRelative(iso: string | null): string {
 }
 
 export default async function EmailsPage() {
-  const paperlessUrl = getPaperlessPublicUrl();
   const oauthConfig = getGmailOAuthConfig();
   const [accounts, status, gmailAccounts, signatures] = await Promise.all([
     listAccounts(),
@@ -73,18 +70,6 @@ export default async function EmailsPage() {
         description="Connectez une boîte à la fois, prévisualisez, puis activez l'import."
         actions={
           <>
-            {paperlessUrl ? (
-              <a
-                href={`${paperlessUrl}/mail_accounts`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex h-10 items-center gap-2 rounded-xl border bg-white px-3 text-sm font-semibold transition hover:bg-slate-50"
-                style={{ borderColor: "var(--border)", color: "var(--text-main)" }}
-              >
-                <ExternalLink className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                Mail natif Gedify
-              </a>
-            ) : null}
             <Link
               href="/emails/connecter"
               className="inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-white transition hover:opacity-90"

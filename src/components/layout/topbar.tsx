@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { ExternalLink, Search, Upload } from "lucide-react";
+import { Search, Upload } from "lucide-react";
 import { AdministrationDropdown } from "@/components/navigation/administration-dropdown";
 import { BrandLogo } from "@/components/ui/brand-logo";
 import { MobileSpaceMenu } from "@/components/layout/space-menu-sidebar";
 import { UserMenu } from "@/components/user-menu";
 import { NotificationsBell } from "@/components/layout/notifications-bell";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { getPaperlessPublicUrl } from "@/lib/paperless";
 import { readSession } from "@/lib/auth/session";
 
@@ -78,20 +79,8 @@ export async function Topbar() {
             <AdministrationDropdown paperlessUrl={paperlessUrl} />
           </div>
 
-          {/* Gedify */}
-          {paperlessUrl ? (
-            <a
-              href={paperlessUrl}
-              target="_blank"
-              rel="noreferrer"
-              title="Ouvrir Gedify"
-              aria-label="Ouvrir Gedify"
-              className="hidden h-9 w-9 items-center justify-center rounded-xl border transition hover:bg-slate-50 lg:inline-flex"
-              style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}
-            >
-              <ExternalLink className="h-4 w-4" strokeWidth={1.75} />
-            </a>
-          ) : null}
+          {/* Bascule thème clair / sombre */}
+          <ThemeToggle />
 
           {/* Notifications (liste agrégée : rappels, erreurs, actions) */}
           <NotificationsBell />

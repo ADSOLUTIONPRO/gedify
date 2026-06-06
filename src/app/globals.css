@@ -249,3 +249,59 @@ button, a {
 .title-xl { font-size: clamp(28px, 4vw, 42px); color: var(--gedify-navy); font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
 .title-lg { font-size: 24px; color: var(--gedify-navy); font-weight: 800; letter-spacing: -.01em; }
 .title-md { font-size: 18px; color: var(--gedify-navy); font-weight: 700; }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   MODE SOMBRE — activé par la classe `.dark` sur <html> (toggle topbar, persisté
+   en localStorage « gedify-theme »). Override des tokens + utilitaires Tailwind
+   « blancs/slate » les plus utilisés en dur, pour un rendu cohérent. L'accent
+   (rose) et les couleurs de marque sont conservés.
+   ─────────────────────────────────────────────────────────────────────────── */
+.dark {
+  color-scheme: dark;
+
+  --background: #0F1620;
+  --bg-page:    #0F1620;
+  --bg-app:     #0F1620;
+  --bg-panel:   #16202C;
+  --bg-card:    #1B2735;
+  --bg-card-soft: #18222F;
+  --bg-elevated: #1B2735;
+  --surface:    #16202C;
+  --surface-muted: #131C26;
+  --surface-rail:  #111922;
+  --foreground: #E6EAF2;
+
+  --border:      #2A3949;
+  --border-soft: #243240;
+  --border-strong: #3A4D60;
+
+  --text-main:  #E6EAF2;
+  --text-secondary: #AAB6C4;
+  --text-muted: #9AA7B6;
+  --text-hint:  #6B7888;
+
+  /* Teintes « soft » assombries (l'accent rose reste vif) */
+  --blue-50:            #2A1722;
+  --accent-soft:        #2A1722;
+  --gedify-pink-soft:   #2A1722;
+  --gedify-purple-soft: #221A33;
+  --gedify-green-soft:  #12241A;
+  --gedify-red-soft:    #2A1717;
+  --gedify-orange-soft: #2A2113;
+  --gedify-info-soft:   #15233A;
+}
+
+/* Overrides ciblés des utilitaires Tailwind codés en dur (cartes/textes/bordures). */
+.dark .bg-white { background-color: var(--surface) !important; }
+.dark .bg-white\/95 { background-color: var(--surface) !important; }
+.dark .bg-slate-50,
+.dark .bg-slate-100 { background-color: var(--bg-panel) !important; }
+.dark .text-slate-900,
+.dark .text-slate-800,
+.dark .text-slate-700 { color: var(--text-main) !important; }
+.dark .text-slate-600,
+.dark .text-slate-500 { color: var(--text-muted) !important; }
+.dark .text-slate-400,
+.dark .text-slate-300 { color: var(--text-hint) !important; }
+.dark .border-slate-200,
+.dark .border-slate-100 { border-color: var(--border) !important; }

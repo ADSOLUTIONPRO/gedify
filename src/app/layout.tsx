@@ -17,6 +17,10 @@ export const metadata: Metadata = {
 /** Routes rendues sans AppShell (0 chrome : fond + contenu uniquement). */
 const BARE_ROUTES = ["/login", "/installation"];
 
+/** Applique le thème (clair/sombre) AVANT le rendu pour éviter tout flash. */
+const THEME_INIT_SCRIPT =
+  "(function(){try{var t=localStorage.getItem('gedify-theme');var d=t?t==='dark':window.matchMedia('(prefers-color-scheme:dark)').matches;if(d)document.documentElement.classList.add('dark');}catch(e){}})();";
+
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
@@ -34,6 +38,7 @@ export default async function RootLayout({
   if (isBareRoute) {
     return (
       <html lang="fr">
+        <head><script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} /></head>
         <body
           className="min-h-screen antialiased"
           style={{ background: "var(--bg-page)", color: "var(--text-main)" }}
@@ -59,6 +64,7 @@ export default async function RootLayout({
   // topbar. Le contenu occupe toute la largeur (centré, max 1600px).
   return (
     <html lang="fr">
+      <head><script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} /></head>
       <body
         className="min-h-screen antialiased"
         style={{ background: "var(--bg-page)", color: "var(--text-main)" }}

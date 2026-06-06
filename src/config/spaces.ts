@@ -183,7 +183,7 @@ export const spaces: Space[] = [
   {
     id: "contacts",
     label: "Contacts",
-    href: "/correspondants",
+    href: "/messagerie/contacts",
     icon: Users,
     image: "/iconesmenu/contacts.png",
     color: "#BE8266",
@@ -206,6 +206,21 @@ export const spaces: Space[] = [
     shortDescription: "Agenda & échéances",
     quickActions: [
       { label: "Agenda", href: "/calendrier", icon: CalendarRange },
+    ],
+  },
+  {
+    id: "agenda",
+    label: "Agenda & tâches",
+    href: "/calendrier",
+    icon: CalendarRange,
+    image: "/iconesmenu/calendrier.png",
+    color: "#7D8BA6",
+    description:
+      "Calendrier, rendez-vous détectés, tâches, rappels récurrents et échéances.",
+    shortDescription: "Agenda, tâches & rappels",
+    quickActions: [
+      { label: "Calendrier", href: "/calendrier", icon: CalendarRange },
+      { label: "Mes tâches", href: "/rappels", icon: ListTodo },
     ],
   },
   {
