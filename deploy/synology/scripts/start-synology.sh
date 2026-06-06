@@ -6,7 +6,7 @@
 #   2. exporter les secrets dans l'environnement ;
 #   3. lancer le serveur Next.js standalone.
 #
-# Ce script est appelé par `command:` dans docker-compose.sqlite.yml, APRÈS que
+# Ce script est appelé par `command:` dans docker-compose.sqlite.v2.yml, APRÈS que
 # l'entrypoint a rendu DATA_DIR inscriptible et abandonné les privilèges root.
 # Il ne concerne QUE la version Synology — les autres images gardent `node server.js`.
 # ─────────────────────────────────────────────────────────────────────────────

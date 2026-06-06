@@ -64,20 +64,19 @@ JWT_HEADER=Authorization
 ## 3. Importer dans Container Manager
 
 1. Ouvrez **Container Manager → Projet → Créer**.
-2. Source : sélectionnez le fichier `deploy/synology/docker-compose.sqlite.yml`
+2. Source : sélectionnez le fichier `deploy/synology/docker-compose.sqlite.v2.yml`
    du dépôt (de préférence par **chemin**, pour que le `deploy/synology/.env`
    voisin soit lu automatiquement).
-3. Vérifiez que **`SYNOLOGY_DOCKER_ROOT`** correspond au bon volume :
-   - si vous avez importé par chemin, le `.env` voisin s'en charge ;
-   - sinon (copier-coller du YAML), ajoutez la variable d'environnement
-     `SYNOLOGY_DOCKER_ROOT=/volume5/docker/gedify` dans Container Manager
-     (et `GEDIFY_SYNOLOGY_HOST=<IP_DU_NAS>` pour l'éditeur — voir plus bas).
+3. **Adaptez 2 valeurs** dans `docker-compose.sqlite.v2.yml` (chemins/IP en clair,
+   pas de variable à interpoler → fiable dans Container Manager) :
+   - le volume `/volume5/docker/gedify` → **votre** volume (le MÊME que celui
+     passé à `init-host.sh`) ;
+   - l'IP `192.168.1.17` → l'**IP réelle de votre NAS**, sur les deux lignes
+     `ONLYOFFICE_DOCUMENT_SERVER_URL` (`:8082`) et `GEDIFY_PUBLIC_URL` (`:3210`).
 4. **Lancez** le projet.
 
-> Réglez aussi `GEDIFY_SYNOLOGY_HOST` sur l'**IP réelle du NAS** (défaut
-> `192.168.1.17`), via `deploy/synology/.env` ou la variable d'environnement de
-> Container Manager. Elle construit `GEDIFY_PUBLIC_URL` (`:3210`) et
-> `ONLYOFFICE_DOCUMENT_SERVER_URL` (`:8082`).
+> `GEDIFY_PUBLIC_URL` sert aussi à ONLYOFFICE pour télécharger/sauvegarder les
+> documents : elle DOIT pointer vers l'IP réelle du NAS (jamais `localhost`).
 
 ## 4. Services inclus
 
@@ -167,6 +166,6 @@ Cela génère une nouvelle clé, met à jour `onlyoffice.env` **et** `secrets.en
 
 ## Changer l'adresse IP du NAS
 
-Modifiez **`GEDIFY_SYNOLOGY_HOST`** (et, si besoin, `SYNOLOGY_DOCKER_ROOT`) dans
-`deploy/synology/.env` ou dans Container Manager, puis relancez le projet. Cela
-met à jour automatiquement `GEDIFY_PUBLIC_URL` et `ONLYOFFICE_DOCUMENT_SERVER_URL`.
+Dans `docker-compose.sqlite.v2.yml`, remplacez l'IP `192.168.1.17` sur les deux
+lignes `ONLYOFFICE_DOCUMENT_SERVER_URL` (`:8082`) et `GEDIFY_PUBLIC_URL` (`:3210`),
+puis relancez le projet (`docker compose -f docker-compose.sqlite.v2.yml up -d`).

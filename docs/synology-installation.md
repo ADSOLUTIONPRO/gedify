@@ -96,7 +96,7 @@ Vous n'avez **rien à saisir**. Détails et points de vigilance : voir §14.
 
 ## 5. Configurer le compose
 
-Le fichier `deploy/synology/docker-compose.sqlite.yml` fonctionne **tel quel** :
+Le fichier `deploy/synology/docker-compose.sqlite.v2.yml` fonctionne **tel quel** :
 IA locale Ollama activée par défaut, secrets auto-générés. En pratique, rien à
 modifier. Ajustez seulement si besoin :
 
@@ -113,7 +113,7 @@ Les deux volumes correspondent à l'étape 2. Aucune clé OpenAI à renseigner.
 
 ```bash
 cd /volume1/docker/gedify/app/apps-devices/nopp/deploy/synology
-sudo docker compose -f docker-compose.sqlite.yml up -d --build
+sudo docker compose -f docker-compose.sqlite.v2.yml up -d --build
 ```
 
 La première construction prend quelques minutes (téléchargement de Node, des
@@ -123,7 +123,7 @@ données OCR fra+eng, build Next). Les démarrages suivants sont immédiats.
 
 1. **Projet → Créer** ;
 2. Source : « Créer docker-compose.yml » → collez le contenu de
-   `docker-compose.sqlite.yml` ;
+   `docker-compose.sqlite.v2.yml` ;
 3. Renseignez les secrets ;
 4. **Suivant → Terminé** : Container Manager construit puis démarre l'image.
 
@@ -172,9 +172,9 @@ Méthodes :
 - ou une copie à froid (conteneur arrêté — recommandé pour SQLite : l'arrêt
   ferme la base et replie le journal WAL dans `gedify.sqlite`) :
   ```bash
-  sudo docker compose -f docker-compose.sqlite.yml stop
+  sudo docker compose -f docker-compose.sqlite.v2.yml stop
   cp -a /volume1/docker/gedify/data /volume1/backups/gedify-$(date +%F)
-  sudo docker compose -f docker-compose.sqlite.yml start
+  sudo docker compose -f docker-compose.sqlite.v2.yml start
   ```
 - ou la **sauvegarde intégrée** (Administration → Sauvegarde) : l'archive ZIP
   inclut un snapshot de `gedify.sqlite` (après checkpoint WAL) + les fichiers.
@@ -190,7 +190,7 @@ Méthodes :
 ```bash
 cd /volume1/docker/gedify/app/apps-devices/nopp/deploy/synology
 git -C /volume1/docker/gedify/app pull        # récupérer la nouvelle version
-sudo docker compose -f docker-compose.sqlite.yml up -d --build
+sudo docker compose -f docker-compose.sqlite.v2.yml up -d --build
 ```
 
 Vos données dans le volume sont conservées.
@@ -200,7 +200,7 @@ Vos données dans le volume sont conservées.
 Après import d'un document, redémarrez le conteneur :
 
 ```bash
-sudo docker compose -f docker-compose.sqlite.yml restart
+sudo docker compose -f docker-compose.sqlite.v2.yml restart
 ```
 
 Le document, sa miniature et son analyse doivent toujours être présents (ils
@@ -322,13 +322,13 @@ Le plus simple — créez un fichier `deploy/synology/.env` à côté du compose
 GEDIFY_SYNOLOGY_HOST=192.168.1.42
 ```
 
-(ou éditez directement la valeur par défaut dans `docker-compose.sqlite.yml`).
+(ou éditez directement la valeur par défaut dans `docker-compose.sqlite.v2.yml`).
 Cela met à jour automatiquement :
 
 - `GEDIFY_PUBLIC_URL=http://192.168.1.42:3210`
 - `ONLYOFFICE_DOCUMENT_SERVER_URL=http://192.168.1.42:8082`
 
-Puis relancez : `docker compose -f docker-compose.sqlite.yml up -d`.
+Puis relancez : `docker compose -f docker-compose.sqlite.v2.yml up -d`.
 
 > Derrière un reverse proxy HTTPS, mettez plutôt des URLs `https://…` complètes
 > dans `GEDIFY_PUBLIC_URL` et `ONLYOFFICE_DOCUMENT_SERVER_URL`, et passez

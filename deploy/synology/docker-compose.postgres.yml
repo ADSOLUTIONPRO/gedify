@@ -1,7 +1,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Gedify — Synology, VARIANTE AVANCÉE avec PostgreSQL (2 conteneurs).
 # La version recommandée pour la plupart des NAS reste SQLite/local autonome
-# (docker-compose.sqlite.yml). N'utilisez PostgreSQL que si vous savez pourquoi.
+# (docker-compose.sqlite.v2.yml). N'utilisez PostgreSQL que si vous savez pourquoi.
 #
 # Lancement : docker compose -f docker-compose.postgres.yml up -d --build
 # Accès     : http://IP_DU_NAS:3210
