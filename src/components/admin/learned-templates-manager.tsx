@@ -193,46 +193,52 @@ export function LearnedTemplatesManager() {
 
             {/* Fiche détail / éditeur */}
             {open && draft ? (
-              <div className="space-y-4 border-t p-4" style={{ borderColor: "var(--border)" }}>
+              <div className="space-y-3 border-t p-4" style={{ borderColor: "var(--border)", background: "var(--bg-card-soft)" }}>
+                {/* Identité : nom + description sur une ligne */}
                 <div className="grid gap-3 md:grid-cols-2">
                   <label className="block">
-                    <span className="mb-1 block text-[11.5px] font-bold uppercase tracking-wide text-slate-500">Nom</span>
+                    <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-500">Nom</span>
                     <input value={draft.label} onChange={(e) => setDraft((d) => d && { ...d, label: e.target.value })} className={inputCls} />
                   </label>
                   <label className="block">
-                    <span className="mb-1 block text-[11.5px] font-bold uppercase tracking-wide text-slate-500">Description</span>
+                    <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-500">Description</span>
                     <input value={draft.description} onChange={(e) => setDraft((d) => d && { ...d, description: e.target.value })} placeholder="À quoi sert ce modèle ?" className={inputCls} />
                   </label>
                 </div>
 
-                <div className="rounded-xl border p-3" style={{ borderColor: "var(--border)", background: "#FBFAFF" }}>
-                  <p className="mb-2 text-[12.5px] font-bold" style={{ color: "#6D28D9" }}>Prompt IA du modèle</p>
-                  <label className="block">
-                    <span className="mb-1 block text-[11px] font-semibold text-slate-500">Prompt système (consignes IA propres à ce modèle)</span>
-                    <textarea value={draft.promptSystem} onChange={(e) => setDraft((d) => d && { ...d, promptSystem: e.target.value })} rows={4} placeholder="Ex. Ce document est une facture d'énergie. Concentre-toi sur le montant TTC et l'échéance…" className={`${inputCls} resize-y font-mono text-[12px]`} />
-                  </label>
-                  <label className="mt-2 block">
-                    <span className="mb-1 block text-[11px] font-semibold text-slate-500">Instructions complémentaires (ce qu&apos;il faut extraire, format attendu, ce qu&apos;il ne faut PAS faire)</span>
-                    <textarea value={draft.promptInstructions} onChange={(e) => setDraft((d) => d && { ...d, promptInstructions: e.target.value })} rows={4} placeholder="Ex. Extrais toujours la date d'échéance. N'invente jamais de correspondant…" className={`${inputCls} resize-y font-mono text-[12px]`} />
-                  </label>
-                  {promptHasSecret ? <p className="mt-2 flex items-center gap-1.5 text-[12px] font-semibold text-rose-600"><TriangleAlert className="h-3.5 w-3.5" /> Le prompt contient ce qui ressemble à une clé secrète (sk-…). Retirez-la.</p> : null}
-                  {promptTooLong ? <p className="mt-2 text-[12px] font-semibold text-amber-600">Prompt très long (max 8000 caractères, il sera tronqué).</p> : null}
-                  {t.previousPrompt ? (
-                    <button type="button" disabled={busyId === t.id} onClick={() => void restorePrompt(t.id)} className="mt-2 inline-flex items-center gap-1.5 text-[12px] font-semibold text-slate-600 hover:underline"><RotateCcw className="h-3.5 w-3.5" /> Restaurer la version précédente</button>
-                  ) : null}
+                {/* Prompt IA — fond violet, les 2 zones côte à côte */}
+                <div className="rounded-xl border p-3" style={{ borderColor: "var(--gedify-purple)", background: "var(--gedify-purple-soft)" }}>
+                  <p className="mb-2 text-[12px] font-bold text-violet-700">Prompt IA du modèle</p>
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    <label className="block">
+                      <span className="mb-1 block text-[11px] font-semibold text-slate-500">Prompt système (consignes IA propres à ce modèle)</span>
+                      <textarea value={draft.promptSystem} onChange={(e) => setDraft((d) => d && { ...d, promptSystem: e.target.value })} rows={5} placeholder="Ex. Ce document est une facture d'énergie. Concentre-toi sur le montant TTC et l'échéance…" className={`${inputCls} resize-y font-mono text-[12px]`} />
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-[11px] font-semibold text-slate-500">Instructions complémentaires (à extraire, format attendu, ce qu&apos;il ne faut PAS faire)</span>
+                      <textarea value={draft.promptInstructions} onChange={(e) => setDraft((d) => d && { ...d, promptInstructions: e.target.value })} rows={5} placeholder="Ex. Extrais toujours la date d'échéance. N'invente jamais de correspondant…" className={`${inputCls} resize-y font-mono text-[12px]`} />
+                    </label>
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+                    {promptHasSecret ? <span className="flex items-center gap-1.5 text-[12px] font-semibold text-rose-600"><TriangleAlert className="h-3.5 w-3.5" /> Clé secrète détectée (sk-…). Retirez-la.</span> : null}
+                    {promptTooLong ? <span className="text-[12px] font-semibold text-amber-600">Prompt très long (max 8000, tronqué).</span> : null}
+                    {t.previousPrompt ? (
+                      <button type="button" disabled={busyId === t.id} onClick={() => void restorePrompt(t.id)} className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-slate-600 hover:underline"><RotateCcw className="h-3.5 w-3.5" /> Restaurer la version précédente</button>
+                    ) : null}
+                  </div>
                 </div>
 
-                {/* Tester */}
-                <div className="rounded-xl border p-3" style={{ borderColor: "var(--border)" }}>
-                  <p className="mb-2 flex items-center gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--text-main)" }}><FlaskConical className="h-4 w-4 text-blue-600" /> Tester ce modèle (simulation, sans modifier le document)</p>
+                {/* Tester — fond bleu */}
+                <div className="rounded-xl border p-3" style={{ borderColor: "var(--gedify-info)", background: "var(--gedify-info-soft)" }}>
                   <div className="flex flex-wrap items-center gap-2">
-                    <input value={test.docId} onChange={(e) => setTest((s) => ({ ...s, docId: e.target.value, text: "" }))} placeholder="N° de document" className={`${inputCls} max-w-40`} />
+                    <p className="flex items-center gap-1.5 text-[12px] font-bold" style={{ color: "var(--text-main)" }}><FlaskConical className="h-4 w-4 text-blue-600" /> Tester (simulation)</p>
+                    <input value={test.docId} onChange={(e) => setTest((s) => ({ ...s, docId: e.target.value, text: "" }))} placeholder="N° de document" className={`${inputCls} max-w-36`} />
                     <span className="text-[12px] text-slate-400">ou</span>
                     <input value={test.text} onChange={(e) => setTest((s) => ({ ...s, text: e.target.value, docId: "" }))} placeholder="coller un texte…" className={`${inputCls} flex-1 min-w-40`} />
                     <button type="button" disabled={test.running} onClick={() => void runTest(t.id)} className="inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-[12.5px] font-bold text-white disabled:opacity-50" style={{ background: "var(--blue-600)" }}>{test.running ? <Loader2 className="h-4 w-4 animate-spin" /> : <FlaskConical className="h-4 w-4" />} Tester</button>
                   </div>
                   {test.result ? (
-                    <pre className="mt-2 max-h-64 overflow-auto rounded-lg bg-slate-900 p-3 text-[11px] leading-relaxed text-slate-100">{JSON.stringify(test.result, null, 2)}</pre>
+                    <pre className="mt-2 max-h-56 overflow-auto rounded-lg bg-slate-900 p-3 text-[11px] leading-relaxed text-slate-100">{JSON.stringify(test.result, null, 2)}</pre>
                   ) : null}
                 </div>
 
