@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, RefreshCw, Search, SlidersHorizontal } from "lucide-react";
 import { MailClassifyPanel } from "@/components/messaging/mail-classify-panel";
 import { MailReadingPane } from "@/components/messaging/mail-reading-pane";
@@ -121,6 +121,21 @@ export function InboxTwoPane({
     toastRef.current = setTimeout(() => setToast(null), 4000);
   }
 
+  // Infinite scroll : charge automatiquement le lot suivant quand le bas approche.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel || !nextPageToken) return;
+    const io = new IntersectionObserver(
+      (entries) => { if (entries[0]?.isIntersecting && !loadingMore) void loadMore(); },
+      { root: scrollRef.current, rootMargin: "300px" },
+    );
+    io.observe(sentinel);
+    return () => io.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nextPageToken, loadingMore, visible.length]);
+
   return (
     <div className="grid h-full min-h-0" style={{ gridTemplateColumns: "minmax(0,470px) 1fr" }}>
       {/* ════════ Colonne 2 — Liste des messages ════════ */}
@@ -159,7 +174,7 @@ export function InboxTwoPane({
         </div>
 
         {/* Liste */}
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
           {visible.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-24 text-center" style={{ color: MUTED }}>
               <span className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl" style={{ background: RED2, color: RED }}>
@@ -206,8 +221,9 @@ export function InboxTwoPane({
                   </li>
                 );
               })}
-              {nextPageToken ? (
-                <li className="flex justify-center py-4">
+              <li ref={sentinelRef} aria-hidden="true" className="h-px" />
+              <li className="flex justify-center py-4">
+                {nextPageToken ? (
                   <button
                     type="button"
                     onClick={() => void loadMore()}
@@ -215,10 +231,13 @@ export function InboxTwoPane({
                     className="inline-flex h-9 items-center gap-2 rounded-full border px-5 text-[13px] font-bold transition hover:bg-[var(--accent-soft)] disabled:opacity-50"
                     style={{ borderColor: LINE, color: RED }}
                   >
-                    {loadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Charger plus
+                    {loadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    {loadingMore ? "Chargement…" : "Charger plus"}
                   </button>
-                </li>
-              ) : null}
+                ) : (
+                  <span className="text-[12px]" style={{ color: MUTED }}>Tous les courriels sont affichés.</span>
+                )}
+              </li>
             </ul>
           )}
         </div>
