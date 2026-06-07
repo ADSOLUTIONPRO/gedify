@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Eye, EyeOff, Loader2, Lock, User } from "lucide-react";
+import { Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react";
 
 export function LoginForm() {
   const router = useRouter();
@@ -56,10 +56,10 @@ export function LoginForm() {
       {/* Identifiant Gedify */}
       <div className="space-y-1.5">
         <label htmlFor="username" className="block text-[12.5px] font-semibold" style={{ color: "var(--text-main)" }}>
-          Identifiant Gedify
+          Adresse email
         </label>
         <div className="relative">
-          <User
+          <Mail
             className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2"
             style={{ color: "var(--text-hint)" }}
             strokeWidth={1.75}
@@ -67,15 +67,15 @@ export function LoginForm() {
           />
           <input
             id="username"
-            type="text"
-            autoComplete="username"
+            type="email"
+            autoComplete="email"
             autoCapitalize="none"
             autoCorrect="off"
             spellCheck={false}
             required
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            placeholder="admin"
+            placeholder="vous@exemple.com"
             className="h-11 w-full rounded-xl border pl-10 pr-4 text-[14px] outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
             style={{ borderColor: "var(--border)", color: "var(--text-main)" }}
           />
