@@ -1,18 +1,16 @@
 import { NoGmailState } from "@/components/messaging/no-gmail-state";
-import { InboxClient } from "@/components/messaging/inbox-client";
+import { InboxTwoPane } from "@/components/messaging/inbox-two-pane";
 import { ImapInboxView } from "@/components/messaging/imap-inbox-view";
-import { MailboxSelector } from "@/components/messaging/mailbox-selector";
 import { MobileMails } from "@/components/mobile/mobile-mails";
 import { loadThreads } from "@/lib/messaging/load-threads";
 import { loadImapInbox } from "@/lib/messaging/load-imap-inbox";
-import { loadCorrespondentFilters } from "@/lib/messaging/correspondent-filters";
 import { getGmailOAuthConfig } from "@/lib/connectors/gmail/oauth";
 
 /**
  * Vue de dossier Gmail réutilisable (boîte de réception, envoyés, brouillons,
  * corbeille, spam, archives…). Le `query` est une recherche Gmail (`in:sent`,
- * `in:trash`, …) propagée à `InboxClient` pour que recherche + pagination
- * restent dans le bon dossier.
+ * `in:trash`, …) propagée à `InboxTwoPane` (liste + volet de lecture) pour que
+ * recherche + pagination restent dans le bon dossier.
  */
 export async function MailFolderView({
   query,
@@ -25,7 +23,7 @@ export async function MailFolderView({
   subtitle?: string;
   limit?: number;
 }) {
-  const [result, correspondents] = await Promise.all([loadThreads(query, limit), loadCorrespondentFilters()]);
+  const result = await loadThreads(query, limit);
 
   if (!result.connected) {
     // Pas de compte Gmail : si une boîte IMAP est connectée, on affiche au moins
@@ -49,25 +47,9 @@ export async function MailFolderView({
       {/* Mobile (< md) : liste de cartes mail « app » */}
       <MobileMails threads={result.threads} attachmentsByThread={result.attachmentsByThread} query={query} />
 
-      {/* Bureau (≥ md) : liste complète type client mail */}
-      <div className="hidden h-full flex-col md:flex">
-      <div
-        className="flex items-center justify-between border-b px-5 py-3"
-        style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-      >
-        <div>
-          <h1 className="text-[15px] font-bold" style={{ color: "var(--text-main)" }}>
-            {title}
-          </h1>
-          <p className="text-[12px]" style={{ color: "var(--text-muted)" }}>
-            {subtitle ?? result.accountEmail}
-          </p>
-        </div>
-        <MailboxSelector />
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-4">
-        <InboxClient
+      {/* Bureau (≥ md) : 2 volets (liste + lecture) — fidèle à la maquette */}
+      <div className="hidden h-full min-h-0 md:block">
+        <InboxTwoPane
           key={query}
           initialThreads={result.threads}
           initialHiddenEmails={result.hiddenSenderEmails}
@@ -75,9 +57,9 @@ export async function MailFolderView({
           initialNextPageToken={result.nextPageToken}
           attachmentsByThread={result.attachmentsByThread}
           query={query}
-          correspondents={correspondents}
+          accountEmail={subtitle ?? result.accountEmail}
+          folderLabel={title}
         />
-      </div>
       </div>
     </>
   );
