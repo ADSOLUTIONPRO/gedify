@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { EyeOff, FolderPlus, Loader2, RefreshCw, Search, SlidersHorizontal, X } from "lucide-react";
+import { EyeOff, FolderPlus, Loader2, Paperclip, RefreshCw, Search, SlidersHorizontal, X } from "lucide-react";
 import { MailClassifyPanel } from "@/components/messaging/mail-classify-panel";
 import { MailReadingPane } from "@/components/messaging/mail-reading-pane";
+import { MailFilterAutocomplete, type FilterSuggestion } from "@/components/messaging/mail-filter-autocomplete";
 import { ConfirmActionDialog } from "@/components/ui/confirm-action-dialog";
 import { formatTime, senderEmail, senderName } from "./mail-list-utils";
 import type { EmailGedLink, EmailThreadRecord } from "@/lib/messaging/email-types";
@@ -60,6 +61,9 @@ export function InboxTwoPane({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmBulkHide, setConfirmBulkHide] = useState(false);
   const [hidingBusy, setHidingBusy] = useState(false);
+  // Filtres avancés serveur (raffinent la requête Gmail).
+  const [filters, setFilters] = useState<{ key: string; label: string; gmail: string }[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
 
   const baseThreads = useMemo(
     () => threads.filter((t) => !hiddenEmails.has(senderEmail(t).toLowerCase())),
@@ -79,16 +83,22 @@ export function InboxTwoPane({
     return visible[0]?.id ?? null;
   }, [visible, selectedId]);
 
-  async function refresh() {
+  const effectiveQuery = useMemo(
+    () => [query, ...filters.map((f) => f.gmail)].join(" ").trim() || query,
+    [query, filters],
+  );
+
+  async function fetchThreads(q: string) {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ q: query, limit: "50" });
+      const params = new URLSearchParams({ q, limit: "50" });
       const res = await fetch(`/api/messaging/gmail/threads?${params.toString()}`, { credentials: "include", cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as { threads?: Thread[]; nextPageToken?: string | null };
       if (Array.isArray(data.threads)) {
         setThreads(data.threads);
         setNextPageToken(data.nextPageToken ?? null);
+        setSelected(new Set());
       }
     } catch {
       /* on garde la liste courante */
@@ -96,12 +106,27 @@ export function InboxTwoPane({
       setLoading(false);
     }
   }
+  function refresh() { void fetchThreads(effectiveQuery); }
+
+  // Refetch quand les filtres changent (skip premier rendu = threads SSR).
+  const didMountRef = useRef(false);
+  useEffect(() => {
+    if (!didMountRef.current) { didMountRef.current = true; return; }
+    void fetchThreads(effectiveQuery);
+  }, [effectiveQuery]);
+
+  function addFilter(f: { key: string; label: string; gmail: string }) {
+    setFilters((prev) => (prev.some((x) => x.key === f.key) ? prev : [...prev, f]));
+  }
+  function removeFilter(key: string) {
+    setFilters((prev) => prev.filter((f) => f.key !== key));
+  }
 
   async function loadMore() {
     if (!nextPageToken || loadingMore) return;
     setLoadingMore(true);
     try {
-      const params = new URLSearchParams({ q: query, limit: "25", pageToken: nextPageToken });
+      const params = new URLSearchParams({ q: effectiveQuery, limit: "25", pageToken: nextPageToken });
       const res = await fetch(`/api/messaging/gmail/threads?${params.toString()}`, { credentials: "include", cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as { threads?: Thread[]; nextPageToken?: string | null };
@@ -178,19 +203,51 @@ export function InboxTwoPane({
     <div className="grid h-full min-h-0" style={{ gridTemplateColumns: "minmax(0,470px) 1fr" }}>
       {/* ════════ Colonne 2 — Liste des messages ════════ */}
       <div className="flex min-h-0 flex-col border-r bg-white" style={{ borderColor: LINE }}>
-        {/* Recherche */}
+        {/* Recherche + filtres avancés */}
         <div className="shrink-0 border-b px-3 py-2" style={{ borderColor: LINE }}>
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: MUTED }} strokeWidth={1.75} />
-            <input
-              type="search"
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              placeholder="Rechercher"
-              className="h-10 w-full rounded-xl border-0 pl-9 pr-3 text-[15px] outline-none"
-              style={{ background: "var(--bg-card-soft)", color: "var(--text-main)" }}
-            />
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: MUTED }} strokeWidth={1.75} />
+              <input
+                type="search"
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+                placeholder="Rechercher"
+                className="h-10 w-full rounded-xl border-0 pl-9 pr-3 text-[15px] outline-none"
+                style={{ background: "var(--bg-card-soft)", color: "var(--text-main)" }}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowFilters((v) => !v)}
+              className="flex h-10 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-[13px] font-semibold transition hover:bg-[var(--accent-soft)]"
+              style={{ borderColor: "var(--border)", color: showFilters || filters.length ? "var(--accent)" : "var(--text-muted)" }}
+            >
+              <SlidersHorizontal className="h-4 w-4" strokeWidth={1.85} /> Filtres{filters.length ? ` (${filters.length})` : ""}
+            </button>
           </div>
+
+          {showFilters ? (
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              <MailFilterAutocomplete endpoint="/api/mail/filters/senders" placeholder="Expéditeur…" onSelect={(it: FilterSuggestion) => it.email && addFilter({ key: `from:${it.email}`, label: `De : ${it.name ?? it.email}`, gmail: `from:${it.email}` })} />
+              <MailFilterAutocomplete endpoint="/api/mail/filters/recipients" placeholder="Destinataire…" onSelect={(it: FilterSuggestion) => it.email && addFilter({ key: `to:${it.email}`, label: `À : ${it.name ?? it.email}`, gmail: `to:${it.email}` })} />
+              <MailFilterAutocomplete endpoint="/api/mail/filters/labels" placeholder="Label / dossier d'origine…" onSelect={(it: FilterSuggestion) => it.name && addFilter({ key: `label:${it.name}`, label: `Label : ${it.name}`, gmail: `label:"${it.name}"` })} />
+              <button type="button" onClick={() => addFilter({ key: "att", label: "Avec pièce jointe", gmail: "has:attachment" })} className="flex h-8 items-center justify-center gap-1.5 rounded-lg border text-[12.5px] font-semibold transition hover:bg-[var(--accent-soft)]" style={{ borderColor: "var(--border)", color: "var(--text-main)" }}>
+                <Paperclip className="h-3.5 w-3.5" strokeWidth={1.85} /> Avec pièce jointe
+              </button>
+            </div>
+          ) : null}
+
+          {filters.length ? (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {filters.map((f) => (
+                <span key={f.key} className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold" style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>
+                  {f.label}
+                  <button type="button" onClick={() => removeFilter(f.key)} aria-label="Retirer le filtre"><X className="h-3 w-3" strokeWidth={2.5} /></button>
+                </span>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         {/* Titre du dossier + nombre + tout sélectionner */}
