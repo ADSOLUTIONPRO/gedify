@@ -21,8 +21,77 @@ export type CreateUserInput = {
   role?: Role;
 };
 
+/**
+ * Amorçage de l'administrateur depuis l'environnement — RÉTABLI après régression.
+ *
+ * Le passage au « flow d'installation » (commit 35f963e) avait supprimé cette
+ * amorce, ce qui a cassé les déploiements (ex. Synology) qui s'appuyaient sur un
+ * admin fourni par variables d'environnement : plus rien ne créait le compte, et
+ * la connexion renvoyait « identifiant ou mot de passe incorrect ».
+ *
+ * Opt-in et SANS identifiant par défaut (plus de `admin`/`admin`) : si les
+ * variables ne sont pas définies, le flux /installation prend le relais.
+ *
+ *   GEDIFY_ADMIN_USER      identifiant de l'admin amorcé
+ *   GEDIFY_ADMIN_PASSWORD  mot de passe de l'admin amorcé
+ *   GEDIFY_ADMIN_MAIL      (optionnel) e-mail
+ *   GEDIFY_ADMIN_RESET     « true/1 » → si le compte existe déjà mais que le mot
+ *                          de passe ne correspond plus (volume recréé, bascule de
+ *                          backend…), le réinitialise sur GEDIFY_ADMIN_PASSWORD.
+ */
+let bootstrapAttempted = false;
+
+export async function ensureBootstrapAdmin(): Promise<void> {
+  if (bootstrapAttempted) return;
+  bootstrapAttempted = true;
+
+  const username = process.env.GEDIFY_ADMIN_USER?.trim();
+  const password = process.env.GEDIFY_ADMIN_PASSWORD;
+  if (!username || !password) return; // pas d'admin env → flux /installation
+
+  const users = await readStore<EngineUser[]>(STORE.users, []);
+
+  // Store vide → amorçage initial (comportement historique restauré).
+  if (users.length === 0) {
+    await createUser({
+      username,
+      password,
+      email: process.env.GEDIFY_ADMIN_MAIL?.trim() ?? "",
+      is_superuser: true,
+      is_staff: true,
+    });
+    console.log(`[engine] administrateur initial (env) créé : « ${username} ».`);
+    return;
+  }
+
+  // Récupération optionnelle : forcer le mot de passe de l'admin env si demandé.
+  const reset = /^(1|true|yes)$/i.test((process.env.GEDIFY_ADMIN_RESET ?? "").trim());
+  if (!reset) return;
+
+  const existing = users.find((u) => u.username.toLowerCase() === username.toLowerCase());
+  if (existing) {
+    const matches = existing.passwordHash
+      ? await bcrypt.compare(password, existing.passwordHash)
+      : false;
+    if (!matches || !existing.is_active) {
+      await updateUser(existing.id, { password, is_active: true, is_superuser: true, is_staff: true });
+      console.log(`[engine] mot de passe de « ${username} » réinitialisé via GEDIFY_ADMIN_RESET.`);
+    }
+  } else {
+    await createUser({
+      username,
+      password,
+      email: process.env.GEDIFY_ADMIN_MAIL?.trim() ?? "",
+      is_superuser: true,
+      is_staff: true,
+    });
+    console.log(`[engine] administrateur « ${username} » (re)créé via GEDIFY_ADMIN_RESET.`);
+  }
+}
+
 /** Au moins un utilisateur enregistré ? Sinon → écran de 1ʳᵉ connexion (/installation). */
 export async function hasAnyUser(): Promise<boolean> {
+  await ensureBootstrapAdmin();
   const users = await readStore<EngineUser[]>(STORE.users, []);
   return users.length > 0;
 }
@@ -51,6 +120,7 @@ export async function createFirstAdmin(input: {
 }
 
 export async function listUsers(): Promise<EngineUser[]> {
+  await ensureBootstrapAdmin();
   return readStore<EngineUser[]>(STORE.users, []);
 }
 
@@ -104,6 +174,7 @@ export async function deleteUser(id: number): Promise<void> {
 
 /** Vérifie un couple identifiant / mot de passe contre le store local. */
 export async function verifyCredentials(username: string, password: string): Promise<boolean> {
+  await ensureBootstrapAdmin();
   const users = await readStore<EngineUser[]>(STORE.users, []);
   const u = users.find((x) => x.username.toLowerCase() === username.toLowerCase());
   if (!u || !u.is_active || !u.passwordHash) return false;

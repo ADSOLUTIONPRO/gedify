@@ -21,11 +21,22 @@ npm run dev        # http://localhost:3200
 - **Données & médias** : tout est persisté dans `apps-devices/nopp/.data/`
   (stores JSON sous `.data/engine/`, fichiers sous `.data/media/`). Surchargé via
   `DATA_DIR=/chemin/absolu`.
-- **Admin au 1ᵉʳ lancement** : aucun identifiant en variable d'env. Au premier
-  accès (store vide), l'app affiche l'écran **`/installation`** (première
-  connexion) pour créer le compte administrateur, persisté dans le store et
-  utilisable ensuite sur la page de connexion. Mode sans authentification (poste
-  local uniquement) : `GEDIFY_LOCAL_NO_AUTH=1`.
+- **Admin au 1ᵉʳ lancement** — deux voies :
+  1. **Écran `/installation`** (par défaut) : au premier accès avec un store
+     vide, l'app affiche l'écran de première connexion pour créer le compte
+     administrateur, persisté dans le store et utilisable ensuite sur la page de
+     connexion.
+  2. **Amorçage par environnement** (recommandé si le volume peut être recréé,
+     ex. Synology) : définir `GEDIFY_ADMIN_USER` + `GEDIFY_ADMIN_PASSWORD`
+     (optionnel `GEDIFY_ADMIN_MAIL`). L'admin est (re)créé automatiquement si le
+     store est vide. `GEDIFY_ADMIN_RESET=true` force la réinitialisation du mot de
+     passe d'un compte existant qui ne correspond plus (récupération après une
+     bascule de backend ou un volume recréé).
+  - Mode sans authentification (poste local uniquement) : `GEDIFY_LOCAL_NO_AUTH=1`.
+  - Déploiement **HTTP** (sans TLS, ex. NAS sur LAN) : `COOKIE_SECURE=false`,
+    sinon le navigateur rejette le cookie de session (boucle sur `/login`).
+  - `AUTH_SECRET` doit être **fixe et persistant** : si elle change à chaque
+    recréation du conteneur, toutes les sessions sont invalidées (déconnexions).
 
 ## Architecture du moteur (`src/lib/engine/`)
 
