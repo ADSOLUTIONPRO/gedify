@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Bell, CheckCheck, Trash2, AlertTriangle, Cpu, Clock, Activity, X } from "lucide-react";
+import { Bell, CheckCheck, Trash2, AlertTriangle, Cpu, Clock, Activity, Settings, X } from "lucide-react";
 
 type Notif = {
   id: string;
@@ -29,15 +29,18 @@ export function NotificationsBell() {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<Notif[]>([]);
   const [unread, setUnread] = useState(0);
+  const [filter, setFilter] = useState<"all" | "unread" | "important">("all");
+  const [baseReadAt, setBaseReadAt] = useState<string>("");
   const ref = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     try {
       const res = await fetch("/api/notifications", { credentials: "include", cache: "no-store" });
-      const data = (await res.json()) as { items?: Notif[]; unreadCount?: number };
+      const data = (await res.json()) as { items?: Notif[]; unreadCount?: number; lastReadAt?: string };
       if (res.ok) {
         setItems(data.items ?? []);
         setUnread(data.unreadCount ?? 0);
+        setBaseReadAt((prev) => prev || (data.lastReadAt ?? ""));
       }
     } catch {
       /* silencieux */
@@ -93,6 +96,19 @@ export function NotificationsBell() {
     if (next && unread > 0) void act("read"); // ouvrir = marquer lu
   }
 
+  const shown = items.filter((n) =>
+    filter === "important"
+      ? n.tone === "error" || n.tone === "warning"
+      : filter === "unread"
+        ? n.at > baseReadAt
+        : true,
+  );
+  const FILTERS: { key: "all" | "unread" | "important"; label: string }[] = [
+    { key: "all", label: "Tous" },
+    { key: "unread", label: "Non lues" },
+    { key: "important", label: "Importantes" },
+  ];
+
   return (
     <div ref={ref} className="relative">
       <button
@@ -127,16 +143,37 @@ export function NotificationsBell() {
                 <CheckCheck className="h-3.5 w-3.5" /> Tout lu
               </button>
               <button type="button" onClick={() => void act("clear")} title="Tout supprimer" className="inline-flex h-7 items-center gap-1 rounded-lg px-2 text-[11px] font-semibold text-rose-600 transition hover:bg-rose-50">
-                <Trash2 className="h-3.5 w-3.5" /> Tout supprimer
+                <Trash2 className="h-3.5 w-3.5" /> Supprimer
               </button>
+              <Link href="/parametres/notifications" onClick={() => setOpen(false)} aria-label="Paramètres des notifications" title="Paramètres des notifications" className="inline-flex h-7 w-7 items-center justify-center rounded-lg transition hover:bg-slate-100" style={{ color: "var(--accent)" }}>
+                <Settings className="h-4 w-4" strokeWidth={1.85} />
+              </Link>
               <button type="button" onClick={() => setOpen(false)} aria-label="Fermer" className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100">
                 <X className="h-3.5 w-3.5" />
               </button>
             </div>
           </div>
 
+          {/* Filtres */}
+          <div className="flex items-center gap-1.5 border-b px-3 py-2" style={{ borderColor: "var(--border)" }}>
+            {FILTERS.map((f) => {
+              const on = filter === f.key;
+              return (
+                <button
+                  key={f.key}
+                  type="button"
+                  onClick={() => setFilter(f.key)}
+                  className="rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold transition"
+                  style={{ background: on ? "var(--accent-soft)" : "transparent", color: on ? "var(--accent)" : "var(--text-muted)", border: `1px solid ${on ? "var(--accent)" : "var(--border)"}` }}
+                >
+                  {f.label}
+                </button>
+              );
+            })}
+          </div>
+
           <div className="max-h-[60vh] overflow-auto">
-            {items.length === 0 ? (
+            {shown.length === 0 ? (
               <div className="flex flex-col items-center gap-1.5 px-4 py-8 text-center">
                 <AlertTriangle className="h-5 w-5" style={{ color: "var(--text-hint)" }} />
                 <p className="text-[13px] font-semibold" style={{ color: "var(--text-muted)" }}>Aucune notification</p>
@@ -144,7 +181,7 @@ export function NotificationsBell() {
               </div>
             ) : (
               <ul className="divide-y" style={{ borderColor: "var(--border)" }}>
-                {items.map((n) => {
+                {shown.map((n) => {
                   const Icon = iconFor(n.type);
                   const inner = (
                     <span className="flex items-start gap-2.5">

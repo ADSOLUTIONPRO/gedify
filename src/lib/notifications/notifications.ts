@@ -95,7 +95,7 @@ async function collect(): Promise<GedNotification[]> {
   return out;
 }
 
-export async function listNotifications(): Promise<{ items: GedNotification[]; unreadCount: number }> {
+export async function listNotifications(): Promise<{ items: GedNotification[]; unreadCount: number; lastReadAt: string }> {
   const state = await getState();
   const all = await collect();
   const items = all
@@ -103,5 +103,5 @@ export async function listNotifications(): Promise<{ items: GedNotification[]; u
     .sort((a, b) => b.at.localeCompare(a.at))
     .slice(0, 50);
   const unreadCount = items.filter((n) => n.at > state.lastReadAt).length;
-  return { items, unreadCount };
+  return { items, unreadCount, lastReadAt: state.lastReadAt };
 }
