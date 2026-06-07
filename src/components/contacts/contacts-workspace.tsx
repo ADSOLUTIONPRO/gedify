@@ -8,11 +8,11 @@ import { initials } from "@/components/messaging/mail-list-utils";
 import { ContactDetailView } from "./contact-detail-view";
 
 /* ── Thème commun « communication » (rouge), partagé avec Messagerie ─────── */
-const RED = "#ff3b30";
-const RED2 = "#fff0ef";
-const SIDEBAR_BG = "#f8f8fb";
-const LINE = "#e6e6eb";
-const HINT = "#8e8e93";
+const RED = "var(--accent)";
+const RED2 = "var(--accent-soft)";
+const SIDEBAR_BG = "var(--surface-muted)";
+const LINE = "var(--border)";
+const HINT = "var(--text-hint)";
 
 export type ContactVM = {
   id: string;
@@ -96,7 +96,7 @@ export function ContactsWorkspace({ contacts, correspondents, accountConnected =
       {/* ════════ Colonne 1 — Listes ════════ */}
       <aside className="hidden min-h-0 flex-col border-r md:flex" style={{ background: SIDEBAR_BG, borderColor: LINE }}>
         <div className="flex h-14 shrink-0 items-center justify-between border-b px-4" style={{ borderColor: LINE }}>
-          <div className="flex items-center gap-2.5 font-extrabold" style={{ color: "#1d1d1f" }}>
+          <div className="flex items-center gap-2.5 font-extrabold" style={{ color: "var(--text-main)" }}>
             <span className="flex h-[26px] w-[26px] items-center justify-center rounded-lg text-[14px] text-white" style={{ background: RED }}>G</span>
             GEDify Contacts
           </div>
@@ -106,7 +106,7 @@ export function ContactsWorkspace({ contacts, correspondents, accountConnected =
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-2.5 py-3.5">
           <div className="flex items-center justify-between px-2 pb-2.5">
-            <h2 className="text-[26px] font-extrabold" style={{ color: "#1d1d1f" }}>Listes</h2>
+            <h2 className="text-[26px] font-extrabold" style={{ color: "var(--text-main)" }}>Listes</h2>
             <button type="button" onClick={rebuild} disabled={rebuilding} className="flex h-8 w-8 items-center justify-center rounded-lg disabled:opacity-50" style={{ color: RED }} aria-label="Reconstruire les contacts" title="Synchroniser et reconstruire">
               {rebuilding ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : <RefreshCw className="h-[18px] w-[18px]" strokeWidth={1.9} />}
             </button>
@@ -119,7 +119,7 @@ export function ContactsWorkspace({ contacts, correspondents, accountConnected =
                 type="button"
                 onClick={() => { setList(l.key); setSelectedId(null); }}
                 className="flex h-[42px] w-full items-center gap-2.5 rounded-[10px] px-3 text-left text-[15px] transition"
-                style={{ background: active ? "#ececef" : "transparent", color: "#1d1d1f", fontWeight: active ? 600 : 400 }}
+                style={{ background: active ? "var(--accent-soft)" : "transparent", color: "var(--text-main)", fontWeight: active ? 600 : 400 }}
               >
                 <span className="w-4 text-center font-bold" style={{ color: RED }}>{l.glyph}</span>
                 <span className="flex-1 truncate">{l.label}</span>
@@ -141,7 +141,7 @@ export function ContactsWorkspace({ contacts, correspondents, accountConnected =
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Rechercher un contact…"
               className="h-10 w-full rounded-xl border-0 pl-9 pr-3 text-[15px] outline-none"
-              style={{ background: "#f1f1f4", color: "#1d1d1f" }}
+              style={{ background: "var(--bg-card-soft)", color: "var(--text-main)" }}
             />
           </div>
         </div>
@@ -154,7 +154,7 @@ export function ContactsWorkspace({ contacts, correspondents, accountConnected =
               </span>
               {list === "all" && !accountConnected ? (
                 <>
-                  <p className="text-[15px] font-semibold" style={{ color: "#1d1d1f" }}>Boîte mail non connectée</p>
+                  <p className="text-[15px] font-semibold" style={{ color: "var(--text-main)" }}>Boîte mail non connectée</p>
                   <p className="mt-1 max-w-[320px] text-[13px] leading-snug">
                     Les contacts sont construits à partir de vos emails. Connectez (ou reconnectez) votre boîte pour les afficher.
                   </p>
@@ -164,7 +164,7 @@ export function ContactsWorkspace({ contacts, correspondents, accountConnected =
                 </>
               ) : list === "all" && importedLinks === 0 ? (
                 <>
-                  <p className="text-[15px] font-semibold" style={{ color: "#1d1d1f" }}>Aucune pièce jointe importée en GED</p>
+                  <p className="text-[15px] font-semibold" style={{ color: "var(--text-main)" }}>Aucune pièce jointe importée en GED</p>
                   <p className="mt-1 max-w-[320px] text-[13px] leading-snug">
                     Un contact apparaît dès qu&apos;un email non masqué a une pièce jointe <strong>importée dans la GED</strong>. Importez des PJ depuis la Messagerie, puis reconstruisez.
                   </p>
@@ -175,7 +175,7 @@ export function ContactsWorkspace({ contacts, correspondents, accountConnected =
                 </>
               ) : (
                 <>
-                  <p className="text-[15px] font-semibold" style={{ color: "#1d1d1f" }}>{query ? "Aucun résultat" : "Aucun contact éligible"}</p>
+                  <p className="text-[15px] font-semibold" style={{ color: "var(--text-main)" }}>{query ? "Aucun résultat" : "Aucun contact éligible"}</p>
                   <p className="mt-1 max-w-[300px] text-[13px] leading-snug">
                     Les contacts apparaissent lorsqu&apos;ils sont liés à des emails non masqués contenant des pièces jointes importées dans la GED.
                   </p>
@@ -198,14 +198,14 @@ export function ContactsWorkspace({ contacts, correspondents, accountConnected =
                       type="button"
                       onClick={() => setSelectedId(c.id)}
                       className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition"
-                      style={{ background: active ? RED : "transparent", color: active ? "#fff" : "#1d1d1f" }}
+                      style={{ background: active ? RED : "transparent", color: active ? "#fff" : "var(--text-main)" }}
                     >
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[13px] font-bold" style={{ background: active ? "#fff" : RED2, color: RED }}>
                         {initials(c.name)}
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[16px] font-semibold leading-tight">{c.name}</span>
-                        <span className="block truncate text-[13px]" style={{ color: active ? "#ffe2df" : "#6e6e73" }}>
+                        <span className="block truncate text-[13px]" style={{ color: active ? "var(--accent-soft)" : "var(--text-muted)" }}>
                           {c.organization ?? (c.source === "correspondent" ? "Correspondant GEDify" : c.email ?? "")}
                         </span>
                       </span>

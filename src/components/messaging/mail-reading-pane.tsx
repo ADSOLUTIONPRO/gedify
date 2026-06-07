@@ -21,11 +21,11 @@ import { initials } from "./mail-list-utils";
 import type { EmailMessageRecord } from "@/lib/messaging/email-types";
 
 /* ── Thème Apple Mail (dominante ROUGE) ─────────────────────────────────── */
-const RED = "#ff3b30";
-const RED2 = "#fff0ef";
-const LINE = "#e6e6eb";
-const MUTED = "#6e6e73";
-const HINT = "#8e8e93";
+const RED = "var(--accent)";
+const RED2 = "var(--accent-soft)";
+const LINE = "var(--border)";
+const MUTED = "var(--text-muted)";
+const HINT = "var(--text-hint)";
 
 type ThreadDetail = {
   accountEmail: string;
@@ -72,7 +72,7 @@ export function MailReadingPane({ threadId, onClassify }: Props) {
         <span className="mb-3 flex h-16 w-16 items-center justify-center rounded-2xl" style={{ background: RED2, color: RED }}>
           <Mail className="h-7 w-7" strokeWidth={1.5} aria-hidden="true" />
         </span>
-        <p className="text-[16px] font-semibold" style={{ color: "#1d1d1f" }}>Aucun message sélectionné</p>
+        <p className="text-[16px] font-semibold" style={{ color: "var(--text-main)" }}>Aucun message sélectionné</p>
         <p className="mt-1 text-[13px]">Choisissez un e-mail dans la liste pour le lire ici.</p>
       </div>
     );
@@ -84,7 +84,7 @@ export function MailReadingPane({ threadId, onClassify }: Props) {
     return (
       <div className="flex h-full flex-col items-center justify-center px-6 text-center" style={{ color: HINT }}>
         <Mail className="mb-3 h-9 w-9" strokeWidth={1.25} />
-        <p className="text-[14px] font-semibold" style={{ color: "#1d1d1f" }}>Message indisponible</p>
+        <p className="text-[14px] font-semibold" style={{ color: "var(--text-main)" }}>Message indisponible</p>
         {error ? <p className="mt-1 text-[12px]">{error}</p> : null}
       </div>
     );
@@ -129,14 +129,14 @@ export function MailReadingPane({ threadId, onClassify }: Props) {
       {/* Contenu */}
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-7 lg:px-9">
         {/* En-tête du mail */}
-        <header className="grid grid-cols-[46px_1fr_auto] gap-3.5 border-b pb-5" style={{ borderColor: "#eee" }}>
+        <header className="grid grid-cols-[46px_1fr_auto] gap-3.5 border-b pb-5" style={{ borderColor: "var(--border-soft)" }}>
           <span className="flex h-[46px] w-[46px] items-center justify-center rounded-full text-[15px] font-extrabold" style={{ background: RED2, color: RED }}>
             {initials(senderDisplay)}
           </span>
           <div className="min-w-0">
-            <h1 className="text-[22px] font-extrabold leading-snug" style={{ color: "#1d1d1f" }}>{latest.subject ?? "(sans sujet)"}</h1>
+            <h1 className="text-[22px] font-extrabold leading-snug" style={{ color: "var(--text-main)" }}>{latest.subject ?? "(sans sujet)"}</h1>
             <p className="mt-1 text-[14px]" style={{ color: MUTED }}>
-              <strong style={{ color: "#1d1d1f" }}>{senderDisplay}</strong>
+              <strong style={{ color: "var(--text-main)" }}>{senderDisplay}</strong>
               {sender?.email ? <> &lt;{sender.email}&gt;</> : null}
               <br />À : {latest.to.map((t) => t.email).join(", ") || accountEmail}
             </p>
@@ -145,7 +145,7 @@ export function MailReadingPane({ threadId, onClassify }: Props) {
         </header>
 
         {/* Corps */}
-        <div className="max-w-[820px] whitespace-pre-wrap py-7 text-[16px] leading-relaxed" style={{ color: "#1d1d1f" }}>
+        <div className="max-w-[820px] whitespace-pre-wrap py-7 text-[16px] leading-relaxed" style={{ color: "var(--text-main)" }}>
           {latest.bodyText.trim().slice(0, 12000) || "(corps vide)"}
         </div>
 
@@ -163,7 +163,7 @@ export function MailReadingPane({ threadId, onClassify }: Props) {
         ) : null}
 
         {/* Actions */}
-        <div className="mt-7 flex flex-wrap gap-2.5 border-t pt-6" style={{ borderColor: "#eee" }}>
+        <div className="mt-7 flex flex-wrap gap-2.5 border-t pt-6" style={{ borderColor: "var(--border-soft)" }}>
           <ActionBtn primary onClick={() => reply(false)}>Répondre</ActionBtn>
           <ActionBtn onClick={forward}>Transférer</ActionBtn>
           <ActionLink href="/rappels" icon={CheckSquare}>Créer une tâche</ActionLink>
@@ -178,7 +178,7 @@ export function MailReadingPane({ threadId, onClassify }: Props) {
 
 function IconBtn({ icon: Icon, label, onClick }: { icon: React.ElementType; label: string; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} title={label} aria-label={label} className="flex h-9 w-9 items-center justify-center rounded-[9px] transition hover:bg-[#fff0ef]" style={{ color: RED }}>
+    <button type="button" onClick={onClick} title={label} aria-label={label} className="flex h-9 w-9 items-center justify-center rounded-[9px] transition hover:bg-[var(--accent-soft)]" style={{ color: RED }}>
       <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden="true" />
     </button>
   );
@@ -190,7 +190,7 @@ function ActionBtn({ children, primary, onClick }: { children: React.ReactNode; 
       type="button"
       onClick={onClick}
       className="rounded-[10px] border px-3.5 py-2 text-[14px] font-semibold transition hover:opacity-90"
-      style={primary ? { background: RED, borderColor: RED, color: "#fff" } : { borderColor: LINE, background: "#fff", color: "#1d1d1f" }}
+      style={primary ? { background: RED, borderColor: RED, color: "#fff" } : { borderColor: LINE, background: "#fff", color: "var(--text-main)" }}
     >
       {children}
     </button>
@@ -199,7 +199,7 @@ function ActionBtn({ children, primary, onClick }: { children: React.ReactNode; 
 
 function ActionLink({ href, icon: Icon, children }: { href: string; icon: React.ElementType; children: React.ReactNode }) {
   return (
-    <Link href={href} className="inline-flex items-center gap-1.5 rounded-[10px] border px-3.5 py-2 text-[14px] font-semibold transition hover:opacity-90" style={{ borderColor: LINE, background: "#fff", color: "#1d1d1f" }}>
+    <Link href={href} className="inline-flex items-center gap-1.5 rounded-[10px] border px-3.5 py-2 text-[14px] font-semibold transition hover:opacity-90" style={{ borderColor: LINE, background: "#fff", color: "var(--text-main)" }}>
       <Icon className="h-4 w-4" strokeWidth={1.85} aria-hidden="true" /> {children}
     </Link>
   );
@@ -224,14 +224,14 @@ function AttachmentCard({ att, threadId }: { att: Att; threadId: string }) {
   }
   const ext = (att.filename.split(".").pop() ?? "").slice(0, 4).toUpperCase() || "FIC";
   return (
-    <div className="flex items-center gap-3 rounded-[13px] border p-3.5" style={{ borderColor: LINE, background: "#fafafb" }}>
+    <div className="flex items-center gap-3 rounded-[13px] border p-3.5" style={{ borderColor: LINE, background: "var(--bg-card-soft)" }}>
       <span className="flex h-[42px] w-[42px] items-center justify-center rounded-[10px] text-[12px] font-extrabold" style={{ background: RED2, color: RED }}>{ext}</span>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[14px] font-bold" style={{ color: "#1d1d1f" }} title={att.filename}>{att.filename}</p>
+        <p className="truncate text-[14px] font-bold" style={{ color: "var(--text-main)" }} title={att.filename}>{att.filename}</p>
         <p className="text-[12px]" style={{ color: HINT }}>{ext} · {Math.max(1, Math.round(att.size / 1024))} Ko</p>
       </div>
       {status === "imported" ? (
-        <span className="inline-flex items-center gap-1 text-[12.5px] font-bold" style={{ color: "#15803d" }}>
+        <span className="inline-flex items-center gap-1 text-[12.5px] font-bold" style={{ color: "var(--gedify-green)" }}>
           <CheckCircle2 className="h-4 w-4" strokeWidth={2} /> Ajouté à la GED
         </span>
       ) : (
@@ -239,8 +239,8 @@ function AttachmentCard({ att, threadId }: { att: Att; threadId: string }) {
           type="button"
           onClick={() => void importToGed()}
           disabled={status === "importing"}
-          className="rounded-[9px] border px-3 py-1.5 text-[12.5px] font-bold transition hover:bg-[#fff0ef] disabled:opacity-60"
-          style={{ borderColor: "#ffd0cc", background: "#fff8f7", color: "#d93025" }}
+          className="rounded-[9px] border px-3 py-1.5 text-[12.5px] font-bold transition hover:bg-[var(--accent-soft)] disabled:opacity-60"
+          style={{ borderColor: "var(--border)", background: "var(--accent-soft)", color: "var(--accent)" }}
         >
           {status === "importing" ? "Import…" : status === "error" ? "Réessayer" : "Ajouter à la GED"}
         </button>

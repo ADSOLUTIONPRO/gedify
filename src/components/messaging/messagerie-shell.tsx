@@ -16,11 +16,11 @@ import {
 } from "lucide-react";
 
 /* ── Thème Apple Mail (dominante ROUGE) ─────────────────────────────────── */
-const RED = "#ff3b30";
-const RED2 = "#fff0ef";
-const LINE = "#e6e6eb";
-const BG = "#f8f8fb";
-const MUTED = "#8e8e93";
+const RED = "var(--accent)";
+const RED2 = "var(--accent-soft)";
+const LINE = "var(--border)";
+const BG = "var(--surface-muted)";
+const MUTED = "var(--text-hint)";
 
 export type MailSidebarCounts = {
   toProcess?: number | null;
@@ -38,8 +38,8 @@ function NavItem({ item, pathname }: { item: NavDef; pathname: string }) {
   return (
     <Link
       href={item.href}
-      className="flex h-10 w-full items-center gap-2.5 rounded-[10px] px-2.5 text-[15px] transition hover:bg-[#efeff3]"
-      style={{ background: active ? "#e9e9ee" : "transparent", color: "#1d1d1f", fontWeight: active ? 600 : 400 }}
+      className="flex h-10 w-full items-center gap-2.5 rounded-[10px] px-2.5 text-[15px] transition hover:bg-[var(--bg-card-soft)]"
+      style={{ background: active ? "var(--accent-soft)" : "transparent", color: "var(--text-main)", fontWeight: active ? 600 : 400 }}
     >
       <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.9} style={{ color: RED }} aria-hidden="true" />
       <span className="flex-1 truncate">{item.label}</span>
@@ -75,7 +75,7 @@ export function MessagerieShell({ children, email, counts }: Props) {
       {/* ────────────── Colonne 1 — Navigation ────────────── */}
       <aside className="hidden w-[270px] shrink-0 flex-col border-r md:flex" style={{ background: BG, borderColor: LINE }}>
         <div className="flex h-14 shrink-0 items-center justify-between px-4">
-          <div className="flex items-center gap-2.5 font-extrabold" style={{ color: "#1d1d1f" }}>
+          <div className="flex items-center gap-2.5 font-extrabold" style={{ color: "var(--text-main)" }}>
             <span className="flex h-[26px] w-[26px] items-center justify-center rounded-lg text-[14px] text-white" style={{ background: RED }}>G</span>
             GEDify Mail
           </div>
@@ -85,13 +85,13 @@ export function MessagerieShell({ children, email, counts }: Props) {
           type="button"
           onClick={() => openComposer()}
           className="mx-3 mb-2 flex h-11 items-center justify-center gap-2 rounded-xl text-[14px] font-extrabold text-white transition hover:opacity-95"
-          style={{ background: `linear-gradient(135deg, ${RED}, #ff6259)` }}
+          style={{ background: `linear-gradient(135deg, ${RED}, var(--accent))` }}
         >
           <Plus className="h-4 w-4" strokeWidth={2.5} /> Nouveau message
         </button>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-2.5 pb-5">
-          <h2 className="px-2 py-2.5 text-[24px] font-extrabold" style={{ color: "#1d1d1f" }}>Messagerie</h2>
+          <h2 className="px-2 py-2.5 text-[24px] font-extrabold" style={{ color: "var(--text-main)" }}>Messagerie</h2>
           <div className="space-y-0.5">
             {MAIN.map((f) => <NavItem key={f.label} item={f} pathname={pathname} />)}
           </div>
@@ -109,7 +109,7 @@ export function MessagerieShell({ children, email, counts }: Props) {
                 {email[0]?.toUpperCase()}
               </span>
               <div className="min-w-0">
-                <p className="truncate text-[13px] font-bold" style={{ color: "#1d1d1f" }}>{email}</p>
+                <p className="truncate text-[13px] font-bold" style={{ color: "var(--text-main)" }}>{email}</p>
                 <p className="flex items-center gap-1 text-[11px]" style={{ color: MUTED }}>
                   <RefreshCw className="h-3 w-3" strokeWidth={1.75} /> Synchronisé
                 </p>

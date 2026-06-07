@@ -8,10 +8,10 @@ import { formatTime, senderEmail, senderName } from "./mail-list-utils";
 import type { EmailGedLink, EmailThreadRecord } from "@/lib/messaging/email-types";
 
 /* ── Thème Apple Mail (dominante ROUGE) ─────────────────────────────────── */
-const RED = "#ff3b30";
-const RED2 = "#fff0ef";
-const LINE = "#e6e6eb";
-const MUTED = "#8e8e93";
+const RED = "var(--accent)";
+const RED2 = "var(--accent-soft)";
+const LINE = "var(--border)";
+const MUTED = "var(--text-hint)";
 
 type Thread = EmailThreadRecord;
 type AttachSummary = { imported: number; error: boolean; docId: number | null };
@@ -135,7 +135,7 @@ export function InboxTwoPane({
               onChange={(e) => setKeyword(e.target.value)}
               placeholder="Rechercher"
               className="h-10 w-full rounded-xl border-0 pl-9 pr-3 text-[15px] outline-none"
-              style={{ background: "#f1f1f4", color: "#1d1d1f" }}
+              style={{ background: "var(--bg-card-soft)", color: "var(--text-main)" }}
             />
           </div>
         </div>
@@ -143,14 +143,14 @@ export function InboxTwoPane({
         {/* Titre du dossier + nombre */}
         <div className="flex shrink-0 items-end justify-between border-b px-4 py-2.5" style={{ borderColor: LINE }}>
           <div>
-            <h1 className="text-[26px] font-extrabold leading-tight" style={{ color: "#1d1d1f" }}>{folderLabel}</h1>
+            <h1 className="text-[26px] font-extrabold leading-tight" style={{ color: "var(--text-main)" }}>{folderLabel}</h1>
             <p className="text-[13px]" style={{ color: MUTED }}>{visible.length} message{visible.length > 1 ? "s" : ""}</p>
           </div>
           <button
             type="button"
             onClick={() => void refresh()}
             disabled={loading}
-            className="flex h-8 w-8 items-center justify-center rounded-lg transition hover:bg-[#fff0ef] disabled:opacity-40"
+            className="flex h-8 w-8 items-center justify-center rounded-lg transition hover:bg-[var(--accent-soft)] disabled:opacity-40"
             style={{ color: RED }}
             title="Actualiser"
           >
@@ -165,7 +165,7 @@ export function InboxTwoPane({
               <span className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl" style={{ background: RED2, color: RED }}>
                 <Search className="h-6 w-6" strokeWidth={1.5} />
               </span>
-              <p className="text-[16px] font-semibold" style={{ color: "#1d1d1f" }}>Aucun e-mail</p>
+              <p className="text-[16px] font-semibold" style={{ color: "var(--text-main)" }}>Aucun e-mail</p>
               <p className="mt-1 text-[13px]">{keyword ? "Aucun résultat pour cette recherche." : "Cette boîte est vide."}</p>
             </div>
           ) : (
@@ -181,22 +181,22 @@ export function InboxTwoPane({
                     <button
                       type="button"
                       onClick={() => setSelectedId(t.id)}
-                      className="grid w-full grid-cols-[10px_1fr_auto] gap-2.5 border-b px-3.5 py-3 text-left transition hover:bg-[#fafafb]"
-                      style={{ borderColor: "#eee", background: active ? "#fff8f7" : undefined }}
+                      className="grid w-full grid-cols-[10px_1fr_auto] gap-2.5 border-b px-3.5 py-3 text-left transition hover:bg-[var(--bg-card-soft)]"
+                      style={{ borderColor: "var(--border-soft)", background: active ? "var(--accent-soft)" : undefined }}
                     >
                       <span className="mt-1.5 h-2 w-2 rounded-full" style={{ background: t.unread ? RED : "transparent" }} />
                       <span className="min-w-0">
-                        <span className="block truncate text-[14.5px]" style={{ color: "#1d1d1f", fontWeight: t.unread ? 750 : 600 }}>
+                        <span className="block truncate text-[14.5px]" style={{ color: "var(--text-main)", fontWeight: t.unread ? 750 : 600 }}>
                           {name}
                         </span>
-                        <span className="mt-0.5 block truncate text-[14px]" style={{ color: "#1d1d1f", fontWeight: t.unread ? 650 : 450 }}>
+                        <span className="mt-0.5 block truncate text-[14px]" style={{ color: "var(--text-main)", fontWeight: t.unread ? 650 : 450 }}>
                           {t.subject ?? "(sans sujet)"}
                         </span>
-                        <span className="mt-0.5 block truncate text-[13.5px]" style={{ color: "#7d7d82" }}>
+                        <span className="mt-0.5 block truncate text-[13.5px]" style={{ color: "var(--text-muted)" }}>
                           {t.snippet ?? ""}
                         </span>
                         {tag ? (
-                          <span className="mt-1.5 inline-flex rounded-full px-2 py-0.5 text-[11px] font-extrabold" style={{ background: RED2, color: "#d93025" }}>
+                          <span className="mt-1.5 inline-flex rounded-full px-2 py-0.5 text-[11px] font-extrabold" style={{ background: RED2, color: "var(--accent)" }}>
                             {tag}
                           </span>
                         ) : null}
@@ -212,7 +212,7 @@ export function InboxTwoPane({
                     type="button"
                     onClick={() => void loadMore()}
                     disabled={loadingMore}
-                    className="inline-flex h-9 items-center gap-2 rounded-full border px-5 text-[13px] font-bold transition hover:bg-[#fff0ef] disabled:opacity-50"
+                    className="inline-flex h-9 items-center gap-2 rounded-full border px-5 text-[13px] font-bold transition hover:bg-[var(--accent-soft)] disabled:opacity-50"
                     style={{ borderColor: LINE, color: RED }}
                   >
                     {loadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Charger plus
