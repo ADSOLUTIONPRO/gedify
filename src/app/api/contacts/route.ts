@@ -5,6 +5,7 @@ import {
   listEmailContacts,
   upsertEmailContact,
   removeEmailContact,
+  getEmailContact,
 } from "@/lib/messaging/email-contact-store";
 import { getActiveGmailAccount } from "@/lib/messaging/active-gmail-account";
 import type { EmailContactRecord } from "@/lib/messaging/email-types";
@@ -74,6 +75,49 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, contact: created });
   } catch (error) {
     return jsonError("Création du contact impossible", error);
+  }
+}
+
+/** PATCH /api/contacts → met à jour un contact existant (par resourceName). */
+export async function PATCH(req: NextRequest) {
+  try {
+    const body = (await req.json().catch(() => ({}))) as {
+      resourceName?: string;
+      displayName?: string;
+      email?: string | null;
+      emails?: string[];
+      phone?: string | null;
+      organization?: string | null;
+      address?: string | null;
+      notes?: string | null;
+    };
+    const resourceName = (body.resourceName ?? "").trim();
+    if (!resourceName) return NextResponse.json({ error: "resourceName requis." }, { status: 400 });
+    const existing = await getEmailContact(resourceName);
+    if (!existing) return NextResponse.json({ error: "Contact introuvable." }, { status: 404 });
+
+    const emails = Array.isArray(body.emails)
+      ? body.emails.map((e) => e.trim().toLowerCase()).filter(Boolean)
+      : existing.emails;
+    const primaryEmail =
+      typeof body.email === "string"
+        ? (body.email.trim().toLowerCase() || null)
+        : emails[0] ?? existing.email;
+
+    const next: EmailContactRecord = {
+      ...existing,
+      displayName: typeof body.displayName === "string" && body.displayName.trim() ? body.displayName.trim() : existing.displayName,
+      email: primaryEmail,
+      emails: emails.length ? Array.from(new Set(emails)) : (primaryEmail ? [primaryEmail] : []),
+      phone: body.phone !== undefined ? (typeof body.phone === "string" ? body.phone.trim() || null : null) : existing.phone,
+      organization: body.organization !== undefined ? (typeof body.organization === "string" ? body.organization.trim() || null : null) : existing.organization,
+      address: body.address !== undefined ? (typeof body.address === "string" ? body.address.trim() || null : null) : (existing.address ?? null),
+      notes: body.notes !== undefined ? (typeof body.notes === "string" ? body.notes.trim() || null : null) : (existing.notes ?? null),
+    };
+    const updated = await upsertEmailContact(next);
+    return NextResponse.json({ ok: true, contact: updated });
+  } catch (error) {
+    return jsonError("Mise à jour du contact impossible", error);
   }
 }
 

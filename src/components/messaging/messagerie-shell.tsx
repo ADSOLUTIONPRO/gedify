@@ -113,6 +113,12 @@ type Props = {
 export function MessagerieShell({ children, email }: Props) {
   const pathname = usePathname();
 
+  // La page Contacts (espace iCloud-like, 3 colonnes bleues) gère sa propre mise
+  // en page pleine largeur → on n'enveloppe pas avec la sidebar des dossiers mail.
+  if (pathname.startsWith("/messagerie/contacts")) {
+    return <>{children}</>;
+  }
+
   return (
     <div className="flex h-[calc(100vh-53px)]" style={{ background: "#F9FAFB" }}>
       {/* ────────────── Sidebar ────────────── */}

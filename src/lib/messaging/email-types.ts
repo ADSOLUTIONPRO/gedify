@@ -155,6 +155,10 @@ export type EmailContactRecord = {
   emails: string[];
   phone: string | null;
   organization: string | null;
+  /** Adresse postale libre (saisie/édition manuelle) — optionnel, rétrocompatible. */
+  address?: string | null;
+  /** Notes libres (saisie/édition manuelle) — optionnel, rétrocompatible. */
+  notes?: string | null;
   /** Origine : Google People (`people`/`other_contacts`), détecté dans les
    *  emails (`imap_email`), ou saisi manuellement (`manual`). */
   source: "people" | "other_contacts" | "imap_email" | "manual";
