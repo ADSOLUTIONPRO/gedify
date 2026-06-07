@@ -4,39 +4,44 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Archive,
+  CheckCircle2,
   CheckSquare,
   CornerUpLeft,
-  FolderInput,
-  FolderPlus,
   Forward,
   Loader2,
   Mail,
   MoreHorizontal,
-  Paperclip,
-  Printer,
+  PenSquare,
   ReplyAll,
-  Upload,
+  Trash2,
+  UserPlus,
 } from "lucide-react";
-import { ThreadAttachmentsCard, type ThreadAttachment } from "./thread-attachments-card";
 import { openComposer } from "@/lib/messaging/mail-composer-store";
-import { avatarColor, formatFull, initials } from "./mail-list-utils";
+import { initials } from "./mail-list-utils";
 import type { EmailMessageRecord } from "@/lib/messaging/email-types";
+
+/* ── Thème Apple Mail (dominante ROUGE) ─────────────────────────────────── */
+const RED = "#ff3b30";
+const RED2 = "#fff0ef";
+const LINE = "#e6e6eb";
+const MUTED = "#6e6e73";
+const HINT = "#8e8e93";
 
 type ThreadDetail = {
   accountEmail: string;
   messages: EmailMessageRecord[];
-  analysis: { summary?: string | null; category?: string | null } | null;
   links?: unknown[];
 };
+
+type Att = { attachmentId: string; messageId: string; filename: string; mimeType: string; size: number };
 
 type Props = {
   threadId: string | null;
   folderLabel: string;
-  /** Ouvre le panneau « Classer / Associer à un dossier » pour ce thread. */
   onClassify: (threadId: string) => void;
 };
 
-export function MailReadingPane({ threadId, folderLabel, onClassify }: Props) {
+export function MailReadingPane({ threadId, onClassify }: Props) {
   const [data, setData] = useState<ThreadDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,32 +66,25 @@ export function MailReadingPane({ threadId, folderLabel, onClassify }: Props) {
     return () => { cancelled = true; };
   }, [threadId]);
 
-  // ── État vide ──
   if (!threadId) {
     return (
-      <div className="flex h-full flex-col items-center justify-center px-6 text-center" style={{ color: "var(--text-hint)" }}>
-        <span className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl" style={{ background: "var(--accent-soft)" }}>
-          <Mail className="h-7 w-7" style={{ color: "var(--accent)" }} strokeWidth={1.5} aria-hidden="true" />
+      <div className="flex h-full flex-col items-center justify-center px-6 text-center" style={{ color: HINT }}>
+        <span className="mb-3 flex h-16 w-16 items-center justify-center rounded-2xl" style={{ background: RED2, color: RED }}>
+          <Mail className="h-7 w-7" strokeWidth={1.5} aria-hidden="true" />
         </span>
-        <p className="text-[14px] font-bold" style={{ color: "var(--text-main)" }}>Sélectionnez un message</p>
-        <p className="mt-1 text-[12.5px]">Choisissez un email dans la liste pour le lire ici.</p>
+        <p className="text-[16px] font-semibold" style={{ color: "#1d1d1f" }}>Aucun message sélectionné</p>
+        <p className="mt-1 text-[13px]">Choisissez un e-mail dans la liste pour le lire ici.</p>
       </div>
     );
   }
-
   if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center" style={{ color: "var(--text-hint)" }}>
-        <Loader2 className="h-6 w-6 animate-spin" />
-      </div>
-    );
+    return <div className="flex h-full items-center justify-center" style={{ color: HINT }}><Loader2 className="h-6 w-6 animate-spin" /></div>;
   }
-
   if (error || !data || data.messages.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center px-6 text-center" style={{ color: "var(--text-hint)" }}>
+      <div className="flex h-full flex-col items-center justify-center px-6 text-center" style={{ color: HINT }}>
         <Mail className="mb-3 h-9 w-9" strokeWidth={1.25} />
-        <p className="text-[13px] font-semibold" style={{ color: "var(--text-main)" }}>Message indisponible</p>
+        <p className="text-[14px] font-semibold" style={{ color: "#1d1d1f" }}>Message indisponible</p>
         {error ? <p className="mt-1 text-[12px]">{error}</p> : null}
       </div>
     );
@@ -96,229 +94,170 @@ export function MailReadingPane({ threadId, folderLabel, onClassify }: Props) {
   const latest = sorted[sorted.length - 1];
   const sender = latest.from;
   const senderDisplay = sender?.name ?? sender?.email ?? "Inconnu";
-  const color = avatarColor(senderDisplay);
-
-  const attachments: ThreadAttachment[] = data.messages.flatMap((m) =>
-    m.attachments
-      .filter((a) => !a.inline)
-      .map((a) => ({
-        attachmentId: a.attachmentId,
-        messageId: m.id,
-        filename: a.filename,
-        mimeType: a.mimeType,
-        size: a.size,
-        status: "none" as const,
-        documentId: null,
-      })),
-  );
-
-  const hasGedLink = Array.isArray(data.links) && data.links.length > 0;
   const accountEmail = data.accountEmail;
+
+  const attachments: Att[] = data.messages.flatMap((m) =>
+    m.attachments.filter((a) => !a.inline).map((a) => ({ attachmentId: a.attachmentId, messageId: m.id, filename: a.filename, mimeType: a.mimeType, size: a.size })),
+  );
 
   function reply(all: boolean) {
     const recipients = all
       ? [sender?.email, ...latest.to.map((t) => t.email), ...latest.cc.map((c) => c.email)]
       : [sender?.email];
     const to = [...new Set(recipients.filter((e): e is string => Boolean(e) && e !== accountEmail))];
-    openComposer({
-      to: to.join(", "),
-      subject: `Re: ${latest.subject ?? ""}`.trim(),
-      threadId: threadId ?? undefined,
-      inReplyTo: latest.id,
-    });
+    openComposer({ to: to.join(", "), subject: `Re: ${latest.subject ?? ""}`.trim(), threadId: threadId ?? undefined, inReplyTo: latest.id });
   }
-
   function forward() {
-    openComposer({
-      subject: `Tr: ${latest.subject ?? ""}`.trim(),
-      threadId: threadId ?? undefined,
-      inReplyTo: latest.id,
-    });
+    openComposer({ subject: `Tr: ${latest.subject ?? ""}`.trim(), threadId: threadId ?? undefined, inReplyTo: latest.id });
   }
 
   return (
     <div className="flex h-full flex-col bg-white">
-      {/* ── Barre d'actions ── */}
-      <div className="flex items-center gap-1 border-b px-4 py-2.5" style={{ borderColor: "var(--border)" }}>
-        <ToolbarButton icon={CornerUpLeft} label="Répondre" onClick={() => reply(false)} />
-        <ToolbarButton icon={ReplyAll} label="Répondre à tous" onClick={() => reply(true)} />
-        <ToolbarButton icon={Forward} label="Transférer" onClick={forward} />
-        <ToolbarButton icon={FolderInput} label="Déplacer" onClick={() => threadId && onClassify(threadId)} />
-        <ToolbarButton icon={MoreHorizontal} label="Plus" onClick={() => threadId && onClassify(threadId)} />
-        <div className="ml-auto flex items-center gap-0.5">
-          <IconButton icon={Printer} label="Imprimer" onClick={() => window.print()} />
-          <IconButton icon={Archive} label="Archiver" onClick={() => threadId && onClassify(threadId)} />
+      {/* Barre d'actions */}
+      <div className="flex h-14 shrink-0 items-center justify-between border-b px-4" style={{ borderColor: LINE }}>
+        <IconBtn icon={PenSquare} label="Nouveau message" onClick={() => openComposer()} />
+        <div className="flex items-center gap-0.5">
+          <IconBtn icon={CornerUpLeft} label="Répondre" onClick={() => reply(false)} />
+          <IconBtn icon={ReplyAll} label="Répondre à tous" onClick={() => reply(true)} />
+          <IconBtn icon={Forward} label="Transférer" onClick={forward} />
+          <IconBtn icon={Archive} label="Archiver" onClick={() => threadId && onClassify(threadId)} />
+          <IconBtn icon={Trash2} label="Supprimer" onClick={() => threadId && onClassify(threadId)} />
+          <IconBtn icon={MoreHorizontal} label="Plus" onClick={() => threadId && onClassify(threadId)} />
         </div>
       </div>
 
-      {/* ── Contenu défilant ── */}
-      <div className="flex-1 overflow-y-auto px-6 py-5">
-        {/* Sujet + badges */}
-        <h2 className="text-[20px] font-extrabold leading-tight" style={{ color: "var(--text-main)" }}>
-          {latest.subject ?? "(sans sujet)"}
-        </h2>
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          {attachments.length > 0 && (
-            <Badge bg="#EDE9FE" color="#6D28D9" icon={Paperclip}>
-              {attachments.length} pièce{attachments.length > 1 ? "s" : ""} jointe{attachments.length > 1 ? "s" : ""}
-            </Badge>
-          )}
-          {hasGedLink && <Badge bg="var(--accent-soft)" color="var(--accent)">Lié à la GED</Badge>}
-          <Badge bg="#F3F4F6" color="#6B7280">{folderLabel}</Badge>
-        </div>
-
-        {/* Carte expéditeur */}
-        <div className="mt-5 flex items-start gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[15px] font-bold text-white" style={{ background: color }}>
+      {/* Contenu */}
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-7 lg:px-9">
+        {/* En-tête du mail */}
+        <header className="grid grid-cols-[46px_1fr_auto] gap-3.5 border-b pb-5" style={{ borderColor: "#eee" }}>
+          <span className="flex h-[46px] w-[46px] items-center justify-center rounded-full text-[15px] font-extrabold" style={{ background: RED2, color: RED }}>
             {initials(senderDisplay)}
           </span>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-              <p className="text-[14px] font-bold" style={{ color: "var(--text-main)" }}>{senderDisplay}</p>
-              <span className="text-[12px]" style={{ color: "var(--text-hint)" }}>{formatFull(latest.date)}</span>
-            </div>
-            {sender?.email && (
-              <p className="truncate text-[12.5px]" style={{ color: "var(--accent)" }}>{sender.email}</p>
-            )}
-            <p className="mt-0.5 truncate text-[12px]" style={{ color: "var(--text-muted)" }}>
-              À : {latest.to.map((t) => t.email).join(", ") || data.accountEmail}
+          <div className="min-w-0">
+            <h1 className="text-[22px] font-extrabold leading-snug" style={{ color: "#1d1d1f" }}>{latest.subject ?? "(sans sujet)"}</h1>
+            <p className="mt-1 text-[14px]" style={{ color: MUTED }}>
+              <strong style={{ color: "#1d1d1f" }}>{senderDisplay}</strong>
+              {sender?.email ? <> &lt;{sender.email}&gt;</> : null}
+              <br />À : {latest.to.map((t) => t.email).join(", ") || accountEmail}
             </p>
           </div>
-        </div>
+          <span className="text-right text-[13px]" style={{ color: HINT }}>{formatDateBlock(latest.date)}</span>
+        </header>
 
-        {/* Corps du message */}
-        <div
-          className="mt-5 whitespace-pre-wrap rounded-2xl border p-4 text-[13.5px] leading-relaxed"
-          style={{ borderColor: "var(--border)", background: "#FCFCFD", color: "var(--text-main)" }}
-        >
+        {/* Corps */}
+        <div className="max-w-[820px] whitespace-pre-wrap py-7 text-[16px] leading-relaxed" style={{ color: "#1d1d1f" }}>
           {latest.bodyText.trim().slice(0, 12000) || "(corps vide)"}
         </div>
 
-        {sorted.length > 1 && (
-          <Link
-            href={`/messagerie/thread/${threadId}`}
-            className="mt-3 inline-flex items-center gap-1 text-[12.5px] font-semibold"
-            style={{ color: "var(--accent)" }}
-          >
+        {sorted.length > 1 ? (
+          <Link href={`/messagerie/thread/${threadId}`} className="mb-5 inline-flex text-[13.5px] font-semibold" style={{ color: RED }}>
             Voir les {sorted.length} messages du fil →
           </Link>
-        )}
+        ) : null}
 
         {/* Pièces jointes */}
-        {attachments.length > 0 && (
-          <div className="mt-6">
-            <ThreadAttachmentsCard threadId={threadId} attachments={attachments} />
+        {attachments.length > 0 ? (
+          <div className="max-w-[660px] space-y-2.5">
+            {attachments.map((a) => <AttachmentCard key={a.attachmentId} att={a} threadId={threadId!} />)}
           </div>
-        )}
+        ) : null}
 
-        {/* Gérer avec GEDify */}
-        <div className="mt-6">
-          <p className="mb-2.5 text-[13px] font-bold" style={{ color: "var(--text-main)" }}>Gérer avec GEDify</p>
-          <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
-            <ActionTile
-              icon={Upload}
-              tone="var(--accent)"
-              title="Importer dans GED"
-              description="Enregistrer cet email et ses pièces jointes dans la GED."
-              href={`/messagerie/thread/${threadId}#attachments`}
-            />
-            <ActionTile
-              icon={FolderPlus}
-              tone="var(--gedify-info)"
-              title="Classer ce document"
-              description="Choisir un dossier et appliquer une taxonomie."
-              onClick={() => threadId && onClassify(threadId)}
-            />
-            <ActionTile
-              icon={CheckSquare}
-              tone="var(--gedify-green)"
-              title="Créer une tâche"
-              description="Transformer ce mail en tâche à traiter."
-              href="/rappels"
-            />
-            <ActionTile
-              icon={FolderInput}
-              tone="var(--gedify-purple)"
-              title="Associer à un dossier"
-              description="Lier ce mail à un dossier existant."
-              href="/organiser/dossiers"
-            />
-          </div>
+        {/* Actions */}
+        <div className="mt-7 flex flex-wrap gap-2.5 border-t pt-6" style={{ borderColor: "#eee" }}>
+          <ActionBtn primary onClick={() => reply(false)}>Répondre</ActionBtn>
+          <ActionBtn onClick={forward}>Transférer</ActionBtn>
+          <ActionLink href="/rappels" icon={CheckSquare}>Créer une tâche</ActionLink>
+          <ActionLink href="/messagerie/contacts" icon={UserPlus}>Lier à un contact</ActionLink>
         </div>
       </div>
     </div>
   );
 }
 
-// ── Sous-composants ─────────────────────────────────────────────────────────
+/* ── Sous-composants ── */
 
-function ToolbarButton({ icon: Icon, label, onClick }: { icon: React.ElementType; label: string; onClick: () => void }) {
+function IconBtn({ icon: Icon, label, onClick }: { icon: React.ElementType; label: string; onClick: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12.5px] font-medium transition hover:bg-[var(--bg-card-soft)]"
-      style={{ color: "var(--text-main)" }}
-    >
-      <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-      <span className="hidden lg:inline">{label}</span>
+    <button type="button" onClick={onClick} title={label} aria-label={label} className="flex h-9 w-9 items-center justify-center rounded-[9px] transition hover:bg-[#fff0ef]" style={{ color: RED }}>
+      <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden="true" />
     </button>
   );
 }
 
-function IconButton({ icon: Icon, label, onClick }: { icon: React.ElementType; label: string; onClick: () => void }) {
+function ActionBtn({ children, primary, onClick }: { children: React.ReactNode; primary?: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      title={label}
-      aria-label={label}
-      className="flex h-8 w-8 items-center justify-center rounded-lg transition hover:bg-[var(--bg-card-soft)]"
-      style={{ color: "var(--text-muted)" }}
+      className="rounded-[10px] border px-3.5 py-2 text-[14px] font-semibold transition hover:opacity-90"
+      style={primary ? { background: RED, borderColor: RED, color: "#fff" } : { borderColor: LINE, background: "#fff", color: "#1d1d1f" }}
     >
-      <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-    </button>
-  );
-}
-
-function Badge({ children, bg, color, icon: Icon }: { children: React.ReactNode; bg: string; color: string; icon?: React.ElementType }) {
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11.5px] font-bold" style={{ background: bg, color }}>
-      {Icon ? <Icon className="h-3 w-3" strokeWidth={2} aria-hidden="true" /> : null}
       {children}
-    </span>
+    </button>
   );
 }
 
-function ActionTile({
-  icon: Icon,
-  tone,
-  title,
-  description,
-  href,
-  onClick,
-}: {
-  icon: React.ElementType;
-  tone: string;
-  title: string;
-  description: string;
-  href?: string;
-  onClick?: () => void;
-}) {
-  const inner = (
-    <>
-      <span className="mb-2 flex h-9 w-9 items-center justify-center rounded-xl" style={{ background: `color-mix(in srgb, ${tone} 14%, white)`, color: tone }}>
-        <Icon className="h-4 w-4" strokeWidth={1.85} aria-hidden="true" />
-      </span>
-      <p className="text-[12.5px] font-bold" style={{ color: "var(--text-main)" }}>{title}</p>
-      <p className="mt-0.5 text-[11px] leading-snug" style={{ color: "var(--text-muted)" }}>{description}</p>
-    </>
+function ActionLink({ href, icon: Icon, children }: { href: string; icon: React.ElementType; children: React.ReactNode }) {
+  return (
+    <Link href={href} className="inline-flex items-center gap-1.5 rounded-[10px] border px-3.5 py-2 text-[14px] font-semibold transition hover:opacity-90" style={{ borderColor: LINE, background: "#fff", color: "#1d1d1f" }}>
+      <Icon className="h-4 w-4" strokeWidth={1.85} aria-hidden="true" /> {children}
+    </Link>
   );
-  const cls = "flex flex-col rounded-2xl border bg-white p-3 text-left transition hover:shadow-sm hover:-translate-y-0.5";
-  const style = { borderColor: "var(--border)" };
-  return href ? (
-    <Link href={href} className={cls} style={style}>{inner}</Link>
-  ) : (
-    <button type="button" onClick={onClick} className={cls} style={style}>{inner}</button>
+}
+
+function AttachmentCard({ att, threadId }: { att: Att; threadId: string }) {
+  const [status, setStatus] = useState<"none" | "importing" | "imported" | "error">("none");
+  async function importToGed() {
+    if (status === "importing" || status === "imported") return;
+    setStatus("importing");
+    try {
+      const res = await fetch("/api/messaging/attachments/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ mailId: att.messageId, threadId, attachmentId: att.attachmentId, filename: att.filename, mimeType: att.mimeType, sizeBytes: att.size }),
+      });
+      setStatus(res.ok ? "imported" : "error");
+    } catch {
+      setStatus("error");
+    }
+  }
+  const ext = (att.filename.split(".").pop() ?? "").slice(0, 4).toUpperCase() || "FIC";
+  return (
+    <div className="flex items-center gap-3 rounded-[13px] border p-3.5" style={{ borderColor: LINE, background: "#fafafb" }}>
+      <span className="flex h-[42px] w-[42px] items-center justify-center rounded-[10px] text-[12px] font-extrabold" style={{ background: RED2, color: RED }}>{ext}</span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[14px] font-bold" style={{ color: "#1d1d1f" }} title={att.filename}>{att.filename}</p>
+        <p className="text-[12px]" style={{ color: HINT }}>{ext} · {Math.max(1, Math.round(att.size / 1024))} Ko</p>
+      </div>
+      {status === "imported" ? (
+        <span className="inline-flex items-center gap-1 text-[12.5px] font-bold" style={{ color: "#15803d" }}>
+          <CheckCircle2 className="h-4 w-4" strokeWidth={2} /> Ajouté à la GED
+        </span>
+      ) : (
+        <button
+          type="button"
+          onClick={() => void importToGed()}
+          disabled={status === "importing"}
+          className="rounded-[9px] border px-3 py-1.5 text-[12.5px] font-bold transition hover:bg-[#fff0ef] disabled:opacity-60"
+          style={{ borderColor: "#ffd0cc", background: "#fff8f7", color: "#d93025" }}
+        >
+          {status === "importing" ? "Import…" : status === "error" ? "Réessayer" : "Ajouter à la GED"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function formatDateBlock(iso: string | null): React.ReactNode {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return (
+    <>
+      {d.toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}
+      <br />
+      {d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+    </>
   );
 }
