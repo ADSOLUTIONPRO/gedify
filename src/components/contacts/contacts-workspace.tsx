@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, RefreshCw, Search, Settings2, Users } from "lucide-react";
@@ -91,8 +91,41 @@ export function ContactsWorkspace({ contacts, correspondents, accountConnected =
     setTimeout(() => setRebuilding(false), 1500);
   }
 
+  // Largeur (redimensionnable) de la colonne « liste des contacts », persistée.
+  const [listWidth, setListWidth] = useState(440);
+  useEffect(() => {
+    const saved = Number(localStorage.getItem("gedify.contacts.listWidth"));
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (Number.isFinite(saved) && saved >= 300 && saved <= 600) setListWidth(saved);
+  }, []);
+
+  function startResize(e: ReactMouseEvent) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = listWidth;
+    let current = startW;
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "col-resize";
+    function move(ev: MouseEvent) {
+      current = Math.min(600, Math.max(300, startW + (ev.clientX - startX)));
+      setListWidth(current);
+    }
+    function up() {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+      try { localStorage.setItem("gedify.contacts.listWidth", String(Math.round(current))); } catch { /* ignore */ }
+    }
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+  }
+
   return (
-    <div className="grid h-[calc(100vh-53px)] bg-white" style={{ gridTemplateColumns: "minmax(0,290px) minmax(0,460px) 1fr" }}>
+    <div
+      className="grid h-[calc(100vh-53px)] grid-cols-1 bg-white md:grid-cols-[minmax(0,260px)_var(--list-w)_1fr]"
+      style={{ "--list-w": `${listWidth}px` } as CSSProperties}
+    >
       {/* ════════ Colonne 1 — Listes ════════ */}
       <aside className="hidden min-h-0 flex-col border-r md:flex" style={{ background: SIDEBAR_BG, borderColor: LINE }}>
         <div className="flex h-14 shrink-0 items-center justify-between border-b px-4" style={{ borderColor: LINE }}>
@@ -131,7 +164,15 @@ export function ContactsWorkspace({ contacts, correspondents, accountConnected =
       </aside>
 
       {/* ════════ Colonne 2 — Liste ════════ */}
-      <section className="flex min-h-0 flex-col border-r bg-white" style={{ borderColor: LINE }}>
+      <section className="relative flex min-h-0 flex-col border-r bg-white" style={{ borderColor: LINE }}>
+        {/* Poignée de redimensionnement (desktop) */}
+        <div
+          onMouseDown={startResize}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Redimensionner la liste des contacts"
+          className="absolute right-0 top-0 z-20 hidden h-full w-1.5 cursor-col-resize transition hover:bg-[var(--accent-soft)] md:block"
+        />
         <div className="shrink-0 border-b px-3 py-2.5" style={{ borderColor: LINE }}>
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: HINT }} strokeWidth={1.75} />
