@@ -2,37 +2,29 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Loader2, Mail, Plus, Trash2, X } from "lucide-react";
+import { ArrowRight, EyeOff, FileText, Loader2, Plus, Trash2, Users, X } from "lucide-react";
 import { initials } from "@/components/messaging/mail-list-utils";
 import type { ContactVM } from "./contacts-workspace";
 
-const BLUE = "#0a84ff";
-const BLUE_LINK = "#0071e3";
+/* ── Thème commun « communication » (rouge) ─────────────────────────────── */
+const RED = "#ff3b30";
+const RED2 = "#fff0ef";
 const LINE = "#e6e6eb";
 const MUTED = "#6e6e73";
 const HINT = "#8e8e93";
-
-const SOURCE_LABEL: Record<ContactVM["source"], string> = {
-  google: "Contact Google",
-  imap_email: "Détecté dans les emails",
-  manual: "Contact manuel",
-  correspondent: "Correspondant GEDify",
-};
 
 type Props = {
   contact: ContactVM | null;
   onSaved: (c: ContactVM) => void;
   onDeleted: (id: string) => void;
-  /** Ouvre directement en mode édition (ex. contact tout juste créé). */
-  startEditing?: boolean;
+  onHideSender: (id: string) => void;
 };
 
-export function ContactDetailView({ contact, onSaved, onDeleted, startEditing = false }: Props) {
-  const [editing, setEditing] = useState(startEditing && contact?.source !== "correspondent");
+export function ContactDetailView({ contact, onSaved, onDeleted, onHideSender }: Props) {
+  const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Champs éditables (initialisés depuis le contact ; le parent remonte via `key`).
   const [name, setName] = useState(contact?.name ?? "");
   const [org, setOrg] = useState(contact?.organization ?? "");
   const [phone, setPhone] = useState(contact?.phone ?? "");
@@ -45,8 +37,8 @@ export function ContactDetailView({ contact, onSaved, onDeleted, startEditing = 
   if (!contact) {
     return (
       <div className="flex h-full flex-col items-center justify-center px-6 text-center" style={{ color: HINT }}>
-        <span className="mb-3 flex h-16 w-16 items-center justify-center rounded-full" style={{ background: "#eaf4ff", color: BLUE }}>
-          <Mail className="h-7 w-7" strokeWidth={1.5} aria-hidden="true" />
+        <span className="mb-3 flex h-16 w-16 items-center justify-center rounded-full" style={{ background: RED2, color: RED }}>
+          <Users className="h-7 w-7" strokeWidth={1.5} aria-hidden="true" />
         </span>
         <p className="text-[15px] font-semibold" style={{ color: "#1d1d1f" }}>Aucun contact sélectionné</p>
         <p className="mt-1 text-[13px]">Choisissez un contact dans la liste pour voir sa fiche.</p>
@@ -55,8 +47,8 @@ export function ContactDetailView({ contact, onSaved, onDeleted, startEditing = 
   }
 
   const c = contact;
-  const editable = c.source !== "correspondent";
-  const subtitle = [c.organization, SOURCE_LABEL[c.source]].filter(Boolean).join(" · ");
+  const editable = c.source === "manual";
+  const subtitle = [c.organization, c.source === "correspondent" ? "Correspondant GEDify" : "Contact lié à la GED"].filter(Boolean).join(" · ");
 
   async function save() {
     setSaving(true);
@@ -67,28 +59,10 @@ export function ContactDetailView({ contact, onSaved, onDeleted, startEditing = 
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({
-          resourceName: c.id,
-          displayName: name.trim() || c.name,
-          organization: org.trim() || null,
-          phone: phone.trim() || null,
-          emails: cleanEmails,
-          email: cleanEmails[0] ?? null,
-          address: address.trim() || null,
-          notes: notes.trim() || null,
-        }),
+        body: JSON.stringify({ resourceName: c.id, displayName: name.trim() || c.name, organization: org.trim() || null, phone: phone.trim() || null, emails: cleanEmails, email: cleanEmails[0] ?? null, address: address.trim() || null, notes: notes.trim() || null }),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error ?? `HTTP ${res.status}`);
-      onSaved({
-        ...c,
-        name: name.trim() || c.name,
-        organization: org.trim() || null,
-        phone: phone.trim() || null,
-        emails: cleanEmails,
-        email: cleanEmails[0] ?? null,
-        address: address.trim() || null,
-        notes: notes.trim() || null,
-      });
+      onSaved({ ...c, name: name.trim() || c.name, organization: org.trim() || null, phone: phone.trim() || null, emails: cleanEmails, email: cleanEmails[0] ?? null, address: address.trim() || null, notes: notes.trim() || null });
       setEditing(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Échec de l'enregistrement.");
@@ -98,7 +72,7 @@ export function ContactDetailView({ contact, onSaved, onDeleted, startEditing = 
   }
 
   async function remove() {
-    if (!window.confirm(`Supprimer définitivement « ${c.name} » ?`)) return;
+    if (!window.confirm(`Supprimer « ${c.name} » ?`)) return;
     setSaving(true);
     try {
       const res = await fetch(`/api/contacts?resourceName=${encodeURIComponent(c.id)}`, { method: "DELETE", credentials: "include" });
@@ -108,20 +82,34 @@ export function ContactDetailView({ contact, onSaved, onDeleted, startEditing = 
     }
   }
 
+  async function hideSender() {
+    if (!c.email) return;
+    if (!window.confirm(`Masquer l'expéditeur ${c.email} ? Ses emails resteront dans Gmail, il ne participera plus aux contacts.`)) return;
+    setSaving(true);
+    try {
+      await fetch("/api/messaging/hidden-senders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email: c.email, displayName: c.name }),
+      });
+      onHideSender(c.id);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="flex h-full flex-col bg-white">
-      {/* Barre d'actions */}
       <div className="flex h-14 shrink-0 items-center justify-between border-b px-5" style={{ borderColor: LINE }}>
         <div className="flex items-center gap-4">
           {editable && !editing && (
-            <button type="button" onClick={() => setEditing(true)} className="text-[15px] font-medium" style={{ color: BLUE }}>
-              Modifier
-            </button>
+            <button type="button" onClick={() => setEditing(true)} className="text-[15px] font-medium" style={{ color: RED }}>Modifier</button>
           )}
           {editing && (
             <>
-              <button type="button" onClick={() => setEditing(false)} className="text-[15px]" style={{ color: BLUE }}>Annuler</button>
-              <button type="button" onClick={() => void save()} disabled={saving} className="inline-flex items-center gap-1.5 text-[15px] font-bold disabled:opacity-50" style={{ color: BLUE }}>
+              <button type="button" onClick={() => setEditing(false)} className="text-[15px]" style={{ color: RED }}>Annuler</button>
+              <button type="button" onClick={() => void save()} disabled={saving} className="inline-flex items-center gap-1.5 text-[15px] font-bold disabled:opacity-50" style={{ color: RED }}>
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}Enregistrer
               </button>
             </>
@@ -133,10 +121,7 @@ export function ContactDetailView({ contact, onSaved, onDeleted, startEditing = 
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-7 lg:px-10">
         {/* En-tête profil */}
         <div className="mb-7 flex items-center gap-6">
-          <span
-            className="flex h-[104px] w-[104px] shrink-0 items-center justify-center rounded-full text-[32px] font-extrabold"
-            style={{ background: "linear-gradient(#eaf4ff,#d7eaff)", color: BLUE }}
-          >
+          <span className="flex h-[104px] w-[104px] shrink-0 items-center justify-center rounded-full text-[32px] font-extrabold" style={{ background: "linear-gradient(#fff0ef,#ffe2df)", color: RED }}>
             {initials(c.name)}
           </span>
           <div className="min-w-0">
@@ -147,39 +132,53 @@ export function ContactDetailView({ contact, onSaved, onDeleted, startEditing = 
         </div>
 
         {!editing ? (
-          /* ─────────── VUE CONSULTATION ─────────── */
           <div className="max-w-[760px]">
-            {/* Actions rapides */}
+            {/* Actions */}
             <div className="mb-7 flex flex-wrap gap-2.5">
-              {c.phone ? <QuickLink href={`tel:${c.phone}`}>Appeler</QuickLink> : null}
-              {c.email ? <QuickLink href={`mailto:${c.email}`}>Envoyer un e-mail</QuickLink> : null}
+              {c.email ? <QuickLink href={`/messagerie/inbox?q=${encodeURIComponent("from:" + c.email)}`}>Voir les emails liés</QuickLink> : null}
+              {(c.linkedDocumentIds?.length ?? 0) > 0 ? <QuickLink href={`/documents/${c.linkedDocumentIds![0]}`}>Voir les documents GED</QuickLink> : null}
+              {c.correspondentId ? <QuickLink href={`/documents?correspondent=${c.correspondentId}`}>Documents du correspondant</QuickLink> : null}
               <QuickLink href="/rappels">Créer une tâche</QuickLink>
-              {c.correspondentId ? <QuickLink href={`/documents?correspondent=${c.correspondentId}`}>Voir les documents liés</QuickLink> : null}
+              {c.source === "email" && c.email ? (
+                <button type="button" onClick={() => void hideSender()} disabled={saving} className="inline-flex items-center gap-1.5 rounded-[10px] border px-3.5 py-2 text-[14px] font-semibold transition hover:bg-[#fff0ef] disabled:opacity-50" style={{ borderColor: "#ffd0cc", color: "#d93025" }}>
+                  <EyeOff className="h-4 w-4" strokeWidth={1.85} /> Masquer cet expéditeur
+                </button>
+              ) : null}
             </div>
 
-            {c.phone ? (
-              <InfoSection title="Téléphone">
-                <ValueRow label="Mobile" value={c.phone} />
-              </InfoSection>
-            ) : null}
-
-            {c.emails.length > 0 || c.email ? (
+            {c.email ? (
               <InfoSection title="Adresse e-mail">
-                {(c.emails.length ? c.emails : [c.email!]).map((e) => (
-                  <ValueRow key={e} label="Bureau" value={<span style={{ color: BLUE_LINK }}>{e}</span>} />
-                ))}
+                <ValueRow label="E-mail" value={<a href={`mailto:${c.email}`} style={{ color: "#d93025" }}>{c.email}</a>} />
+              </InfoSection>
+            ) : null}
+            {c.phone ? <InfoSection title="Téléphone"><ValueRow label="Mobile" value={c.phone} /></InfoSection> : null}
+            {c.organization ? <InfoSection title="Société"><ValueRow label="Nom" value={c.organization} /></InfoSection> : null}
+
+            {c.source === "email" ? (
+              <InfoSection title="Activité GED">
+                <ValueRow label="Emails liés" value={`${c.linkedEmailsCount ?? 0}`} />
+                <ValueRow label="Documents GED" value={`${c.linkedGedDocumentsCount ?? 0}`} />
+                {c.lastInteractionAt ? <ValueRow label="Dernier échange" value={new Date(c.lastInteractionAt).toLocaleDateString("fr-FR")} /> : null}
               </InfoSection>
             ) : null}
 
-            {c.address ? (
-              <InfoSection title="Adresse">
-                <ValueRow label="Bureau" value={<span className="whitespace-pre-line">{c.address}</span>} />
+            {(c.linkedDocumentIds?.length ?? 0) > 0 ? (
+              <InfoSection title={`Documents GED liés (${c.linkedDocumentIds!.length})`}>
+                <ul className="flex flex-col gap-1.5">
+                  {c.linkedDocumentIds!.slice(0, 8).map((id) => (
+                    <li key={id}>
+                      <Link href={`/documents/${id}`} className="inline-flex items-center gap-1.5 text-[14px] font-semibold" style={{ color: "#d93025" }}>
+                        <FileText className="h-3.5 w-3.5" strokeWidth={1.85} /> Document #{id} <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
               </InfoSection>
             ) : null}
 
             {c.source === "correspondent" && c.documentCount != null ? (
               <InfoSection title="Documents">
-                <Link href={`/documents?correspondent=${c.correspondentId}`} className="inline-flex items-center gap-1 text-[14px] font-semibold" style={{ color: BLUE_LINK }}>
+                <Link href={`/documents?correspondent=${c.correspondentId}`} className="inline-flex items-center gap-1 text-[14px] font-semibold" style={{ color: "#d93025" }}>
                   {c.documentCount} document(s) lié(s) <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
                 </Link>
               </InfoSection>
@@ -187,68 +186,29 @@ export function ContactDetailView({ contact, onSaved, onDeleted, startEditing = 
 
             {c.notes ? (
               <InfoSection title="Notes">
-                <div className="rounded-xl border p-3.5 text-[14px] leading-relaxed" style={{ borderColor: "#eee", background: "#f8f9fb", color: "#1d1d1f" }}>
-                  {c.notes}
-                </div>
+                <div className="rounded-xl border p-3.5 text-[14px] leading-relaxed" style={{ borderColor: "#eee", background: "#f8f9fb", color: "#1d1d1f" }}>{c.notes}</div>
               </InfoSection>
-            ) : null}
-
-            {!c.phone && !c.email && c.emails.length === 0 && !c.address && !c.notes ? (
-              <p className="text-[14px]" style={{ color: HINT }}>Aucune coordonnée enregistrée pour ce contact.</p>
             ) : null}
           </div>
         ) : (
-          /* ─────────── MODE ÉDITION ─────────── */
+          /* ─────────── ÉDITION (contacts manuels) ─────────── */
           <div className="max-w-[760px]">
-            <EditSection>
-              <Field value={name} onChange={setName} placeholder="Nom complet" />
-              <Field value={org} onChange={setOrg} placeholder="Société" />
-            </EditSection>
-
-            <EditSection title="Téléphone">
-              <FieldRow label="Mobile"><Field value={phone} onChange={setPhone} placeholder="+33 6 12 34 56 78" /></FieldRow>
-            </EditSection>
-
-            <EditSection
-              title="Adresse e-mail"
-              onAdd={() => setEmails((prev) => [...prev, ""])}
-            >
+            <EditSection><Field value={name} onChange={setName} placeholder="Nom complet" /><Field value={org} onChange={setOrg} placeholder="Société" /></EditSection>
+            <EditSection title="Téléphone"><FieldRow label="Mobile"><Field value={phone} onChange={setPhone} placeholder="+33 6 12 34 56 78" /></FieldRow></EditSection>
+            <EditSection title="Adresse e-mail" onAdd={() => setEmails((p) => [...p, ""])}>
               {emails.map((e, i) => (
                 <FieldRow key={i} label="Bureau">
                   <div className="flex items-center gap-2">
-                    <Field value={e} onChange={(v) => setEmails((prev) => prev.map((x, j) => (j === i ? v : x)))} placeholder="nom@exemple.com" />
-                    {emails.length > 1 ? (
-                      <button type="button" onClick={() => setEmails((prev) => prev.filter((_, j) => j !== i))} className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ color: "#ff3b30" }} aria-label="Retirer">
-                        <X className="h-4 w-4" strokeWidth={2} />
-                      </button>
-                    ) : null}
+                    <Field value={e} onChange={(v) => setEmails((p) => p.map((x, j) => (j === i ? v : x)))} placeholder="nom@exemple.com" />
+                    {emails.length > 1 ? <button type="button" onClick={() => setEmails((p) => p.filter((_, j) => j !== i))} className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ color: RED }} aria-label="Retirer"><X className="h-4 w-4" strokeWidth={2} /></button> : null}
                   </div>
                 </FieldRow>
               ))}
             </EditSection>
-
-            <EditSection title="Adresse">
-              <textarea
-                value={address}
-                onChange={(ev) => setAddress(ev.target.value)}
-                placeholder="Rue, code postal, ville, pays"
-                className="min-h-[88px] w-full rounded-[10px] border px-3 py-2.5 text-[14px] outline-none focus:border-[#0a84ff]"
-                style={{ borderColor: LINE }}
-              />
-            </EditSection>
-
-            <EditSection title="Notes">
-              <textarea
-                value={notes}
-                onChange={(ev) => setNotes(ev.target.value)}
-                placeholder="Notes libres…"
-                className="min-h-[120px] w-full rounded-[10px] border px-3 py-2.5 text-[14px] outline-none focus:border-[#0a84ff]"
-                style={{ borderColor: LINE }}
-              />
-            </EditSection>
-
+            <EditSection title="Adresse"><textarea value={address} onChange={(ev) => setAddress(ev.target.value)} placeholder="Rue, code postal, ville" className="min-h-[88px] w-full rounded-[10px] border px-3 py-2.5 text-[14px] outline-none focus:border-[#ff3b30]" style={{ borderColor: LINE }} /></EditSection>
+            <EditSection title="Notes"><textarea value={notes} onChange={(ev) => setNotes(ev.target.value)} placeholder="Notes libres…" className="min-h-[120px] w-full rounded-[10px] border px-3 py-2.5 text-[14px] outline-none focus:border-[#ff3b30]" style={{ borderColor: LINE }} /></EditSection>
             <div className="border-t py-5" style={{ borderColor: "#eee" }}>
-              <button type="button" onClick={() => void remove()} disabled={saving} className="inline-flex items-center gap-1.5 text-[14px] font-semibold disabled:opacity-50" style={{ color: "#ff3b30" }}>
+              <button type="button" onClick={() => void remove()} disabled={saving} className="inline-flex items-center gap-1.5 text-[14px] font-semibold disabled:opacity-50" style={{ color: RED }}>
                 <Trash2 className="h-4 w-4" strokeWidth={1.85} /> Supprimer le contact
               </button>
             </div>
@@ -259,13 +219,9 @@ export function ContactDetailView({ contact, onSaved, onDeleted, startEditing = 
   );
 }
 
-/* ── Sous-composants ── */
-
 function QuickLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
-    <Link href={href} className="rounded-[10px] border px-3.5 py-2 text-[14px] font-semibold transition hover:opacity-90" style={{ borderColor: "#cfe4fb", background: "#f5faff", color: BLUE_LINK }}>
-      {children}
-    </Link>
+    <Link href={href} className="rounded-[10px] border px-3.5 py-2 text-[14px] font-semibold transition hover:opacity-90" style={{ borderColor: "#ffd0cc", background: "#fff8f7", color: "#d93025" }}>{children}</Link>
   );
 }
 
@@ -280,7 +236,7 @@ function InfoSection({ title, children }: { title: string; children: React.React
 
 function ValueRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[100px_1fr] gap-3.5 text-[15px]" style={{ color: "#1d1d1f" }}>
+    <div className="grid grid-cols-[110px_1fr] gap-3.5 text-[15px]" style={{ color: "#1d1d1f" }}>
       <span style={{ color: HINT }}>{label}</span>
       <span>{value}</span>
     </div>
@@ -293,11 +249,7 @@ function EditSection({ title, onAdd, children }: { title?: string; onAdd?: () =>
       {title ? (
         <div className="mb-2 flex items-center justify-between">
           <h3 className="text-[18px] font-bold" style={{ color: "#1d1d1f" }}>{title}</h3>
-          {onAdd ? (
-            <button type="button" onClick={onAdd} className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ color: BLUE }} aria-label={`Ajouter ${title}`}>
-              <Plus className="h-4 w-4" strokeWidth={2.25} />
-            </button>
-          ) : null}
+          {onAdd ? <button type="button" onClick={onAdd} className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ color: RED }} aria-label={`Ajouter ${title}`}><Plus className="h-4 w-4" strokeWidth={2.25} /></button> : null}
         </div>
       ) : null}
       <div className="flex flex-col gap-2.5">{children}</div>
@@ -316,12 +268,6 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
 
 function Field({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
   return (
-    <input
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      className="h-[42px] w-full rounded-[10px] border px-3 text-[14px] outline-none focus:border-[#0a84ff]"
-      style={{ borderColor: LINE }}
-    />
+    <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="h-[42px] w-full rounded-[10px] border px-3 text-[14px] outline-none focus:border-[#ff3b30]" style={{ borderColor: LINE }} />
   );
 }

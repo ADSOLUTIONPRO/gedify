@@ -51,6 +51,7 @@ function buildAttachmentSummary(attImportsByThread: AttImports): Map<string, Thr
 export async function loadThreads(query = "in:inbox", limit = 40): Promise<LoadThreadsResult> {
   const account = await getActiveGmailAccount();
   if (!account) {
+    console.log(`[mail] accountId=none folder=${query} (aucun compte Gmail actif → état « connecter Google » ou repli IMAP)`);
     return { connected: false, oauthConfigured: Boolean(getGmailOAuthConfig()) };
   }
 
@@ -63,7 +64,9 @@ export async function loadThreads(query = "in:inbox", limit = 40): Promise<LoadT
     refs = res.threads;
     nextPageToken = res.nextPageToken;
   } catch (error) {
-    return { connected: false, oauthConfigured: true, needsReconnect: isGmailReconnectError(error) };
+    const reconnect = isGmailReconnectError(error);
+    console.log(`[mail] accountId=${account.accountId.slice(0, 6)}… folder=${query} apiReturned=ERROR reconnect=${reconnect} (${error instanceof Error ? error.message.slice(0, 80) : "?"})`);
+    return { connected: false, oauthConfigured: true, needsReconnect: reconnect };
   }
 
   const [linksByThread, hiddenEmails, attImportsByThread] = await Promise.all([
@@ -92,6 +95,11 @@ export async function loadThreads(query = "in:inbox", limit = 40): Promise<LoadT
       const senderEmail = t.participants[0]?.email?.toLowerCase();
       return !senderEmail || !hiddenEmails.has(senderEmail);
     });
+
+  // Diagnostic non sensible (jamais de contenu/token) : tracer la chaîne mail.
+  console.log(
+    `[mail] accountId=${account.accountId.slice(0, 6)}… folder=${query} apiReturned=${refs.length} hiddenFiltered=${refs.length - threads.length} displayedCount=${threads.length} hiddenSenders=${hiddenEmails.size}`,
+  );
 
   return {
     connected: true,
