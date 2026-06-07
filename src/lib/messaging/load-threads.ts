@@ -48,7 +48,11 @@ function buildAttachmentSummary(attImportsByThread: AttImports): Map<string, Thr
  * Charge les threads Gmail pour une requête donnée, côté serveur uniquement.
  * Filtre automatiquement les expéditeurs masqués dans la surcouche GED.
  */
-export async function loadThreads(query = "in:inbox", limit = 40): Promise<LoadThreadsResult> {
+export async function loadThreads(
+  query = "in:inbox",
+  limit = 40,
+  opts: { excludeProcessed?: boolean } = {},
+): Promise<LoadThreadsResult> {
   const account = await getActiveGmailAccount();
   if (!account) {
     console.log(`[mail] accountId=none folder=${query} (aucun compte Gmail actif → état « connecter Google » ou repli IMAP)`);
@@ -96,9 +100,14 @@ export async function loadThreads(query = "in:inbox", limit = 40): Promise<LoadT
       return !senderEmail || !hiddenEmails.has(senderEmail);
     });
 
+  // Exclure les conversations déjà « traitées » (liées GED / PJ importées) si demandé
+  // → alimente le dossier logique « Courriels à traiter ».
+  const processedIds = processedThreadIdSet(linksByThread, attachmentsByThread);
+  const finalThreads = opts.excludeProcessed ? threads.filter((t) => !processedIds.has(t.id)) : threads;
+
   // Diagnostic non sensible (jamais de contenu/token) : tracer la chaîne mail.
   console.log(
-    `[mail] accountId=${account.accountId.slice(0, 6)}… folder=${query} apiReturned=${refs.length} hiddenFiltered=${refs.length - threads.length} displayedCount=${threads.length} hiddenSenders=${hiddenEmails.size}`,
+    `[mail] accountId=${account.accountId.slice(0, 6)}… folder=${query} apiReturned=${refs.length} processedExcluded=${opts.excludeProcessed ? threads.length - finalThreads.length : 0} displayedCount=${finalThreads.length} hiddenSenders=${hiddenEmails.size}`,
   );
 
   return {
@@ -106,12 +115,22 @@ export async function loadThreads(query = "in:inbox", limit = 40): Promise<LoadT
     accountEmail: account.email,
     connectedAt: account.connectedAt,
     scopes: account.scopes,
-    threads,
+    threads: finalThreads,
     linksByThread,
     hiddenSenderEmails: [...hiddenEmails],
     nextPageToken: nextPageToken ?? null,
     attachmentsByThread,
   };
+}
+
+/** Ensemble des threadIds « traités » = liés à la GED OU ayant une PJ importée. */
+function processedThreadIdSet(
+  linksByThread: LinksByThread,
+  attachmentsByThread: Map<string, ThreadAttachmentSummary>,
+): Set<string> {
+  const ids = new Set<string>(linksByThread.keys());
+  for (const [tid, s] of attachmentsByThread) if (s.imported > 0) ids.add(tid);
+  return ids;
 }
 
 /**
@@ -131,7 +150,8 @@ export async function loadLinkedThreads(limit = 100): Promise<LoadThreadsResult>
     indexAttachmentImportsByThread(),
   ]);
   const attachmentsByThread = buildAttachmentSummary(attImportsByThread);
-  const ids = [...linksByThread.keys()].slice(0, limit);
+  // « Importés en GED » = conversations liées à la GED OU ayant une PJ importée.
+  const ids = [...processedThreadIdSet(linksByThread, attachmentsByThread)].slice(0, limit);
 
   // Pas de filtre « expéditeurs masqués » ici : un mail explicitement lié à la GED
   // doit rester visible même si son expéditeur est muté dans la boîte de réception.

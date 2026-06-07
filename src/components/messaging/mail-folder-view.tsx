@@ -2,7 +2,7 @@ import { NoGmailState } from "@/components/messaging/no-gmail-state";
 import { InboxTwoPane } from "@/components/messaging/inbox-two-pane";
 import { ImapInboxView } from "@/components/messaging/imap-inbox-view";
 import { MobileMails } from "@/components/mobile/mobile-mails";
-import { loadThreads } from "@/lib/messaging/load-threads";
+import { loadThreads, loadLinkedThreads } from "@/lib/messaging/load-threads";
 import { loadImapInbox } from "@/lib/messaging/load-imap-inbox";
 import { getGmailOAuthConfig } from "@/lib/connectors/gmail/oauth";
 
@@ -17,13 +17,21 @@ export async function MailFolderView({
   title,
   subtitle,
   limit = 50,
+  source = "query",
+  excludeProcessed = false,
 }: {
   query: string;
   title: string;
   subtitle?: string;
   limit?: number;
+  /** "processed" → dossier logique « Importés en GED » (liés GED / PJ importées). */
+  source?: "query" | "processed";
+  /** "query" : exclure les conversations déjà traitées (dossier « Courriels à traiter »). */
+  excludeProcessed?: boolean;
 }) {
-  const result = await loadThreads(query, limit);
+  const result = source === "processed"
+    ? await loadLinkedThreads(limit)
+    : await loadThreads(query, limit, { excludeProcessed });
 
   if (!result.connected) {
     // Pas de compte Gmail : si une boîte IMAP est connectée, on affiche au moins

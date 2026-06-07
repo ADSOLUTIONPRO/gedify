@@ -1,29 +1,18 @@
 "use client";
 
-import { type ReactNode, useState } from "react";
+import { type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { openComposer } from "@/lib/messaging/mail-composer-store";
 import {
-  Archive,
-  Ban,
-  ChevronDown,
-  ChevronRight,
-  FileUp,
+  CheckCircle2,
+  EyeOff,
   Inbox,
   Mail,
   Paperclip,
-  PenSquare,
   Plus,
-  Receipt,
   RefreshCw,
-  Send,
   Settings,
-  ShoppingBag,
-  Sparkles,
-  Star,
-  Tag,
-  Trash2,
 } from "lucide-react";
 
 /* ── Thème Apple Mail (dominante ROUGE) ─────────────────────────────────── */
@@ -33,68 +22,37 @@ const LINE = "#e6e6eb";
 const BG = "#f8f8fb";
 const MUTED = "#8e8e93";
 
-type FolderDef = { href: string; icon: React.ElementType; label: string; tone?: string };
+export type MailSidebarCounts = {
+  toProcess?: number | null;
+  processed?: number;
+  attachments?: number;
+  hidden?: number;
+};
 
-const MAILBOXES: FolderDef[] = [
-  { href: "/messagerie/inbox", icon: Inbox, label: "Boîte de réception" },
-  { href: "/messagerie/inbox?q=in%3Ainbox+category%3Aprimary", icon: Sparkles, label: "Principal" },
-  { href: "/messagerie/inbox?q=in%3Ainbox+category%3Apurchases", icon: ShoppingBag, label: "Transactions" },
-  { href: "/messagerie/inbox?q=in%3Ainbox+category%3Aupdates", icon: Receipt, label: "Mises à jour" },
-  { href: "/messagerie/inbox?q=in%3Ainbox+category%3Apromotions", icon: Tag, label: "Promotions" },
-  { href: "/messagerie/inbox?q=is%3Astarred", icon: Star, label: "VIP", tone: "#ffb000" },
-  { href: "/messagerie/brouillons", icon: PenSquare, label: "Brouillons" },
-  { href: "/messagerie/envoyes", icon: Send, label: "Envoyés" },
-  { href: "/messagerie/inbox?q=in%3Aspam", icon: Ban, label: "Indésirables" },
-  { href: "/messagerie/inbox?q=in%3Atrash", icon: Trash2, label: "Corbeille" },
-  { href: "/messagerie/archives", icon: Archive, label: "Archives" },
-];
+type NavDef = { href: string; icon: React.ElementType; label: string; count?: number | null };
 
-const FOLDERS: FolderDef[] = [
-  { href: "/messagerie/pieces-jointes", icon: Paperclip, label: "Pièces jointes" },
-  { href: "/messagerie/dossiers", icon: FileUp, label: "Liés à la GED" },
-];
-
-function NavItem({ folder, pathname }: { folder: FolderDef; pathname: string }) {
-  // Détection « actif » basée sur le pathname seul (pas de useSearchParams →
-  // évite un bascule CSR de toute la zone Messagerie). Les dossiers « catégorie »
-  // (href avec ?q) ne sont pas mis en surbrillance (ils partagent /messagerie/inbox).
-  const hasQuery = folder.href.includes("?");
-  const path = folder.href.split("?")[0];
-  const active = !hasQuery && (pathname === path || (path !== "/messagerie/inbox" && pathname.startsWith(path + "/")));
-  const Icon = folder.icon;
+function NavItem({ item, pathname }: { item: NavDef; pathname: string }) {
+  const path = item.href.split("?")[0];
+  const active = pathname === path || (path !== "/messagerie" && pathname.startsWith(path + "/"));
+  const Icon = item.icon;
   return (
     <Link
-      href={folder.href}
-      className="flex h-10 w-full items-center gap-2.5 rounded-[10px] px-2.5 text-[15px] transition"
+      href={item.href}
+      className="flex h-10 w-full items-center gap-2.5 rounded-[10px] px-2.5 text-[15px] transition hover:bg-[#efeff3]"
       style={{ background: active ? "#e9e9ee" : "transparent", color: "#1d1d1f", fontWeight: active ? 600 : 400 }}
     >
-      <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.9} style={{ color: folder.tone ?? RED }} aria-hidden="true" />
-      <span className="flex-1 truncate">{folder.label}</span>
+      <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.9} style={{ color: RED }} aria-hidden="true" />
+      <span className="flex-1 truncate">{item.label}</span>
+      {item.count != null && item.count > 0 ? (
+        <span className="text-[13px]" style={{ color: active ? RED : MUTED }}>{item.count.toLocaleString("fr-FR")}</span>
+      ) : null}
     </Link>
   );
 }
 
-function Section({ title, children, defaultOpen = true }: { title: string; children: ReactNode; defaultOpen?: boolean }) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <div className="mt-3">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex h-7 w-full items-center gap-1 px-2 text-[12px] font-extrabold uppercase tracking-wide transition hover:opacity-70"
-        style={{ color: MUTED }}
-      >
-        {open ? <ChevronDown className="h-3.5 w-3.5" strokeWidth={2.5} /> : <ChevronRight className="h-3.5 w-3.5" strokeWidth={2.5} />}
-        {title}
-      </button>
-      {open && <div className="mt-0.5 space-y-0.5">{children}</div>}
-    </div>
-  );
-}
+type Props = { children: ReactNode; email?: string | null; counts?: MailSidebarCounts };
 
-type Props = { children: ReactNode; email?: string | null };
-
-export function MessagerieShell({ children, email }: Props) {
+export function MessagerieShell({ children, email, counts }: Props) {
   const pathname = usePathname();
 
   // La page Contacts (espace iCloud-like) gère sa propre pleine largeur.
@@ -102,22 +60,27 @@ export function MessagerieShell({ children, email }: Props) {
     return <>{children}</>;
   }
 
+  const MAIN: NavDef[] = [
+    { href: "/messagerie/inbox", icon: Inbox, label: "Courriels à traiter", count: counts?.toProcess ?? null },
+    { href: "/messagerie/importes", icon: CheckCircle2, label: "Importés en GED", count: counts?.processed ?? null },
+  ];
+  const TOOLS: NavDef[] = [
+    { href: "/messagerie/pieces-jointes", icon: Paperclip, label: "Pièces jointes", count: counts?.attachments ?? null },
+    { href: "/messagerie/expediteurs-masques", icon: EyeOff, label: "Expéditeurs masqués", count: counts?.hidden ?? null },
+    { href: "/messagerie/parametres", icon: Settings, label: "Paramètres des Emails" },
+  ];
+
   return (
     <div className="flex h-[calc(100vh-53px)]" style={{ background: "#fff" }}>
-      {/* ────────────── Colonne 1 — Boîtes aux lettres ────────────── */}
+      {/* ────────────── Colonne 1 — Navigation ────────────── */}
       <aside className="hidden w-[270px] shrink-0 flex-col border-r md:flex" style={{ background: BG, borderColor: LINE }}>
-        {/* Marque */}
         <div className="flex h-14 shrink-0 items-center justify-between px-4">
           <div className="flex items-center gap-2.5 font-extrabold" style={{ color: "#1d1d1f" }}>
             <span className="flex h-[26px] w-[26px] items-center justify-center rounded-lg text-[14px] text-white" style={{ background: RED }}>G</span>
             GEDify Mail
           </div>
-          <Link href="/messagerie/parametres" className="flex h-8 w-8 items-center justify-center rounded-lg transition hover:bg-[#fff0ef]" style={{ color: RED }} aria-label="Réglages">
-            <Settings className="h-[18px] w-[18px]" strokeWidth={1.75} />
-          </Link>
         </div>
 
-        {/* Nouveau message */}
         <button
           type="button"
           onClick={() => openComposer()}
@@ -127,15 +90,15 @@ export function MessagerieShell({ children, email }: Props) {
           <Plus className="h-4 w-4" strokeWidth={2.5} /> Nouveau message
         </button>
 
-        {/* Liste */}
         <div className="min-h-0 flex-1 overflow-y-auto px-2.5 pb-5">
-          <h2 className="px-2 py-2.5 text-[24px] font-extrabold" style={{ color: "#1d1d1f" }}>Boîtes aux lettres</h2>
+          <h2 className="px-2 py-2.5 text-[24px] font-extrabold" style={{ color: "#1d1d1f" }}>Messagerie</h2>
           <div className="space-y-0.5">
-            {MAILBOXES.map((f) => <NavItem key={f.label} folder={f} pathname={pathname} />)}
+            {MAIN.map((f) => <NavItem key={f.label} item={f} pathname={pathname} />)}
           </div>
-          <Section title="Dossiers">
-            {FOLDERS.map((f) => <NavItem key={f.label} folder={f} pathname={pathname} />)}
-          </Section>
+          <div className="my-3 border-t" style={{ borderColor: LINE }} />
+          <div className="space-y-0.5">
+            {TOOLS.map((f) => <NavItem key={f.label} item={f} pathname={pathname} />)}
+          </div>
         </div>
 
         {/* Pied : compte */}
