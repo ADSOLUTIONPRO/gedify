@@ -6,6 +6,8 @@ import { LoginForm } from "./login-form";
 import { BrandLogo } from "@/components/ui/brand-logo";
 import { readSession } from "@/lib/auth/session";
 import { hasAnyUser } from "@/lib/engine/users";
+import { detectStorageAnomaly } from "@/lib/startup/storage-diagnostic";
+import { StorageAnomalyNotice } from "@/components/setup/storage-anomaly-notice";
 
 export const metadata: Metadata = { title: "Connexion — Gedify" };
 
@@ -19,6 +21,13 @@ function safeNext(next: string | undefined): string {
 
 export default async function LoginPage({ searchParams }: { searchParams: SearchParams }) {
   const { next, reason } = await searchParams;
+
+  // Garde-fou : base existante introuvable (volume non monté / chemin modifié).
+  // On bloque l'assistant d'installation pour ne PAS repartir à neuf.
+  const anomaly = await detectStorageAnomaly();
+  if (anomaly) {
+    return <StorageAnomalyNotice reason={anomaly} />;
+  }
 
   // Aucun compte encore créé → écran de première connexion (installation).
   if (!(await hasAnyUser())) {

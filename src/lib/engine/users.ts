@@ -176,9 +176,31 @@ export async function deleteUser(id: number): Promise<void> {
 export async function verifyCredentials(username: string, password: string): Promise<boolean> {
   await ensureBootstrapAdmin();
   const users = await readStore<EngineUser[]>(STORE.users, []);
-  const u = users.find((x) => x.username.toLowerCase() === username.toLowerCase());
-  if (!u || !u.is_active || !u.passwordHash) return false;
-  return bcrypt.compare(password, u.passwordHash);
+  // Recherche tolérante : par identifiant OU par e-mail (trim + lowercase) afin
+  // d'accepter les comptes existants quel que soit le champ saisi à la connexion.
+  const key = username.trim().toLowerCase();
+  const u = users.find(
+    (x) => x.username.trim().toLowerCase() === key || (x.email ?? "").trim().toLowerCase() === key,
+  );
+  const debug = process.env.GEDIFY_AUTH_DEBUG === "1" || process.env.GEDIFY_AUTH_DEBUG === "true";
+  if (!u || !u.is_active || !u.passwordHash) {
+    if (debug) {
+      console.log(
+        `[auth] userFound=${Boolean(u)} accountActive=${Boolean(u?.is_active)} hasPasswordHash=${Boolean(u?.passwordHash)} passwordVerified=false`,
+      );
+    }
+    return false;
+  }
+  const verified = await bcrypt.compare(password, u.passwordHash);
+  if (debug) {
+    const fmt = /^\$2[aby]\$/.test(u.passwordHash)
+      ? "bcrypt"
+      : /^\$argon/i.test(u.passwordHash)
+        ? "argon2"
+        : "unknown";
+    console.log(`[auth] userFound=true accountActive=true passwordHashFormat=${fmt} passwordVerified=${verified}`);
+  }
+  return verified;
 }
 
 /** Profil exposé par /api/profile/ (premier superuser). */

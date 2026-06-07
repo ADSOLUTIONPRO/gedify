@@ -4,10 +4,19 @@ import { ShieldAlert, UserPlus } from "lucide-react";
 import { SetupForm } from "./setup-form";
 import { BrandLogo } from "@/components/ui/brand-logo";
 import { hasAnyUser } from "@/lib/engine/users";
+import { detectStorageAnomaly } from "@/lib/startup/storage-diagnostic";
+import { StorageAnomalyNotice } from "@/components/setup/storage-anomaly-notice";
 
 export const metadata: Metadata = { title: "Première connexion — Gedify" };
 
 export default async function InstallationPage() {
+  // Garde-fou : base existante introuvable → on n'affiche JAMAIS l'assistant de
+  // première installation sur un NAS déjà initialisé (volume non monté).
+  const anomaly = await detectStorageAnomaly();
+  if (anomaly) {
+    return <StorageAnomalyNotice reason={anomaly} />;
+  }
+
   // App déjà initialisée : aucun compte à créer → on renvoie vers la connexion.
   if (await hasAnyUser()) {
     redirect("/login");

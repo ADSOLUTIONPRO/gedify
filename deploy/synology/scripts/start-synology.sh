@@ -28,6 +28,11 @@ if [ -f "$SECRETS_FILE" ]; then
   set +a
 fi
 
+# Diagnostic NON sensible : présence des secrets clés (jamais la valeur).
+[ -n "${AUTH_SECRET:-}" ]    && echo "[start] AUTH_SECRET loaded=true"    || echo "[start] AUTH_SECRET loaded=false"
+[ -n "${SESSION_SECRET:-}" ] && echo "[start] SESSION_SECRET loaded=true" || echo "[start] SESSION_SECRET loaded=false"
+echo "[start] DATA_DIR=${DATA_DIR}  DATABASE_URL set=$([ -n "${DATABASE_URL:-}" ] && echo true || echo false)  mode=${GEDIFY_STORAGE_MODE:-json}"
+
 # 3. Démarrer l'app (server.js standalone à la racine /app).
 cd /app
 exec node server.js
