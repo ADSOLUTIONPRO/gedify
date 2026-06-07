@@ -139,6 +139,9 @@ export function SpaceMenuSidebar({ financeEnabled = true }: { financeEnabled?: b
   // L'espace Messagerie a sa propre sidebar complète (MessagerieShell) → on masque
   // la sidebar générique d'espace ici pour n'en afficher qu'une seule.
   if (pathname.startsWith("/messagerie")) return null;
+  // La page Correspondants est un espace de travail « master-detail » pleine
+  // largeur (liste + fiche) → pas de sidebar secondaire.
+  if (pathname === "/correspondants" || pathname.startsWith("/correspondants?")) return null;
   // Module Finances désactivé : pas de sous-menu finances (l'accès est gardé par
   // /finances/layout.tsx qui affiche le message « espace désactivé »).
   if (!financeEnabled && (pathname.startsWith("/finances") || pathname.startsWith("/budget"))) return null;
