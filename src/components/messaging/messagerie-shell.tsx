@@ -2,7 +2,7 @@
 
 import { type ReactNode, useState } from "react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { openComposer } from "@/lib/messaging/mail-composer-store";
 import {
   Archive,
@@ -54,10 +54,13 @@ const FOLDERS: FolderDef[] = [
   { href: "/messagerie/dossiers", icon: FileUp, label: "Liés à la GED" },
 ];
 
-function NavItem({ folder, pathname, search }: { folder: FolderDef; pathname: string; search: string }) {
-  const [path, q = ""] = folder.href.split("?");
-  const current = pathname + (search ? `?${search}` : "");
-  const active = q ? current === decodeURIComponent(folder.href) || current === folder.href : pathname === path;
+function NavItem({ folder, pathname }: { folder: FolderDef; pathname: string }) {
+  // Détection « actif » basée sur le pathname seul (pas de useSearchParams →
+  // évite un bascule CSR de toute la zone Messagerie). Les dossiers « catégorie »
+  // (href avec ?q) ne sont pas mis en surbrillance (ils partagent /messagerie/inbox).
+  const hasQuery = folder.href.includes("?");
+  const path = folder.href.split("?")[0];
+  const active = !hasQuery && (pathname === path || (path !== "/messagerie/inbox" && pathname.startsWith(path + "/")));
   const Icon = folder.icon;
   return (
     <Link
@@ -93,9 +96,8 @@ type Props = { children: ReactNode; email?: string | null };
 
 export function MessagerieShell({ children, email }: Props) {
   const pathname = usePathname();
-  const search = useSearchParams().toString();
 
-  // La page Contacts (espace iCloud-like bleu) gère sa propre pleine largeur.
+  // La page Contacts (espace iCloud-like) gère sa propre pleine largeur.
   if (pathname.startsWith("/messagerie/contacts")) {
     return <>{children}</>;
   }
@@ -129,10 +131,10 @@ export function MessagerieShell({ children, email }: Props) {
         <div className="min-h-0 flex-1 overflow-y-auto px-2.5 pb-5">
           <h2 className="px-2 py-2.5 text-[24px] font-extrabold" style={{ color: "#1d1d1f" }}>Boîtes aux lettres</h2>
           <div className="space-y-0.5">
-            {MAILBOXES.map((f) => <NavItem key={f.label} folder={f} pathname={pathname} search={search} />)}
+            {MAILBOXES.map((f) => <NavItem key={f.label} folder={f} pathname={pathname} />)}
           </div>
           <Section title="Dossiers">
-            {FOLDERS.map((f) => <NavItem key={f.label} folder={f} pathname={pathname} search={search} />)}
+            {FOLDERS.map((f) => <NavItem key={f.label} folder={f} pathname={pathname} />)}
           </Section>
         </div>
 

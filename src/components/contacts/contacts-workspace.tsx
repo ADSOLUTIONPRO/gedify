@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, RefreshCw, Search, Settings2, Users } from "lucide-react";
 import { initials } from "@/components/messaging/mail-list-utils";
@@ -36,9 +37,11 @@ type ListKey = "all" | "correspondents";
 type Props = {
   contacts: ContactVM[];
   correspondents: ContactVM[];
+  accountConnected?: boolean;
+  importedLinks?: number;
 };
 
-export function ContactsWorkspace({ contacts, correspondents }: Props) {
+export function ContactsWorkspace({ contacts, correspondents, accountConnected = false, importedLinks = 0 }: Props) {
   const router = useRouter();
   const [items, setItems] = useState<ContactVM[]>(contacts);
   const [list, setList] = useState<ListKey>("all");
@@ -149,14 +152,39 @@ export function ContactsWorkspace({ contacts, correspondents }: Props) {
               <span className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl" style={{ background: RED2, color: RED }}>
                 <Users className="h-6 w-6" strokeWidth={1.5} />
               </span>
-              <p className="text-[15px] font-semibold" style={{ color: "#1d1d1f" }}>Aucun contact éligible</p>
-              <p className="mt-1 max-w-[300px] text-[13px] leading-snug">
-                Les contacts apparaissent lorsqu&apos;ils sont liés à des emails non masqués contenant des pièces jointes importées dans la GED.
-              </p>
-              <button type="button" onClick={rebuild} disabled={rebuilding} className="mt-4 inline-flex items-center gap-2 rounded-xl px-4 py-2 text-[13px] font-bold text-white transition hover:opacity-90 disabled:opacity-60" style={{ background: RED }}>
-                {rebuilding ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" strokeWidth={2} />}
-                Synchroniser et reconstruire
-              </button>
+              {list === "all" && !accountConnected ? (
+                <>
+                  <p className="text-[15px] font-semibold" style={{ color: "#1d1d1f" }}>Boîte mail non connectée</p>
+                  <p className="mt-1 max-w-[320px] text-[13px] leading-snug">
+                    Les contacts sont construits à partir de vos emails. Connectez (ou reconnectez) votre boîte pour les afficher.
+                  </p>
+                  <Link href="/emails/connecter?provider=google" className="mt-4 inline-flex items-center gap-2 rounded-xl px-4 py-2 text-[13px] font-bold text-white transition hover:opacity-90" style={{ background: RED }}>
+                    Connecter une boîte mail
+                  </Link>
+                </>
+              ) : list === "all" && importedLinks === 0 ? (
+                <>
+                  <p className="text-[15px] font-semibold" style={{ color: "#1d1d1f" }}>Aucune pièce jointe importée en GED</p>
+                  <p className="mt-1 max-w-[320px] text-[13px] leading-snug">
+                    Un contact apparaît dès qu&apos;un email non masqué a une pièce jointe <strong>importée dans la GED</strong>. Importez des PJ depuis la Messagerie, puis reconstruisez.
+                  </p>
+                  <button type="button" onClick={rebuild} disabled={rebuilding} className="mt-4 inline-flex items-center gap-2 rounded-xl px-4 py-2 text-[13px] font-bold text-white transition hover:opacity-90 disabled:opacity-60" style={{ background: RED }}>
+                    {rebuilding ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" strokeWidth={2} />}
+                    Synchroniser et reconstruire
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-[15px] font-semibold" style={{ color: "#1d1d1f" }}>{query ? "Aucun résultat" : "Aucun contact éligible"}</p>
+                  <p className="mt-1 max-w-[300px] text-[13px] leading-snug">
+                    Les contacts apparaissent lorsqu&apos;ils sont liés à des emails non masqués contenant des pièces jointes importées dans la GED.
+                  </p>
+                  <button type="button" onClick={rebuild} disabled={rebuilding} className="mt-4 inline-flex items-center gap-2 rounded-xl px-4 py-2 text-[13px] font-bold text-white transition hover:opacity-90 disabled:opacity-60" style={{ background: RED }}>
+                    {rebuilding ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" strokeWidth={2} />}
+                    Synchroniser et reconstruire
+                  </button>
+                </>
+              )}
             </div>
           ) : (
             groups.map(([letter, rows]) => (

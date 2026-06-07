@@ -6,11 +6,15 @@ export const dynamic = "force-dynamic";
 
 export default async function MessagerieContactsPage() {
   const [eligible, corrData] = await Promise.all([
-    computeEligibleContacts().catch(() => ({ contacts: [] as Awaited<ReturnType<typeof computeEligibleContacts>>["contacts"] })),
+    computeEligibleContacts().catch(() => null),
     getCorrespondents({ page_size: 1000, ordering: "name" }).catch(() => ({ results: [] as Array<{ id: number; name: string; document_count?: number }> })),
   ]);
 
-  const contacts: ContactVM[] = eligible.contacts.map((c) => ({
+  const eligibleContacts = eligible?.contacts ?? [];
+  const accountConnected = eligible?.report.accountConnected ?? false;
+  const importedLinks = eligible?.report.importedLinks ?? 0;
+
+  const contacts: ContactVM[] = eligibleContacts.map((c) => ({
     id: c.id,
     name: c.displayName,
     organization: c.company,
@@ -36,5 +40,12 @@ export default async function MessagerieContactsPage() {
     documentCount: typeof c.document_count === "number" ? c.document_count : null,
   }));
 
-  return <ContactsWorkspace contacts={contacts} correspondents={correspondents} />;
+  return (
+    <ContactsWorkspace
+      contacts={contacts}
+      correspondents={correspondents}
+      accountConnected={accountConnected}
+      importedLinks={importedLinks}
+    />
+  );
 }
