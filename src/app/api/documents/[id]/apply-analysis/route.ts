@@ -26,6 +26,9 @@ type Overrides = {
   documentTypeName?: string | null;
   tagNames?: string[];
   folderName?: string | null;
+  /** Dossier choisi explicitement (sélecteur visuel) → lien par id, sans
+   *  résolution par nom (évite toute ambiguïté/doublon). Prioritaire. */
+  folderId?: string | null;
   title?: string | null;
   created?: string | null;
 };
@@ -81,7 +84,12 @@ export async function POST(request: NextRequest, { params }: Ctx) {
         await setTitleOverride(documentId, overrides.title.trim(), "user", null, true).catch(() => {});
         applied.push("titre");
       }
-      if (resolved.folder) {
+      // Dossier : id explicite (sélecteur visuel) prioritaire, sinon résolution
+      // par nom/chemin (rétro-compatible avec l'autocomplétion).
+      if (overrides.folderId) {
+        const linked = await linkProjectDocuments(overrides.folderId, [documentId]).catch(() => null);
+        if (linked) applied.push("dossier");
+      } else if (resolved.folder) {
         await linkProjectDocuments(resolved.folder.id, [documentId]).catch(() => {});
         applied.push("dossier");
         if (resolved.folder.created) created.push(resolved.folder.name);

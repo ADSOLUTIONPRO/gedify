@@ -17,6 +17,8 @@ import {
   X,
 } from "lucide-react";
 import { AutocompleteInput, type AutocompleteSuggestion } from "@/components/ui/autocomplete-input";
+import { FolderPickerField } from "@/components/folders/folder-picker-field";
+import type { FolderSelection } from "@/components/folders/folder-picker-modal";
 import { AmountBreakdownEditor, type BreakdownSeed } from "@/components/documents/amount-breakdown-editor";
 import { DocumentSecondaryCorrespondents } from "@/components/documents/document-secondary-correspondents";
 import { formatAmount, type DocumentVM } from "@/components/documents/types";
@@ -169,6 +171,8 @@ export function DocumentAiSheet({ doc, onClose, onApplied }: { doc: DocumentVM; 
   const [appliedFields, setAppliedFields] = useState<string[] | null>(null);
   const [copied, setCopied] = useState(false);
   const [tagQuery, setTagQuery] = useState("");
+  // Sélection EXPLICITE d'un dossier via l'explorateur (conserve l'id réel).
+  const [folderSel, setFolderSel] = useState<FolderSelection | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   // Animation de progression pendant l'analyse.
@@ -223,7 +227,10 @@ export function DocumentAiSheet({ doc, onClose, onApplied }: { doc: DocumentVM; 
             correspondentName: sug.correspondent || null,
             documentTypeName: sug.type || null,
             tagNames: sug.tags,
-            folderName: sug.folder || null,
+            // Dossier choisi dans l'explorateur → id réel (prioritaire) ;
+            // sinon nom suggéré (résolu/créé par chemin côté serveur).
+            folderId: folderSel?.id ?? null,
+            folderName: folderSel ? folderSel.path : (sug.folder || null),
             title: sug.title || null,
             created: sug.dateISO || null,
           },
@@ -378,8 +385,16 @@ export function DocumentAiSheet({ doc, onClose, onApplied }: { doc: DocumentVM; 
                 {/* Section 2 — Classement */}
                 <FicheSection icon={FolderTree} title="Classement automatique">
                   <Field label="Dossier / projet">
-                    <AutocompleteInput endpoint="/api/autocomplete/projects" value={sug.folder} allowCreate placeholder="Dossier…"
-                      onChange={(v, s?: AutocompleteSuggestion) => setSug({ ...sug, folder: s ? s.label : v })} onCreate={(n) => setSug({ ...sug, folder: n })} />
+                    <FolderPickerField
+                      value={folderSel}
+                      allowCreate
+                      onChange={(v) => { setFolderSel(v); setSug((s) => ({ ...s, folder: v ? v.name : "" })); }}
+                    />
+                    {!folderSel && sug.folder ? (
+                      <p className="mt-1 text-[11px]" style={{ color: "var(--text-muted)" }}>
+                        Suggestion IA : <span className="font-semibold" style={{ color: "var(--text-main)" }}>{sug.folder}</span> — cliquez « Parcourir… » pour choisir le dossier exact.
+                      </p>
+                    ) : null}
                   </Field>
                   <div>
                     <span className="mb-1 block text-[11px] font-bold" style={{ color: "var(--text-main)" }}>Tags</span>
