@@ -17,6 +17,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { StatCard } from "@/components/ui/stat-card";
 import { ProjectArchiveButton } from "@/components/projects/project-archive-button";
+import { FolderImportButton } from "@/components/projects/folder-import-button";
+import { FolderDropZone } from "@/components/projects/folder-drop-zone";
 import { ProjectDocumentPicker } from "@/components/projects/project-document-picker";
 import { ProjectLinkedDocuments } from "@/components/projects/project-linked-documents";
 import { ProjectPriorityBadge } from "@/components/projects/project-priority-badge";
@@ -111,7 +113,8 @@ export default async function DossierDetailPage({ params }: DossierDetailPagePro
     const lastActivity = project.timeline[0]?.at ?? project.updatedAt;
 
     return (
-      <main className="p-4 lg:p-8">
+      <main className="relative p-4 lg:p-8">
+        <FolderDropZone folderId={project.id} folderName={project.name} />
         <PageHeader
           eyebrow="Dossiers / Projets"
           title={project.name}
@@ -133,6 +136,7 @@ export default async function DossierDetailPage({ params }: DossierDetailPagePro
                 <FolderKanban className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                 Sous-dossier
               </Link>
+              <FolderImportButton folderId={project.id} folderName={project.name} />
               <a
                 href="#ajouter-documents"
                 className="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 px-4 text-sm font-semibold text-slate-700 shadow-sm backdrop-blur transition hover:bg-white"
