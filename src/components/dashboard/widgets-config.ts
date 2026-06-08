@@ -6,6 +6,7 @@
 export type WidgetKey =
   | "quick-actions"
   | "activite-recente"
+  | "epingles"
   | "documents"
   | "messagerie"
   | "finances"
@@ -20,6 +21,7 @@ export type WidgetDef = { key: WidgetKey; label: string };
 /** Ordre = ordre d'affichage dans le panneau « Widgets dashboard ». */
 export const DASHBOARD_WIDGETS: WidgetDef[] = [
   { key: "quick-actions", label: "Actions rapides" },
+  { key: "epingles", label: "Dossiers épinglés" },
   { key: "documents", label: "Documents" },
   { key: "messagerie", label: "Messagerie" },
   { key: "finances", label: "Finances" },
@@ -31,7 +33,7 @@ export const DASHBOARD_WIDGETS: WidgetDef[] = [
 ];
 
 /** Widgets de la grille de cartes (sous la ligne « Vue d'ensemble / Actions »). */
-export type GridWidgetKey = "documents" | "messagerie" | "finances" | "ia" | "calendrier" | "contacts" | "rappels" | "administration";
+export type GridWidgetKey = "epingles" | "documents" | "messagerie" | "finances" | "ia" | "calendrier" | "contacts" | "rappels" | "administration";
 export const GRID_WIDGETS: { key: GridWidgetKey; spaceId: string }[] = [
   { key: "documents", spaceId: "documents" },
   { key: "messagerie", spaceId: "messagerie" },

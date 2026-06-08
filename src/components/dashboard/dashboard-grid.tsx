@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import {
   ChevronDown,
   ChevronUp,
   LayoutGrid,
+  Pin,
   RefreshCw,
   Save,
   Settings2,
@@ -14,6 +16,7 @@ import type { DashboardData } from "@/lib/spaces/dashboard-data";
 import { QuickActionsCard } from "@/components/dashboard/quick-actions-card";
 import { StatWidget } from "@/components/dashboard/stat-widget";
 import { ListWidget } from "@/components/dashboard/list-widget";
+import { PinnedFoldersWidget } from "@/components/dashboard/pinned-folders-widget";
 import {
   DASHBOARD_WIDGETS,
   DASHBOARD_WIDGETS_STORAGE_KEY,
@@ -27,7 +30,7 @@ import {
 type Visibility = Record<WidgetKey, boolean>;
 
 const ORDER_KEY = "ged-dashboard-order";
-const DEFAULT_GRID_ORDER: GridWidgetKey[] = ["documents", "messagerie", "finances", "ia", "calendrier", "contacts", "rappels", "administration"];
+const DEFAULT_GRID_ORDER: GridWidgetKey[] = ["epingles", "documents", "messagerie", "finances", "ia", "calendrier", "contacts", "rappels", "administration"];
 
 const EURO = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
 
@@ -70,6 +73,21 @@ function renderGridWidget(
   dragHandleProps: React.HTMLAttributes<HTMLDivElement>,
 ) {
   switch (key) {
+    case "epingles":
+      return (
+        <section className="flex h-full flex-col rounded-2xl border bg-white p-4" style={{ borderColor: "var(--border)" }}>
+          <div className="mb-3 flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>
+              <Pin className="h-4 w-4" strokeWidth={1.85} aria-hidden="true" />
+            </span>
+            <h3 className="text-[14px] font-extrabold" style={{ color: "var(--text-main)" }}>Dossiers épinglés</h3>
+            <Link href="/organiser" className="ml-auto text-[12px] font-bold" style={{ color: "var(--accent)" }}>Organiser</Link>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <PinnedFoldersWidget />
+          </div>
+        </section>
+      );
     case "documents":
       return (
         <StatWidget
@@ -175,7 +193,14 @@ export function DashboardGrid({ data, userName }: { data: DashboardData; userNam
       .then((d: { layout?: { visibility?: Record<string, boolean>; order?: GridWidgetKey[] } | null }) => {
         if (cancelled || !d.layout) return;
         if (d.layout.visibility) setVisible((prev) => ({ ...prev, ...d.layout!.visibility }));
-        if (Array.isArray(d.layout.order) && d.layout.order.length) { setOrder(d.layout.order); savedOrder.current = d.layout.order; }
+        if (Array.isArray(d.layout.order) && d.layout.order.length) {
+          // Append les widgets ajoutés depuis (ex. « epingles ») absents de la
+          // disposition enregistrée, sinon ils n'apparaîtraient jamais.
+          const missing = DEFAULT_GRID_ORDER.filter((k) => !d.layout!.order!.includes(k));
+          const merged = [...d.layout.order, ...missing];
+          setOrder(merged);
+          savedOrder.current = merged;
+        }
       })
       .catch(() => {});
     return () => { cancelled = true; };
