@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation";
 import { openComposer } from "@/lib/messaging/mail-composer-store";
 import type { ProposedAction, QuickSuggestion } from "@/lib/assistant/assistant-types";
+import { useConversations } from "@/lib/assistant/use-conversations";
 import { useAssistantContext } from "./assistant-context-provider";
 import { AiAssistantButton } from "./ai-assistant-button";
 import { AiAssistantPanel } from "./ai-assistant-panel";
@@ -39,8 +40,12 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
 function AssistantWidget() {
   const router = useRouter();
   const context = useAssistantContext();
+  const {
+    activeId, title, messages, conversations, saving,
+    appendLocal, ensureConversation, persistMessages,
+    newChat, openConversation, rename, setArchived, remove,
+  } = useConversations();
   const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<UiMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [configured, setConfigured] = useState(true);
   const [actionStates, setActionStates] = useState<Record<string, ActionRuntimeState>>({});
@@ -78,9 +83,14 @@ function AssistantWidget() {
       const trimmed = text.trim();
       if (!trimmed || loading) return;
 
+      // Garantit une conversation persistée (création paresseuse au 1er message).
+      const convId = await ensureConversation();
       const history = messages.map((m) => ({ role: m.role, content: m.content }));
-      setMessages((prev) => [...prev, { id: uid(), role: "user", content: trimmed }]);
+      const userMsg: UiMessage = { id: uid(), role: "user", content: trimmed };
+      appendLocal([userMsg]);
       setLoading(true);
+      // #14 : enregistrer le message utilisateur AVANT de lancer la requête IA.
+      if (convId) await persistMessages(convId, [{ id: userMsg.id, role: "user", content: trimmed }]);
       try {
         const res = await fetch("/api/assistant/chat", {
           method: "POST",
@@ -91,30 +101,34 @@ function AssistantWidget() {
         const data = await res.json();
         if (data?.error === "not_configured") setConfigured(false);
         const actions: ProposedAction[] = Array.isArray(data?.proposedActions) ? data.proposedActions : [];
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: uid(),
+        const documentRefs = Array.isArray(data?.documentRefs) ? data.documentRefs : [];
+        const reply = typeof data?.reply === "string" ? data.reply : "Réponse vide.";
+        const assistantMsg: UiMessage = { id: uid(), role: "assistant", content: reply, proposedActions: actions, documentRefs };
+        appendLocal([assistantMsg]);
+        if (convId) {
+          await persistMessages(convId, [{
+            id: assistantMsg.id,
             role: "assistant",
-            content: typeof data?.reply === "string" ? data.reply : "Réponse vide.",
-            proposedActions: actions,
-            documentRefs: Array.isArray(data?.documentRefs) ? data.documentRefs : [],
-          },
-        ]);
+            content: reply,
+            metadata: actions.length > 0 ? { proposedActions: actions } : null,
+            documentRefs,
+          }]);
+        }
         // Mode auto : exécute immédiatement les actions sûres (sans confirmation).
         if (data?.autoApplySafe) {
           for (const a of actions) if (a.requiresConfirmation === false) confirmRef.current(a);
         }
       } catch {
-        setMessages((prev) => [
-          ...prev,
-          { id: uid(), role: "assistant", content: "Erreur réseau : impossible de joindre l'assistant.", error: true },
-        ]);
+        // #14 : en cas d'erreur, le message utilisateur reste, l'erreur s'affiche
+        // et est conservée — on n'efface jamais la conversation.
+        const errMsg: UiMessage = { id: uid(), role: "assistant", content: "Erreur réseau : impossible de joindre l'assistant.", error: true };
+        appendLocal([errMsg]);
+        if (convId) await persistMessages(convId, [{ id: errMsg.id, role: "assistant", content: errMsg.content, error: true }]);
       } finally {
         setLoading(false);
       }
     },
-    [loading, messages, context],
+    [loading, messages, context, ensureConversation, appendLocal, persistMessages],
   );
 
   const runClientAction = useCallback(
@@ -203,6 +217,15 @@ function AssistantWidget() {
           onConfirm={confirm}
           onCancel={cancel}
           onView={view}
+          conversationTitle={title}
+          activeConversationId={activeId}
+          conversations={conversations}
+          saving={saving}
+          onNewChat={newChat}
+          onOpenConversation={openConversation}
+          onRenameConversation={rename}
+          onArchiveConversation={setArchived}
+          onDeleteConversation={remove}
         />
       ) : null}
     </>

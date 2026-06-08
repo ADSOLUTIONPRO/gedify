@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Settings2, Sparkles, X } from "lucide-react";
+import { History, Loader2, MessageSquarePlus, Save, Settings2, Sparkles, X } from "lucide-react";
 import { AiAssistantMessageList, type ActionRuntimeState, type UiMessage } from "./ai-assistant-message-list";
 import { AiAssistantInput } from "./ai-assistant-input";
 import { AiAssistantSuggestions } from "./ai-assistant-suggestions";
+import { ConversationHistory } from "./conversation-history";
+import type { ConversationSummary } from "@/lib/assistant/use-conversations";
 import type { ProposedAction, QuickSuggestion } from "@/lib/assistant/assistant-types";
 
 type AssistantSettingsState = { actionsEnabled: boolean; autoApplySafe: boolean };
@@ -22,6 +24,15 @@ export function AiAssistantPanel({
   onConfirm,
   onCancel,
   onView,
+  conversationTitle,
+  activeConversationId,
+  conversations,
+  saving,
+  onNewChat,
+  onOpenConversation,
+  onRenameConversation,
+  onArchiveConversation,
+  onDeleteConversation,
 }: {
   onClose: () => void;
   messages: UiMessage[];
@@ -35,9 +46,19 @@ export function AiAssistantPanel({
   onConfirm: (action: ProposedAction) => void;
   onCancel: (action: ProposedAction) => void;
   onView: (action: ProposedAction) => void;
+  conversationTitle: string;
+  activeConversationId: string | null;
+  conversations: ConversationSummary[];
+  saving: boolean;
+  onNewChat: () => void;
+  onOpenConversation: (id: string) => void;
+  onRenameConversation: (id: string, title: string) => void;
+  onArchiveConversation: (id: string, archived: boolean) => void;
+  onDeleteConversation: (id: string) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -52,16 +73,42 @@ export function AiAssistantPanel({
     >
       {/* Header */}
       <div className="flex items-center justify-between px-3.5 py-3 text-white" style={{ background: "var(--gedify-navy)" }}>
-        <div className="flex items-center gap-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: "linear-gradient(135deg,#7C3AED,#F75C8D)" }}>
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ background: "linear-gradient(135deg,#7C3AED,#F75C8D)" }}>
             <Sparkles className="h-4 w-4" strokeWidth={2.25} aria-hidden="true" />
           </span>
-          <div className="leading-tight">
-            <p className="text-[13px] font-bold">Assistant IA Gedify</p>
-            <p className="text-[10.5px] opacity-80">{configured ? "Connecté · OpenAI" : "Moteur IA non configuré"}</p>
+          <div className="min-w-0 leading-tight">
+            <p className="truncate text-[13px] font-bold" title={conversationTitle}>{conversationTitle || "Assistant IA Gedify"}</p>
+            <p className="flex items-center gap-1 text-[10.5px] opacity-80">
+              {saving ? (
+                <><Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> Enregistrement…</>
+              ) : activeConversationId ? (
+                <><Save className="h-3 w-3" strokeWidth={2} aria-hidden="true" /> Conversation enregistrée</>
+              ) : (
+                <>{configured ? "Connecté · OpenAI" : "Moteur IA non configuré"}</>
+              )}
+            </p>
           </div>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={() => { setShowHistory(false); onNewChat(); }}
+            aria-label="Nouveau chat"
+            title="Nouveau chat"
+            className="rounded-lg p-1.5 transition hover:bg-white/15"
+          >
+            <MessageSquarePlus className="h-4 w-4" strokeWidth={2} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowHistory((s) => !s)}
+            aria-label="Historique des conversations"
+            title="Historique"
+            className={`rounded-lg p-1.5 transition hover:bg-white/15 ${showHistory ? "bg-white/15" : ""}`}
+          >
+            <History className="h-4 w-4" strokeWidth={2} />
+          </button>
           <button
             type="button"
             onClick={() => setShowSettings((s) => !s)}
@@ -94,35 +141,48 @@ export function AiAssistantPanel({
         </div>
       ) : null}
 
-      {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-3" style={{ background: "var(--bg-page)" }}>
-        {messages.length === 0 ? (
-          <div className="flex flex-col gap-3">
-            <div className="rounded-2xl border bg-white p-3 text-[13px]" style={{ borderColor: "var(--border)", color: "var(--text-main)" }}>
-              Bonjour 👋 Je suis votre copilote Gedify. Je connais la page où vous êtes et je peux chercher dans vos documents (OCR, fiches IA), classer, taguer, gérer le budget et les rappels. Demandez-moi quelque chose, ou choisissez :
-            </div>
-            <AiAssistantSuggestions suggestions={suggestions} onPick={onSend} disabled={loading} />
+      {showHistory ? (
+        <ConversationHistory
+          conversations={conversations}
+          activeId={activeConversationId}
+          onOpen={(id) => { onOpenConversation(id); setShowHistory(false); }}
+          onRename={onRenameConversation}
+          onArchive={onArchiveConversation}
+          onDelete={onDeleteConversation}
+        />
+      ) : (
+        <>
+          {/* Messages */}
+          <div ref={scrollRef} className="flex-1 overflow-y-auto p-3" style={{ background: "var(--bg-page)" }}>
+            {messages.length === 0 ? (
+              <div className="flex flex-col gap-3">
+                <div className="rounded-2xl border bg-white p-3 text-[13px]" style={{ borderColor: "var(--border)", color: "var(--text-main)" }}>
+                  Bonjour 👋 Je suis votre copilote Gedify. Je connais la page où vous êtes et je peux chercher dans vos documents (OCR, fiches IA), classer, taguer, gérer le budget et les rappels. Demandez-moi quelque chose, ou choisissez :
+                </div>
+                <AiAssistantSuggestions suggestions={suggestions} onPick={onSend} disabled={loading} />
+              </div>
+            ) : (
+              <AiAssistantMessageList
+                messages={messages}
+                loading={loading}
+                actionStates={actionStates}
+                onConfirm={onConfirm}
+                onCancel={onCancel}
+                onView={onView}
+              />
+            )}
           </div>
-        ) : (
-          <AiAssistantMessageList
-            messages={messages}
-            loading={loading}
-            actionStates={actionStates}
-            onConfirm={onConfirm}
-            onCancel={onCancel}
-            onView={onView}
-          />
-        )}
-      </div>
 
-      {/* Suggestions persistantes (quand conversation démarrée) */}
-      {messages.length > 0 ? (
-        <div className="border-t px-2.5 py-2" style={{ borderColor: "var(--border)" }}>
-          <AiAssistantSuggestions suggestions={suggestions.slice(0, 4)} onPick={onSend} disabled={loading} />
-        </div>
-      ) : null}
+          {/* Suggestions persistantes (quand conversation démarrée) */}
+          {messages.length > 0 ? (
+            <div className="border-t px-2.5 py-2" style={{ borderColor: "var(--border)" }}>
+              <AiAssistantSuggestions suggestions={suggestions.slice(0, 4)} onPick={onSend} disabled={loading} />
+            </div>
+          ) : null}
 
-      <AiAssistantInput onSend={onSend} loading={loading} />
+          <AiAssistantInput onSend={onSend} loading={loading} />
+        </>
+      )}
     </div>
   );
 }
