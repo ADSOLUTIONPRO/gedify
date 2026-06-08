@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarClock, CheckSquare, Loader2, MapPin, Trash2, X } from "lucide-react";
 
-type CalendarOpt = { id: string; name: string; provider: "local" | "google"; color: string; readOnly: boolean; primary?: boolean };
+type CalendarOpt = { id: string; name: string; provider: "local" | "google" | "icloud"; color: string; readOnly: boolean; primary?: boolean };
 
 /* ────────────────────────────────────────────────────────────────────────
    Création d'un RENDEZ-VOUS ou d'une TÂCHE, depuis n'importe quelle source
@@ -242,7 +242,7 @@ export function CreateCalendarItemModal({
                   <select value={calendarId} onChange={(e) => setCalendarId(e.target.value)} className={inputCls}>
                     {calendars.map((c) => (
                       <option key={c.id} value={c.id}>
-                        {c.name}{c.provider === "google" ? " · Google" : ""}
+                        {c.name}{c.provider === "google" ? " · Google" : c.provider === "icloud" ? " · iCloud" : ""}
                       </option>
                     ))}
                   </select>

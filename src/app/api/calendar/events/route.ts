@@ -5,6 +5,8 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { createEvent, listEvents, updateEvent, type CalendarEventInput } from "@/lib/calendar/calendar-event-store";
 import { getActiveGmailAccount } from "@/lib/messaging/active-gmail-account";
 import { pushEventToGoogle } from "@/lib/calendar/google-sync";
+import { getCalDavAccountForCalendar } from "@/lib/connectors/caldav/caldav-credentials-store";
+import { pushEventToCalDav } from "@/lib/calendar/caldav-sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,11 +46,19 @@ export async function POST(req: NextRequest) {
     // Synchro GEDify → Google : si l'agenda cible est un agenda Google, créer
     // l'événement chez Google et mémoriser son externalId (bidirectionnel).
     if (event.calendarId && event.calendarId !== "local") {
+      const dav = await getCalDavAccountForCalendar(event.calendarId);
       try {
-        const account = await getActiveGmailAccount();
-        if (account) {
-          const { externalId, conferenceUrl } = await pushEventToGoogle(account.accountId, event.calendarId, event, { requestConference });
-          event = (await updateEvent(u, event.id, { provider: "google", externalId, conferenceUrl: conferenceUrl ?? event.conferenceUrl, syncStatus: "synced", lastSyncedAt: new Date().toISOString() })) ?? event;
+        if (dav) {
+          // Agenda CalDAV (iCloud) → PUT de l'objet .ics.
+          const { externalId, etag } = await pushEventToCalDav({ username: dav.username, password: dav.password }, event.calendarId, event);
+          event = (await updateEvent(u, event.id, { provider: "icloud", externalId, etag, syncStatus: "synced", lastSyncedAt: new Date().toISOString() })) ?? event;
+        } else {
+          // Sinon agenda Google.
+          const account = await getActiveGmailAccount();
+          if (account) {
+            const { externalId, conferenceUrl } = await pushEventToGoogle(account.accountId, event.calendarId, event, { requestConference });
+            event = (await updateEvent(u, event.id, { provider: "google", externalId, conferenceUrl: conferenceUrl ?? event.conferenceUrl, syncStatus: "synced", lastSyncedAt: new Date().toISOString() })) ?? event;
+          }
         }
       } catch (e) {
         event = (await updateEvent(u, event.id, { syncStatus: "error", syncError: e instanceof Error ? e.message : "push" })) ?? event;

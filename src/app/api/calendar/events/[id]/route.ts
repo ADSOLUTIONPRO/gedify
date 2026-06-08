@@ -5,6 +5,8 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { deleteEvent, getEvent, updateEvent, type CalendarEventInput } from "@/lib/calendar/calendar-event-store";
 import { getActiveGmailAccount } from "@/lib/messaging/active-gmail-account";
 import { deleteEventFromGoogle, pushEventToGoogle } from "@/lib/calendar/google-sync";
+import { getCalDavAccountForCalendar } from "@/lib/connectors/caldav/caldav-credentials-store";
+import { deleteEventFromCalDav, pushEventToCalDav } from "@/lib/calendar/caldav-sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,13 +44,21 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     const requestConference = Boolean((patch as Record<string, unknown>).requestConference);
     let event = await updateEvent(u, id, patch);
     if (!event) return NextResponse.json({ error: "Événement introuvable." }, { status: 404 });
-    // Propage la modification vers Google si l'événement y est synchronisé.
-    if (event.provider === "google" && event.externalId && event.calendarId && event.calendarId !== "local") {
+    // Propage la modification vers le fournisseur si l'événement y est synchronisé.
+    if (event.externalId && event.calendarId && event.calendarId !== "local") {
       try {
-        const account = await getActiveGmailAccount();
-        if (account) {
-          const { conferenceUrl } = await pushEventToGoogle(account.accountId, event.calendarId, event, { requestConference });
-          event = (await updateEvent(u, id, { syncStatus: "synced", lastSyncedAt: new Date().toISOString(), ...(conferenceUrl ? { conferenceUrl } : {}) })) ?? event;
+        if (event.provider === "icloud") {
+          const dav = await getCalDavAccountForCalendar(event.calendarId);
+          if (dav) {
+            const { etag } = await pushEventToCalDav({ username: dav.username, password: dav.password }, event.calendarId, event);
+            event = (await updateEvent(u, id, { etag, syncStatus: "synced", lastSyncedAt: new Date().toISOString() })) ?? event;
+          }
+        } else if (event.provider === "google") {
+          const account = await getActiveGmailAccount();
+          if (account) {
+            const { conferenceUrl } = await pushEventToGoogle(account.accountId, event.calendarId, event, { requestConference });
+            event = (await updateEvent(u, id, { syncStatus: "synced", lastSyncedAt: new Date().toISOString(), ...(conferenceUrl ? { conferenceUrl } : {}) })) ?? event;
+          }
         }
       } catch (e) {
         event = (await updateEvent(u, id, { syncStatus: "error", syncError: e instanceof Error ? e.message : "push" })) ?? event;
@@ -69,13 +79,18 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
     const existing = await getEvent(u, id);
     const ok = await deleteEvent(u, id);
     if (!ok) return NextResponse.json({ error: "Événement introuvable." }, { status: 404 });
-    // Supprime aussi côté Google si l'événement y était synchronisé (best-effort).
-    if (existing?.provider === "google" && existing.externalId && existing.calendarId && existing.calendarId !== "local") {
+    // Supprime aussi chez le fournisseur si l'événement y était synchronisé (best-effort).
+    if (existing?.externalId && existing.calendarId && existing.calendarId !== "local") {
       try {
-        const account = await getActiveGmailAccount();
-        if (account) await deleteEventFromGoogle(account.accountId, existing.calendarId, existing.externalId);
+        if (existing.provider === "icloud") {
+          const dav = await getCalDavAccountForCalendar(existing.calendarId);
+          if (dav) await deleteEventFromCalDav({ username: dav.username, password: dav.password }, existing.externalId, existing.etag);
+        } else if (existing.provider === "google") {
+          const account = await getActiveGmailAccount();
+          if (account) await deleteEventFromGoogle(account.accountId, existing.calendarId, existing.externalId);
+        }
       } catch {
-        /* l'événement local est déjà supprimé ; l'écart Google sera résorbé au prochain pull. */
+        /* l'événement local est déjà supprimé ; l'écart distant sera résorbé au prochain pull. */
       }
     }
     return NextResponse.json({ ok: true });

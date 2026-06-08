@@ -3,6 +3,7 @@ import { jsonError } from "@/lib/api-utils";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { getActiveGmailAccount } from "@/lib/messaging/active-gmail-account";
 import { listCalendars } from "@/lib/connectors/google/calendar-api";
+import { listCalDavAccounts } from "@/lib/connectors/caldav/caldav-credentials-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
 export type CalendarOption = {
   id: string;
   name: string;
-  provider: "local" | "google";
+  provider: "local" | "google" | "icloud";
   color: string;
   readOnly: boolean;
   primary?: boolean;
@@ -47,6 +48,25 @@ export async function GET(req: NextRequest) {
       }
     } catch {
       /* scope calendar manquant / compte non connecté → seul l'agenda local. */
+    }
+    // Agendas CalDAV (iCloud…) connectés.
+    try {
+      const davAccounts = await listCalDavAccounts();
+      let i = 0;
+      for (const acc of davAccounts) {
+        for (const cal of acc.calendars) {
+          calendars.push({
+            id: cal.url,
+            name: cal.displayName,
+            provider: "icloud",
+            color: cal.color ?? PALETTE[i % PALETTE.length],
+            readOnly: false,
+          });
+          i += 1;
+        }
+      }
+    } catch {
+      /* pas de compte CalDAV → ignoré. */
     }
     return NextResponse.json({ calendars });
   } catch (error) {

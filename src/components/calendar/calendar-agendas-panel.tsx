@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { CheckSquare } from "lucide-react";
 import { getHiddenCalendars, setCalendarHidden, subscribeCalendarVisibility } from "@/lib/calendar/calendar-visibility-store";
+import { CalDavConnect } from "@/components/calendar/caldav-connect";
 
-type CalendarOpt = { id: string; name: string; provider: "local" | "google"; color: string; readOnly: boolean; primary?: boolean };
+type CalendarOpt = { id: string; name: string; provider: "local" | "google" | "icloud"; color: string; readOnly: boolean; primary?: boolean };
 
 /* Panneau « Agendas » de la sidebar : liste l'agenda local + les agendas Google
    connectés, chacun avec une case à cocher (afficher/masquer) et sa couleur.
@@ -57,7 +58,7 @@ export function CalendarAgendasPanel() {
                 {on ? <span className="text-[9px] font-bold leading-none text-white">✓</span> : null}
               </span>
               <span className="min-w-0 flex-1 truncate" style={{ opacity: on ? 1 : 0.55 }}>{c.name}</span>
-              {c.provider === "google" ? <span className="shrink-0 text-[9px] font-bold" style={{ color: "var(--text-hint)" }}>G</span> : null}
+              {c.provider !== "local" ? <span className="shrink-0 text-[9px] font-bold uppercase" style={{ color: "var(--text-hint)" }}>{c.provider === "google" ? "G" : "iC"}</span> : null}
             </button>
           );
         })}
@@ -68,6 +69,8 @@ export function CalendarAgendasPanel() {
         <span className="flex items-center gap-2"><CheckSquare className="h-3.5 w-3.5" style={{ color: "var(--gedify-info)" }} strokeWidth={1.85} /> Tâches</span>
         <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: "var(--gedify-orange)" }} /> Échéances</span>
       </div>
+
+      <CalDavConnect />
     </div>
   );
 }
