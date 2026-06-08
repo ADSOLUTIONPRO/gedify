@@ -97,15 +97,19 @@ type Suggestions = {
 function fromVM(doc: DocumentVM): Suggestions {
   const ai = doc.ai;
   const dates = ai?.dates ?? [];
+  // PRIORITÉ AUX VALEURS ACTIVES DU DOCUMENT (modifications manuelles validées)
+  // sur les suggestions IA : à la réouverture, le formulaire reflète ce qui est
+  // réellement enregistré, jamais l'ancienne proposition OCR/IA. Les suggestions
+  // restent disponibles via « Relancer » (fromAnalysis).
   return {
     title: doc.displayTitle,
     summary: ai?.summary ?? "",
-    correspondent: ai?.correspondentName ?? doc.correspondentName ?? "",
-    type: ai?.typeName ?? doc.typeName ?? ai?.kind ?? "",
+    correspondent: doc.correspondentName ?? ai?.correspondentName ?? "",
+    type: doc.typeName ?? ai?.typeName ?? ai?.kind ?? "",
     folder: "",
-    tags: ai?.tagNames?.length ? [...ai.tagNames] : doc.tags.map((t) => t.name),
-    dateISO: pickDocDate(dates) || doc.createdISO || "",
-    dueISO: dates.find((d) => DUE_RE.test(d.label))?.iso ?? "",
+    tags: doc.tags.length ? doc.tags.map((t) => t.name) : (ai?.tagNames ?? []),
+    dateISO: doc.createdISO || pickDocDate(dates) || "",
+    dueISO: doc.due?.iso ?? dates.find((d) => DUE_RE.test(d.label))?.iso ?? "",
     amountLabel: ai?.amounts?.[0]?.formatted ?? (doc.amount ? formatAmount(doc.amount.amount, doc.amount.currency) : ""),
     budgetLabel: "",
     confidence: ai?.confidence ?? "",
@@ -557,7 +561,7 @@ export function DocumentAiSheet({ doc, onClose, onApplied }: { doc: DocumentVM; 
               <Btn onClick={() => void launch()} disabled={busy}><RefreshCw className="h-4 w-4" strokeWidth={2} /> Relancer</Btn>
               <button type="button" onClick={() => void apply()} disabled={busy} className={`${primaryBtn} disabled:opacity-50`} style={{ background: "var(--gedify-green)" }}>
                 {phase === "applying" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" strokeWidth={2.5} />}
-                Appliquer les suggestions
+                Enregistrer les modifications
               </button>
               <Btn onClick={onClose}>Fermer</Btn>
             </>
