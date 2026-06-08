@@ -9,10 +9,12 @@ export function CreateCalendarItemButton({
   source = { sourceType: "manual" },
   className,
   label = "Nouveau RDV / Tâche",
+  defaultTab = "event",
 }: {
   source?: CalendarItemSource;
   className?: string;
   label?: string;
+  defaultTab?: "event" | "task";
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -21,12 +23,12 @@ export function CreateCalendarItemButton({
         type="button"
         onClick={() => setOpen(true)}
         className={className ?? "inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-white transition hover:opacity-90"}
-        style={className ? undefined : { background: "var(--accent)" }}
+        style={{ background: "var(--accent)" }}
       >
         <CalendarPlus className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
         {label}
       </button>
-      {open ? <CreateCalendarItemModal source={source} onClose={() => setOpen(false)} /> : null}
+      {open ? <CreateCalendarItemModal source={source} defaultTab={defaultTab} onClose={() => setOpen(false)} /> : null}
     </>
   );
 }
