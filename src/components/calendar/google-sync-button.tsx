@@ -19,6 +19,8 @@ export function GoogleSyncButton() {
       if (!res.ok || !data.ok) throw new Error(data.message ?? `HTTP ${res.status}`);
       const r = data.report;
       setMsg({ ok: true, text: r ? `${r.imported} importé(s), ${r.updated} à jour` : "Synchronisé" });
+      // Force le re-fetch des événements dans l'AgendaCalendar (composant client).
+      window.dispatchEvent(new CustomEvent("gedify-calendar-refresh"));
       router.refresh();
     } catch (e) {
       setMsg({ ok: false, text: e instanceof Error ? e.message : "Synchro impossible." });

@@ -115,6 +115,32 @@ export function AgendaCalendar({
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void load(); }, [load]);
 
+  // Référence vers le dernier `load` (pour les rechargements hors cycle de rendu).
+  const loadRef = useRef(load);
+  useEffect(() => { loadRef.current = load; }, [load]);
+
+  // Auto-synchro (PULL) des agendas externes au montage : les événements Google
+  // (et iCloud) sont importés dans le socle puis affichés. Non bloquant.
+  const syncedRef = useRef(false);
+  useEffect(() => {
+    if (syncedRef.current) return;
+    syncedRef.current = true;
+    void (async () => {
+      await Promise.allSettled([
+        fetch("/api/calendar/sync", { method: "POST", credentials: "include" }),
+        fetch("/api/calendar/caldav/sync", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: "{}" }),
+      ]);
+      await loadRef.current();
+    })();
+  }, []);
+
+  // Rafraîchissement à la demande (déclenché après une synchro manuelle).
+  useEffect(() => {
+    const handler = () => { void loadRef.current(); };
+    window.addEventListener("gedify-calendar-refresh", handler);
+    return () => window.removeEventListener("gedify-calendar-refresh", handler);
+  }, []);
+
   const visibleEvents = useMemo(() => events.filter((e) => !hidden.has(calKeyOf(e))), [events, hidden]);
   const colorOf = useCallback((e: Evt) => e.color ?? calColors[calKeyOf(e)] ?? "var(--gedify-purple)", [calColors]);
 
