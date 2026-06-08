@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { SpaceLayout } from "@/components/layout/space-layout";
 import { LearnedTemplatesManager } from "@/components/admin/learned-templates-manager";
+import { LearningHistoryPanel } from "@/components/ai/learning-history-panel";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Modèles IA appris — Gedify" };
@@ -16,6 +17,9 @@ export default function DocumentsModelesIaPage() {
         </p>
       </header>
       <LearnedTemplatesManager />
+      <div className="mt-5">
+        <LearningHistoryPanel />
+      </div>
     </SpaceLayout>
   );
 }

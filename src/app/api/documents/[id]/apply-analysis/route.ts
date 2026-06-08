@@ -7,6 +7,7 @@ import { getLatestAnalysisForDocument, upsertAnalysis } from "@/lib/ai/ai-analys
 import { resolveClassification } from "@/lib/ai/resolve-classification";
 import { computeDocumentFingerprint } from "@/lib/ai/document-fingerprint";
 import { learnFromValidation } from "@/lib/ai/learned-templates-store";
+import { recordLearningEvents } from "@/lib/ai/learning-history-store";
 import { getDocument, updateDocument } from "@/lib/paperless";
 import { setTitleOverride } from "@/lib/documents/document-title-store";
 import { linkProjectDocuments } from "@/lib/projects/project-store";
@@ -122,6 +123,15 @@ export async function POST(request: NextRequest, { params }: Ctx) {
           budgetMapping,
           fingerprint: computeDocumentFingerprint(doc, doc.content ?? ""),
         });
+        // Historique d'apprentissage par champ : valeur IA proposée vs valeur
+        // validée → savoir si l'IA s'était trompée (§14/§20).
+        await recordLearningEvents([
+          { documentId, field: "documentType", aiValue: latest?.suggestedDocumentTypeName ?? null, validatedValue: resolved.documentType?.name ?? overrides.documentTypeName ?? null, source: "manual", templateId: template.id, user },
+          { documentId, field: "correspondent", aiValue: latest?.suggestedCorrespondentName ?? null, validatedValue: resolved.correspondent?.name ?? overrides.correspondentName ?? null, source: "manual", templateId: template.id, user },
+          { documentId, field: "tags", aiValue: (latest?.suggestedTagNames ?? []).join(", ") || null, validatedValue: resolved.tags.map((t) => t.name).join(", ") || null, source: "manual", templateId: template.id, user },
+          { documentId, field: "folder", aiValue: latest?.suggestedFolderName ?? null, validatedValue: resolved.folder?.name ?? overrides.folderName ?? null, source: "manual", templateId: template.id, user },
+        ]).catch(() => {});
+
         await appendGedLog({
           level: "info", source: "GED", documentId, user,
           message: `Modèle appris ${template.validatedCount > 1 ? "mis à jour" : "créé"} — ${template.label} (${template.validatedCount} validation${template.validatedCount > 1 ? "s" : ""})`,
