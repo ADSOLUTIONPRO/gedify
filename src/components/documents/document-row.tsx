@@ -6,6 +6,7 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { STATUS_META, formatAmount, type DocumentVM } from "@/components/documents/types";
 import { DocumentStatusBadges } from "@/components/documents/document-status-badges";
 import { DocumentActionMenu, type DocActionHandlers } from "@/components/documents/document-action-menu";
+import { DocumentFavoriteStar } from "@/components/documents/document-favorite-star";
 
 type DocumentRowProps = {
   doc: DocumentVM;
@@ -55,6 +56,11 @@ export function DocumentRow({ doc, checked, active, onToggle, onActivate, action
           className="h-4 w-4 rounded border-slate-300 accent-[var(--accent)]"
         />
       </label>
+
+      {/* Favori */}
+      <span className="flex items-center" onClick={(e) => e.stopPropagation()}>
+        <DocumentFavoriteStar documentId={doc.id} className="flex h-7 w-7 items-center justify-center rounded-lg transition hover:bg-[var(--bg-card-soft)]" />
+      </span>
 
       {/* Miniature */}
       <span className="flex h-11 w-9 items-center justify-center overflow-hidden rounded-md bg-[#F4F0E8]">
