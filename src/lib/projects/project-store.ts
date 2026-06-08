@@ -89,7 +89,11 @@ async function readProjects(): Promise<ProjectFolder[]> {
     try {
       return await pgReadAll<ProjectFolder>("folders");
     } catch (e) {
-      if (jsonFallback()) return readProjectsJson();
+      // NE PAS masquer l'erreur DB : sans ce log, un échec de lecture Postgres
+      // retombait silencieusement sur un JSON inexistant → « aucun dossier »
+      // inexplicable. Le repli JSON est un filet, pas une raison de cacher la cause.
+      console.error("[project-store] lecture Postgres « folders » échouée :", e instanceof Error ? e.message : e);
+      if (jsonFallback()) return readProjectsJson().catch(() => []);
       throw e;
     }
   }
