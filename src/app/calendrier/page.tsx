@@ -1,6 +1,7 @@
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
 import { CalendarSidebar } from "@/components/calendar/calendar-sidebar";
+import { AgendaShell } from "@/components/calendar/agenda-shell";
 import { AgendaCalendar, type AgendaView, type AllDayItem } from "@/components/calendar/agenda-calendar";
 import { AgendaRightPanel, type RailEvent, type RailOverdue } from "@/components/calendar/agenda-right-panel";
 import { GoogleSyncButton } from "@/components/calendar/google-sync-button";
@@ -84,18 +85,10 @@ export default async function CalendrierPage({ searchParams }: { searchParams?: 
         }
       />
 
-      {/* Structure 3 colonnes façon Google Calendar : sidebar, calendrier, panneau. */}
-      <div className="flex flex-col gap-4 lg:flex-row">
-        <div className="shrink-0 lg:w-[230px]">
-          <CalendarSidebar />
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <AgendaCalendar initialView={initialView} initialDateISO={focusDate} todayISO={today.toISOString()} allDayItems={allDayItems} />
-        </div>
-
-        <AgendaRightPanel upcoming={upcoming} overdue={overdue} />
-      </div>
+      {/* Structure 3 colonnes façon Google Calendar (drawers sur mobile/tablette). */}
+      <AgendaShell sidebar={<CalendarSidebar />} rightPanel={<AgendaRightPanel upcoming={upcoming} overdue={overdue} />}>
+        <AgendaCalendar initialView={initialView} initialDateISO={focusDate} todayISO={today.toISOString()} allDayItems={allDayItems} />
+      </AgendaShell>
     </PageShell>
   );
 }
