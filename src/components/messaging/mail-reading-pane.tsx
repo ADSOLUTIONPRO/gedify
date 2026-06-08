@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Archive,
+  CalendarPlus,
   CheckCircle2,
-  CheckSquare,
   CornerUpLeft,
   Forward,
   Loader2,
@@ -17,6 +17,7 @@ import {
   UserPlus,
 } from "lucide-react";
 import { openComposer } from "@/lib/messaging/mail-composer-store";
+import { CreateCalendarItemModal } from "@/components/calendar/create-calendar-item-modal";
 import { initials } from "./mail-list-utils";
 import type { EmailMessageRecord } from "@/lib/messaging/email-types";
 
@@ -45,6 +46,7 @@ export function MailReadingPane({ threadId, onClassify }: Props) {
   const [data, setData] = useState<ThreadDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [calOpen, setCalOpen] = useState(false);
 
   useEffect(() => {
     if (!threadId) {
@@ -120,6 +122,7 @@ export function MailReadingPane({ threadId, onClassify }: Props) {
           <IconBtn icon={CornerUpLeft} label="Répondre" onClick={() => reply(false)} />
           <IconBtn icon={ReplyAll} label="Répondre à tous" onClick={() => reply(true)} />
           <IconBtn icon={Forward} label="Transférer" onClick={forward} />
+          <IconBtn icon={CalendarPlus} label="Créer un RDV / une tâche" onClick={() => setCalOpen(true)} />
           <IconBtn icon={Archive} label="Archiver" onClick={() => threadId && onClassify(threadId)} />
           <IconBtn icon={Trash2} label="Supprimer" onClick={() => threadId && onClassify(threadId)} />
           <IconBtn icon={MoreHorizontal} label="Plus" onClick={() => threadId && onClassify(threadId)} />
@@ -166,10 +169,18 @@ export function MailReadingPane({ threadId, onClassify }: Props) {
         <div className="mt-7 flex flex-wrap gap-2.5 border-t pt-6" style={{ borderColor: "var(--border-soft)" }}>
           <ActionBtn primary onClick={() => reply(false)}>Répondre</ActionBtn>
           <ActionBtn onClick={forward}>Transférer</ActionBtn>
-          <ActionLink href="/rappels" icon={CheckSquare}>Créer une tâche</ActionLink>
+          <ActionBtn onClick={() => setCalOpen(true)}>Créer un RDV / une tâche</ActionBtn>
           <ActionLink href="/messagerie/contacts" icon={UserPlus}>Lier à un contact</ActionLink>
         </div>
       </div>
+
+      {calOpen ? (
+        <CreateCalendarItemModal
+          source={{ sourceType: "email", sourceId: threadId ?? latest.id, sourceLabel: latest.subject ?? "Email" }}
+          prefill={{ title: latest.subject ?? "", startISO: latest.date ?? undefined }}
+          onClose={() => setCalOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }
