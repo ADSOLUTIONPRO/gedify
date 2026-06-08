@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CheckCircle2, Loader2, TriangleAlert, X } from "lucide-react";
 import type { DocumentVM } from "@/components/documents/types";
+import { EntityAutocomplete, type EntityOption } from "@/components/ui/entity-autocomplete";
 
 type Option = { id: number | string; name: string };
 type TagOp = "keep" | "replace" | "add" | "remove" | "clear";
@@ -10,20 +11,21 @@ type FieldOp = "keep" | "replace" | "clear";
 
 type Props = {
   selectedDocs: DocumentVM[];
-  correspondents: Option[];
-  types: Option[];
-  tags: Option[];
+  /** Conservés pour compat appelant — non utilisés (autocomplétion serveur). */
+  correspondents?: Option[];
+  types?: Option[];
+  tags?: Option[];
   onClose: () => void;
   onSuccess: () => void;
 };
 
 type PatchState = {
   correspondentOp: FieldOp;
-  correspondentId: number | null;
+  correspondentOpt: EntityOption | null;
   typeOp: FieldOp;
-  typeId: number | null;
+  typeOpt: EntityOption | null;
   tagOp: TagOp;
-  tagIds: number[];
+  tagOptions: EntityOption[];
   createdOp: FieldOp;
   created: string;
   notesOp: FieldOp;
@@ -32,34 +34,26 @@ type PatchState = {
 
 const INITIAL: PatchState = {
   correspondentOp: "keep",
-  correspondentId: null,
+  correspondentOpt: null,
   typeOp: "keep",
-  typeId: null,
+  typeOpt: null,
   tagOp: "keep",
-  tagIds: [],
+  tagOptions: [],
   createdOp: "keep",
   created: "",
   notesOp: "keep",
   notes: "",
 };
 
-function buildSummary(patch: PatchState, types: Option[], correspondents: Option[]): string[] {
+function buildSummary(patch: PatchState): string[] {
   const lines: string[] = [];
-  if (patch.correspondentOp === "replace") {
-    const name = correspondents.find((c) => Number(c.id) === patch.correspondentId)?.name ?? "—";
-    lines.push(`Correspondant → ${name}`);
-  } else if (patch.correspondentOp === "clear") {
-    lines.push("Correspondant → vider");
-  }
-  if (patch.typeOp === "replace") {
-    const name = types.find((t) => Number(t.id) === patch.typeId)?.name ?? "—";
-    lines.push(`Type → ${name}`);
-  } else if (patch.typeOp === "clear") {
-    lines.push("Type → vider");
-  }
-  if (patch.tagOp === "replace") lines.push(`Tags → remplacer (${patch.tagIds.length} tag(s))`);
-  else if (patch.tagOp === "add") lines.push(`Tags → ajouter (${patch.tagIds.length} tag(s))`);
-  else if (patch.tagOp === "remove") lines.push(`Tags → retirer (${patch.tagIds.length} tag(s))`);
+  if (patch.correspondentOp === "replace") lines.push(`Correspondant → ${patch.correspondentOpt?.name ?? "—"}`);
+  else if (patch.correspondentOp === "clear") lines.push("Correspondant → vider");
+  if (patch.typeOp === "replace") lines.push(`Type → ${patch.typeOpt?.name ?? "—"}`);
+  else if (patch.typeOp === "clear") lines.push("Type → vider");
+  if (patch.tagOp === "replace") lines.push(`Tags → remplacer (${patch.tagOptions.length} tag(s))`);
+  else if (patch.tagOp === "add") lines.push(`Tags → ajouter (${patch.tagOptions.length} tag(s))`);
+  else if (patch.tagOp === "remove") lines.push(`Tags → retirer (${patch.tagOptions.length} tag(s))`);
   else if (patch.tagOp === "clear") lines.push("Tags → vider");
   if (patch.createdOp === "replace") lines.push(`Date document → ${patch.created}`);
   else if (patch.createdOp === "clear") lines.push("Date document → vider");
@@ -69,9 +63,6 @@ function buildSummary(patch: PatchState, types: Option[], correspondents: Option
 
 export function DocumentBulkEditPanel({
   selectedDocs,
-  correspondents,
-  types,
-  tags,
   onClose,
   onSuccess,
 }: Props) {
@@ -82,18 +73,11 @@ export function DocumentBulkEditPanel({
   const [result, setResult] = useState<{ updated: number; failed: number } | null>(null);
 
   const count = selectedDocs.length;
-  const summary = buildSummary(patch, types, correspondents);
+  const summary = buildSummary(patch);
   const hasChanges = summary.length > 0;
 
   function set<K extends keyof PatchState>(key: K, value: PatchState[K]) {
     setPatch((prev) => ({ ...prev, [key]: value }));
-  }
-
-  function toggleTagId(id: number) {
-    setPatch((prev) => {
-      const has = prev.tagIds.includes(id);
-      return { ...prev, tagIds: has ? prev.tagIds.filter((t) => t !== id) : [...prev.tagIds, id] };
-    });
   }
 
   async function apply() {
@@ -107,11 +91,12 @@ export function DocumentBulkEditPanel({
         body: JSON.stringify({
           documentIds: selectedDocs.map((d) => d.id),
           patch: {
-            correspondentId: patch.correspondentId,
+            // Ids RÉELS dérivés des options sélectionnées (jamais un libellé).
+            correspondentId: patch.correspondentOpt ? Number(patch.correspondentOpt.id) : null,
             correspondentOp: patch.correspondentOp !== "keep" ? patch.correspondentOp : undefined,
-            typeId: patch.typeId,
+            typeId: patch.typeOpt ? Number(patch.typeOpt.id) : null,
             typeOp: patch.typeOp !== "keep" ? patch.typeOp : undefined,
-            tagIds: patch.tagIds,
+            tagIds: patch.tagOptions.map((o) => Number(o.id)),
             tagOp: patch.tagOp !== "keep" ? patch.tagOp : undefined,
             created: patch.created || null,
             createdOp: patch.createdOp !== "keep" ? patch.createdOp : undefined,
@@ -215,15 +200,15 @@ export function DocumentBulkEditPanel({
                 <p className="mb-1.5 text-[12px] font-bold" style={{ color: "var(--text-main)" }}>Correspondant</p>
                 {opToggle("Correspondant", patch.correspondentOp, (v) => set("correspondentOp", v))}
                 {patch.correspondentOp === "replace" && (
-                  <select
-                    className="mt-2 h-9 w-full rounded-lg border px-2.5 text-[13px] outline-none"
-                    style={{ borderColor: "var(--border)" }}
-                    value={patch.correspondentId ?? ""}
-                    onChange={(e) => set("correspondentId", e.target.value ? Number(e.target.value) : null)}
-                  >
-                    <option value="">Choisir un correspondant…</option>
-                    {correspondents.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
+                  <div className="mt-2">
+                    <EntityAutocomplete
+                      entityType="correspondent"
+                      allowCreate
+                      value={patch.correspondentOpt}
+                      onChange={(v) => set("correspondentOpt", (Array.isArray(v) ? v[0] : v) ?? null)}
+                      placeholder="Choisir ou créer un correspondant…"
+                    />
+                  </div>
                 )}
               </div>
 
@@ -232,15 +217,15 @@ export function DocumentBulkEditPanel({
                 <p className="mb-1.5 text-[12px] font-bold" style={{ color: "var(--text-main)" }}>Type de document</p>
                 {opToggle("Type", patch.typeOp, (v) => set("typeOp", v))}
                 {patch.typeOp === "replace" && (
-                  <select
-                    className="mt-2 h-9 w-full rounded-lg border px-2.5 text-[13px] outline-none"
-                    style={{ borderColor: "var(--border)" }}
-                    value={patch.typeId ?? ""}
-                    onChange={(e) => set("typeId", e.target.value ? Number(e.target.value) : null)}
-                  >
-                    <option value="">Choisir un type…</option>
-                    {types.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-                  </select>
+                  <div className="mt-2">
+                    <EntityAutocomplete
+                      entityType="documentType"
+                      allowCreate
+                      value={patch.typeOpt}
+                      onChange={(v) => set("typeOpt", (Array.isArray(v) ? v[0] : v) ?? null)}
+                      placeholder="Choisir ou créer un type…"
+                    />
+                  </div>
                 )}
               </div>
 
@@ -265,25 +250,15 @@ export function DocumentBulkEditPanel({
                   ))}
                 </div>
                 {["add", "remove", "replace"].includes(patch.tagOp) && (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {tags.map((t) => {
-                      const sel = patch.tagIds.includes(Number(t.id));
-                      return (
-                        <button
-                          key={t.id}
-                          type="button"
-                          onClick={() => toggleTagId(Number(t.id))}
-                          className="rounded-lg border px-2.5 py-1 text-[12px] font-semibold transition"
-                          style={{
-                            borderColor: sel ? "var(--blue-600)" : "var(--border)",
-                            background: sel ? "rgba(11,92,255,0.08)" : "white",
-                            color: sel ? "var(--blue-600)" : "var(--text-muted)",
-                          }}
-                        >
-                          {t.name}
-                        </button>
-                      );
-                    })}
+                  <div className="mt-2">
+                    <EntityAutocomplete
+                      entityType="tag"
+                      multiple
+                      allowCreate={patch.tagOp !== "remove"}
+                      value={patch.tagOptions}
+                      onChange={(v) => set("tagOptions", Array.isArray(v) ? v : v ? [v] : [])}
+                      placeholder={patch.tagOp === "remove" ? "Tags à retirer…" : "Tags à ajouter ou créer…"}
+                    />
                   </div>
                 )}
               </div>
