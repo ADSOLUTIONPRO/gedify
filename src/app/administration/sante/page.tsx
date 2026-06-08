@@ -1,8 +1,9 @@
-import { HeartPulse } from "lucide-react";
+import { HeartPulse, Tags } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
 import { SectionCard } from "@/components/ui/section-card";
 import { HealthDashboard } from "@/components/admin/health-dashboard";
+import { TaxonomyHealthPanel } from "@/components/admin/taxonomy-health-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,14 @@ export default function SanteGedPage() {
         description="Indicateurs documentaires, fichiers dérivés, base PostgreSQL et sauvegardes."
       >
         <HealthDashboard />
+      </SectionCard>
+
+      <SectionCard
+        icon={Tags}
+        title="Taxonomies (tags, types, correspondants)"
+        description="Intégrité des valeurs d'autocomplétion : entités réelles vs valeurs validées orphelines, avec réparation."
+      >
+        <TaxonomyHealthPanel />
       </SectionCard>
     </PageShell>
   );

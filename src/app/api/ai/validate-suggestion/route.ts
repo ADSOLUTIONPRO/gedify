@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { paperlessProxyError } from "@/lib/api-utils";
 import { getAnalysis, upsertAnalysis } from "@/lib/ai/ai-analysis-store";
 import { updateDocument } from "@/lib/paperless";
+import { ensureTaxonomyByName } from "@/lib/engine/router";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -57,11 +58,39 @@ export async function POST(request: NextRequest) {
     }
 
     let documentUpdate: { correspondent?: number | null; document_type?: number | null; tags?: number[] } | null = null;
+    // Entités réellement persistées (création par NOM si l'IA suggère une
+    // nouvelle valeur sans id → plus jamais « MEIJE/Psychiatre » perdus).
+    let appliedCorrespondentId: number | null | undefined = body.correspondentId;
+    let appliedDocumentTypeId: number | null | undefined = body.documentTypeId;
+    let appliedTagIds: number[] | undefined;
+
     if (body.applyClassification) {
+      // Correspondant : id fourni, sinon find-or-create depuis le nom suggéré.
+      if (appliedCorrespondentId == null && analysis.suggestedCorrespondentName) {
+        const c = await ensureTaxonomyByName("correspondents", analysis.suggestedCorrespondentName);
+        if (c) appliedCorrespondentId = Number(c.entity.id);
+      }
+      // Type : idem.
+      if (appliedDocumentTypeId == null && analysis.suggestedDocumentTypeName) {
+        const t = await ensureTaxonomyByName("document_types", analysis.suggestedDocumentTypeName);
+        if (t) appliedDocumentTypeId = Number(t.entity.id);
+      }
+      // Tags : union des ids fournis + find-or-create de chaque nom suggéré.
+      const tagIds = new Set<number>(
+        Array.isArray(body.tagIds) ? body.tagIds : (analysis.suggestedTagIds ?? []),
+      );
+      for (const name of analysis.suggestedTagNames ?? []) {
+        const tg = await ensureTaxonomyByName("tags", name);
+        if (tg) tagIds.add(Number(tg.entity.id));
+      }
+      appliedTagIds = [...tagIds];
+
+      // Association atomique côté document (après création des entités → si
+      // l'update échoue, les entités créées restent, rien n'est perdu).
       documentUpdate = {};
-      if (body.correspondentId !== undefined) documentUpdate.correspondent = body.correspondentId;
-      if (body.documentTypeId !== undefined) documentUpdate.document_type = body.documentTypeId;
-      if (Array.isArray(body.tagIds)) documentUpdate.tags = body.tagIds;
+      if (appliedCorrespondentId !== undefined) documentUpdate.correspondent = appliedCorrespondentId;
+      if (appliedDocumentTypeId !== undefined) documentUpdate.document_type = appliedDocumentTypeId;
+      documentUpdate.tags = appliedTagIds;
       await updateDocument(analysis.documentId, documentUpdate);
     }
 
@@ -69,9 +98,9 @@ export async function POST(request: NextRequest) {
       ...analysis,
       id: analysis.id,
       status: documentUpdate ? "applied" : "validated",
-      suggestedCorrespondentId: body.correspondentId ?? analysis.suggestedCorrespondentId,
-      suggestedDocumentTypeId: body.documentTypeId ?? analysis.suggestedDocumentTypeId,
-      suggestedTagIds: body.tagIds ?? analysis.suggestedTagIds,
+      suggestedCorrespondentId: appliedCorrespondentId ?? analysis.suggestedCorrespondentId,
+      suggestedDocumentTypeId: appliedDocumentTypeId ?? analysis.suggestedDocumentTypeId,
+      suggestedTagIds: appliedTagIds ?? analysis.suggestedTagIds,
     });
 
     return NextResponse.json({ analysis: updated });

@@ -18,6 +18,7 @@ import {
   type EngineObject,
 } from "./stores";
 import { buildSnippet, indexDocument, moreLikeIds, removeFromIndex, searchIds } from "./search";
+import { dlog } from "./desktop-log";
 import { loadDocCounts, loadNameMaps, mimeFromExt, serializeDocument } from "./helpers";
 import { makeThumbnail } from "./thumbnails";
 import { consume, type ConsumeInput } from "./consume";
@@ -558,9 +559,52 @@ function buildTaxonomyRecord(resource: string, id: number, body: Record<string, 
   return { ...body, id };
 }
 
+/**
+ * Find-or-create d'une taxonomie nommée (tag / correspondant / type) par NOM.
+ * Normalisation = slug (casse + accents + espaces) → un même libellé ne crée
+ * jamais de doublon ; renvoie l'entité existante si le slug correspond déjà.
+ * Source de vérité unique : réutilisée par l'API POST et par la validation IA
+ * (création des entités suggérées par nom). Renvoie l'entité (existante ou
+ * créée) ou null pour une ressource non « nommée ».
+ */
+export async function ensureTaxonomyByName(
+  resource: string,
+  rawName: string,
+): Promise<{ entity: EngineObject; created: boolean } | null> {
+  const cfg = TAXONOMIES[resource];
+  if (!cfg || (cfg.kind !== "tag" && cfg.kind !== "named")) return null;
+  const name = rawName.trim();
+  if (!name) return null;
+  const slug = slugify(name);
+
+  const list = await readStore<EngineObject[]>(cfg.store, []);
+  const existing = list.find((i) => slugify(String(i.name ?? "")) === slug || String(i.slug ?? "") === slug);
+  if (existing) {
+    dlog(`taxonomy:ensure kind=${cfg.kind} name=${name} existing=true id=${existing.id}`);
+    return { entity: existing, created: false };
+  }
+
+  const id = await nextId(cfg.seq);
+  const record = buildTaxonomyRecord(resource, id, { name });
+  await mutateList<EngineObject>(cfg.store, (l) => [...l, record]);
+  dlog(`taxonomy:create kind=${cfg.kind} name=${name} created=true id=${id}`);
+  return { entity: record, created: true };
+}
+
 async function createTaxonomy(resource: string, body: Record<string, unknown>): Promise<Response> {
   const cfg = TAXONOMIES[resource];
   if (!cfg) return notFound();
+
+  // Tags / correspondants / types : find-or-create par nom (pas de doublon).
+  const name = String(body.name ?? "").trim();
+  if (name && (cfg.kind === "tag" || cfg.kind === "named")) {
+    const ensured = await ensureTaxonomyByName(resource, name);
+    if (ensured) {
+      const [withCount] = await withCounts(resource, [ensured.entity]);
+      return json(withCount ?? ensured.entity, ensured.created ? 201 : 200);
+    }
+  }
+
   const id = await nextId(cfg.seq);
   const record = buildTaxonomyRecord(resource, id, body);
   await mutateList<EngineObject>(cfg.store, (list) => [...list, record]);
