@@ -54,11 +54,13 @@ export function ResponsiveDetailPanel({
         </div>
       </aside>
 
-      {/* Bouton d'ouverture (< xl) */}
+      {/* Bouton d'ouverture (< xl) — empilé AU-DESSUS du bouton Assistant IA
+          (fixé en bas-droite) pour ne jamais le recouvrir, sur toute
+          résolution < xl. z au-dessus de l'assistant en cas de contact. */}
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-5 right-5 z-30 inline-flex h-12 items-center gap-2 rounded-full px-5 text-sm font-semibold text-white shadow-lg transition hover:opacity-90 xl:hidden"
+        className="fixed right-4 bottom-[150px] z-[81] inline-flex h-12 items-center gap-2 rounded-full px-5 text-sm font-semibold text-white shadow-lg transition hover:opacity-90 md:right-6 md:bottom-[90px] xl:hidden"
         style={{ background: "var(--blue-600)" }}
       >
         <PanelRightOpen className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />

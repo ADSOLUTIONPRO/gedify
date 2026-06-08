@@ -474,7 +474,11 @@ export function DocumentSpace({
               </>
             )}
           </div>
-          {footer}
+          {/* Pagination + zone de sécurité : empêche les boutons flottants
+              (Détail empilé + Assistant IA, bas-droite) de recouvrir la
+              pagination/les dernières cartes. Marge plus large < xl (deux
+              boutons), modérée ≥ xl (Assistant seul). */}
+          <div className="pb-36 xl:pb-24">{footer}</div>
         </div>
 
         {docs.length > 0 ? (
