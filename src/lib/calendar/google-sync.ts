@@ -1,7 +1,7 @@
 import "server-only";
 
-import { listCalendars, listCalendarEvents } from "@/lib/connectors/google/calendar-api";
-import { upsertByExternal } from "@/lib/calendar/calendar-event-store";
+import { createCalendarEvent, deleteCalendarEvent, listCalendars, listCalendarEvents, updateCalendarEvent, type CalendarEventInput } from "@/lib/connectors/google/calendar-api";
+import { upsertByExternal, type CalendarEvent } from "@/lib/calendar/calendar-event-store";
 
 /* ────────────────────────────────────────────────────────────────────────
    Synchro Google Agenda → GEDify (PULL). Importe les événements des agendas
@@ -12,6 +12,47 @@ import { upsertByExternal } from "@/lib/calendar/calendar-event-store";
    ──────────────────────────────────────────────────────────────────────── */
 
 export type GoogleSyncReport = { imported: number; updated: number; calendars: number; errors: string[] };
+
+/* ── PUSH : GEDify → Google (création / mise à jour / suppression) ────────── */
+
+function toGoogleDateTime(iso: string, allDay: boolean, addDay = false): { date?: string; dateTime?: string } {
+  if (allDay) {
+    const d = new Date(`${iso.slice(0, 10)}T00:00:00`);
+    if (addDay) d.setDate(d.getDate() + 1); // fin all-day exclusive côté Google
+    return { date: d.toISOString().slice(0, 10) };
+  }
+  return { dateTime: new Date(iso).toISOString() };
+}
+
+function mapEventToGoogle(event: CalendarEvent): CalendarEventInput {
+  const endIso = event.end ?? event.start;
+  return {
+    summary: event.title,
+    description: event.description ?? undefined,
+    location: event.location?.displayName ?? event.location?.formattedAddress ?? undefined,
+    start: toGoogleDateTime(event.start, event.allDay),
+    end: toGoogleDateTime(endIso, event.allDay, event.allDay),
+    attendees: event.participants?.length ? event.participants.map((p) => ({ email: p.email, displayName: p.name ?? undefined })) : undefined,
+    reminders: event.reminders?.length
+      ? { useDefault: false, overrides: event.reminders.map((r) => ({ method: r.channel === "email" ? "email" : "popup", minutes: r.minutesBefore })) }
+      : undefined,
+  };
+}
+
+/** Crée ou met à jour l'événement sur Google. Renvoie l'externalId. */
+export async function pushEventToGoogle(accountId: string, calendarId: string, event: CalendarEvent): Promise<string> {
+  const payload = mapEventToGoogle(event);
+  if (event.externalId) {
+    const updated = await updateCalendarEvent(accountId, calendarId, event.externalId, payload);
+    return updated.id;
+  }
+  const created = await createCalendarEvent(accountId, calendarId, payload);
+  return created.id;
+}
+
+export async function deleteEventFromGoogle(accountId: string, calendarId: string, externalId: string): Promise<void> {
+  await deleteCalendarEvent(accountId, calendarId, externalId);
+}
 
 function startToISO(dt?: { dateTime?: string; date?: string }): string | null {
   if (!dt) return null;

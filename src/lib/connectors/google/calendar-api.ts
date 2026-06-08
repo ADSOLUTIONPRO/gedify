@@ -131,6 +131,33 @@ export async function listCalendarEvents(
 }
 
 // ---------------------------------------------------------------------------
+// Update / Delete event (écriture — synchro GEDify → Google)
+// ---------------------------------------------------------------------------
+
+export async function updateCalendarEvent(
+  accountId: string,
+  calendarId: string,
+  eventId: string,
+  event: Partial<CalendarEventInput>,
+): Promise<CalendarEvent> {
+  const accessToken = await getAccessTokenForAccount(accountId);
+  return calendarFetch<CalendarEvent>(
+    accessToken,
+    `/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
+    { method: "PATCH", body: JSON.stringify(event) },
+  );
+}
+
+export async function deleteCalendarEvent(accountId: string, calendarId: string, eventId: string): Promise<void> {
+  const accessToken = await getAccessTokenForAccount(accountId);
+  await calendarFetch<null>(
+    accessToken,
+    `/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
+    { method: "DELETE" },
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Check for duplicates (same date + title proximity)
 // ---------------------------------------------------------------------------
 
