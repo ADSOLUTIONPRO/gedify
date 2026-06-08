@@ -1,6 +1,7 @@
 import "server-only";
 
 import { syncAllContacts } from "@/lib/contacts/sync";
+import { getGedifyFeatureFlags } from "@/lib/settings/feature-flags";
 
 /* ────────────────────────────────────────────────────────────────────────
    Synchronisation périodique des contacts (Google + emails), amorcée au boot
@@ -20,6 +21,12 @@ function intervalHours(): number {
 
 async function runOnce(): Promise<void> {
   try {
+    // Garde « Modules » : l'auto-sync contacts peut être coupée dans les Paramètres.
+    const { autoContactSyncEnabled } = await getGedifyFeatureFlags();
+    if (!autoContactSyncEnabled) {
+      console.log("[contacts] auto-sync ignoré (désactivé dans les paramètres).");
+      return;
+    }
     const { google, email } = await syncAllContacts();
     const g = google.ok ? `${google.synced} synchronisé(s)` : `ignoré (${google.errorType})`;
     const e = email.ok ? `${email.created} créé(s)` : `ignoré (${email.errorType})`;

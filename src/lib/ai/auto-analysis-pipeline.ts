@@ -1,13 +1,15 @@
 import "server-only";
 
 import { runDocumentAnalysis } from "@/lib/ai/run-document-analysis";
+import { getGedifyFeatureFlags } from "@/lib/settings/feature-flags";
 
 export type PipelineStatus =
   | "analyzing"
   | "analyzed"
   | "pending_ocr"
   | "analysis_failed"
-  | "no_provider";
+  | "no_provider"
+  | "disabled";
 
 export type PipelineResult = {
   status: PipelineStatus;
@@ -21,6 +23,12 @@ export type PipelineResult = {
  * N'expose jamais les clés API côté client.
  */
 export async function tryAutoAnalyze(documentId: number): Promise<PipelineResult> {
+  // Garde « Modules » : l'analyse IA automatique peut être coupée dans les
+  // Paramètres (l'analyse manuelle depuis /ia reste toujours possible).
+  const { autoAiAnalysisEnabled } = await getGedifyFeatureFlags();
+  if (!autoAiAnalysisEnabled) {
+    return { status: "disabled", message: "Analyse IA automatique désactivée dans les paramètres." };
+  }
   const provider = process.env.AI_PROVIDER;
   if (!provider || provider === "") {
     return { status: "no_provider", message: "Aucun fournisseur IA configuré." };

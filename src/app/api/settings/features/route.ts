@@ -26,6 +26,8 @@ export async function PUT(req: NextRequest) {
     if (typeof body.financeSpaceEnabled === "boolean") patch.financeSpaceEnabled = body.financeSpaceEnabled;
     if (typeof body.autoBudgetClassificationEnabled === "boolean")
       patch.autoBudgetClassificationEnabled = body.autoBudgetClassificationEnabled;
+    if (typeof body.autoAiAnalysisEnabled === "boolean") patch.autoAiAnalysisEnabled = body.autoAiAnalysisEnabled;
+    if (typeof body.autoContactSyncEnabled === "boolean") patch.autoContactSyncEnabled = body.autoContactSyncEnabled;
     const flags = await saveGedifyFeatureFlags(patch);
     return NextResponse.json({ ok: true, flags });
   } catch (error) {

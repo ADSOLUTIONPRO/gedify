@@ -14,7 +14,7 @@ export type AdminSettingsProps = {
   account: { email: string | null; mfa: boolean };
   engine: { connected: boolean; version: string | null; apiVersion: string | null; error: string | null };
   storageUsedPercent: number | null;
-  initialFlags: { financeSpaceEnabled: boolean; autoBudgetClassificationEnabled: boolean };
+  initialFlags: { financeSpaceEnabled: boolean; autoBudgetClassificationEnabled: boolean; autoAiAnalysisEnabled: boolean; autoContactSyncEnabled: boolean };
   counts: { gmailAccounts: number; signatures: number; customFields: number | null; workflows: number | null; hiddenSenders: number | null };
   lastBackupAt: string | null;
 };
@@ -49,7 +49,11 @@ export function AdministrationSettings(props: AdminSettingsProps) {
   const [active, setActive] = useState("security");
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const dirty = flags.financeSpaceEnabled !== saved.financeSpaceEnabled || flags.autoBudgetClassificationEnabled !== saved.autoBudgetClassificationEnabled;
+  const dirty =
+    flags.financeSpaceEnabled !== saved.financeSpaceEnabled ||
+    flags.autoBudgetClassificationEnabled !== saved.autoBudgetClassificationEnabled ||
+    flags.autoAiAnalysisEnabled !== saved.autoAiAnalysisEnabled ||
+    flags.autoContactSyncEnabled !== saved.autoContactSyncEnabled;
 
   // Scroll-spy
   useEffect(() => {
@@ -155,8 +159,8 @@ export function AdministrationSettings(props: AdminSettingsProps) {
 
           {/* 5. GED & documents */}
           <Section id="ged" icon={FileText} tone="green" title="GED & documents">
+            <ToggleLine label="Analyse IA automatique à l'import" desc="Analyse les documents dès l'import (l'analyse manuelle reste possible)" checked={flags.autoAiAnalysisEnabled} onChange={(v) => setFlags((f) => ({ ...f, autoAiAnalysisEnabled: v }))} />
             <Status label="OCR & indexation" value="Automatiques" tone="green" />
-            <Status label="Analyse IA" value="À la demande / auto" />
             <Manage row links={[{ href: "/a-traiter", label: "Documents à traiter" }, { href: "/administration/doublons", label: "Doublons" }, { href: "/administration/sante", label: "Santé GED" }]} />
           </Section>
 
@@ -182,8 +186,8 @@ export function AdministrationSettings(props: AdminSettingsProps) {
 
           {/* 9. Contacts */}
           <Section id="contacts" icon={Users} tone="blue" title="Contacts">
+            <ToggleLine label="Synchronisation automatique" desc="Synchronise périodiquement Google / IMAP en arrière-plan" checked={flags.autoContactSyncEnabled} onChange={(v) => setFlags((f) => ({ ...f, autoContactSyncEnabled: v }))} />
             <Status label="Règle d'affichage" value="Liés à une PJ importée en GED" />
-            <Status label="Synchronisation" value="Google / IMAP" />
             <Manage row links={[{ href: "/messagerie/contacts", label: "Gérer les contacts" }]} />
           </Section>
 

@@ -19,6 +19,10 @@ export type GedifyFeatureFlags = {
   financeSpaceEnabled: boolean;
   /** Autorise le rattachement AUTOMATIQUE des documents au budget (pipeline IA). */
   autoBudgetClassificationEnabled: boolean;
+  /** Analyse IA AUTOMATIQUE à l'import (gate `tryAutoAnalyze`). L'analyse manuelle reste possible. */
+  autoAiAnalysisEnabled: boolean;
+  /** Synchronisation AUTOMATIQUE périodique des contacts (Google/IMAP). */
+  autoContactSyncEnabled: boolean;
 };
 
 const STORE_NAME = "feature-flags";
@@ -26,20 +30,22 @@ const STORE_NAME = "feature-flags";
 export const DEFAULT_FEATURE_FLAGS: GedifyFeatureFlags = {
   financeSpaceEnabled: true,
   autoBudgetClassificationEnabled: true,
+  autoAiAnalysisEnabled: true,
+  autoContactSyncEnabled: true,
 };
+
+function pickBool(saved: unknown, fallback: boolean): boolean {
+  return typeof saved === "boolean" ? saved : fallback;
+}
 
 /** Lit les drapeaux (fusionnés avec les valeurs par défaut). */
 export async function getGedifyFeatureFlags(_userId?: string | number): Promise<GedifyFeatureFlags> {
-  const saved = await readStore<Partial<GedifyFeatureFlags>>(STORE_NAME, {});
+  const s = await readStore<Partial<GedifyFeatureFlags>>(STORE_NAME, {});
   return {
-    financeSpaceEnabled:
-      typeof saved.financeSpaceEnabled === "boolean"
-        ? saved.financeSpaceEnabled
-        : DEFAULT_FEATURE_FLAGS.financeSpaceEnabled,
-    autoBudgetClassificationEnabled:
-      typeof saved.autoBudgetClassificationEnabled === "boolean"
-        ? saved.autoBudgetClassificationEnabled
-        : DEFAULT_FEATURE_FLAGS.autoBudgetClassificationEnabled,
+    financeSpaceEnabled: pickBool(s.financeSpaceEnabled, DEFAULT_FEATURE_FLAGS.financeSpaceEnabled),
+    autoBudgetClassificationEnabled: pickBool(s.autoBudgetClassificationEnabled, DEFAULT_FEATURE_FLAGS.autoBudgetClassificationEnabled),
+    autoAiAnalysisEnabled: pickBool(s.autoAiAnalysisEnabled, DEFAULT_FEATURE_FLAGS.autoAiAnalysisEnabled),
+    autoContactSyncEnabled: pickBool(s.autoContactSyncEnabled, DEFAULT_FEATURE_FLAGS.autoContactSyncEnabled),
   };
 }
 
@@ -50,12 +56,10 @@ export async function saveGedifyFeatureFlags(
 ): Promise<GedifyFeatureFlags> {
   const current = await getGedifyFeatureFlags(_userId);
   const next: GedifyFeatureFlags = {
-    financeSpaceEnabled:
-      typeof patch.financeSpaceEnabled === "boolean" ? patch.financeSpaceEnabled : current.financeSpaceEnabled,
-    autoBudgetClassificationEnabled:
-      typeof patch.autoBudgetClassificationEnabled === "boolean"
-        ? patch.autoBudgetClassificationEnabled
-        : current.autoBudgetClassificationEnabled,
+    financeSpaceEnabled: pickBool(patch.financeSpaceEnabled, current.financeSpaceEnabled),
+    autoBudgetClassificationEnabled: pickBool(patch.autoBudgetClassificationEnabled, current.autoBudgetClassificationEnabled),
+    autoAiAnalysisEnabled: pickBool(patch.autoAiAnalysisEnabled, current.autoAiAnalysisEnabled),
+    autoContactSyncEnabled: pickBool(patch.autoContactSyncEnabled, current.autoContactSyncEnabled),
   };
   await writeStore(STORE_NAME, next);
   return next;
