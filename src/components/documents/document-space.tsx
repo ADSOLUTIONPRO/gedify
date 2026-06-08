@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { ResponsiveDetailPanel } from "@/components/layout/responsive-detail-panel";
 import { DocumentBulkActions } from "@/components/documents/document-bulk-actions";
+import { getBulkActionsMatrix } from "@/lib/documents/document-actions-matrix";
 import { DocumentBulkEditPanel } from "@/components/documents/document-bulk-edit-panel";
 import { DocumentAddToFolderPanel } from "@/components/documents/document-add-to-folder-panel";
 import { DocumentEmptyState } from "@/components/documents/document-empty-state";
@@ -450,6 +451,7 @@ export function DocumentSpace({
             onDelete={() => setConfirmDelete(true)}
             paperlessUrl={paperlessUrl}
             firstDocId={primary?.id ?? null}
+            matrix={getBulkActionsMatrix(selectedDocs)}
           />
 
           <div className="overflow-hidden rounded-2xl bg-white" style={{ boxShadow: "var(--shadow-card)" }}>

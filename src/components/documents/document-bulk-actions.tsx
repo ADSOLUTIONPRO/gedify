@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import type { BulkActionsMatrix } from "@/lib/documents/document-actions-matrix";
 import {
   Archive,
   Bot,
@@ -32,6 +33,8 @@ type DocumentBulkActionsProps = {
   onDelete: () => void;
   paperlessUrl: string | null;
   firstDocId: number | null;
+  /** Capacités conditionnelles selon les statuts de la sélection (libellés). */
+  matrix?: BulkActionsMatrix;
 };
 
 const actionClass =
@@ -61,6 +64,7 @@ export function DocumentBulkActions({
   onDelete,
   paperlessUrl,
   firstDocId,
+  matrix,
 }: DocumentBulkActionsProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -150,14 +154,14 @@ export function DocumentBulkActions({
                 Ajouter à un dossier
               </button>
 
-              <button type="button" onClick={() => { onReanalyze(); setMenuOpen(false); }} className={menuItemClass} style={{ color: "var(--text-main)" }}>
-                <Bot className="h-4 w-4 shrink-0" strokeWidth={1.75} />
-                Relancer l&apos;analyse IA
+              <button type="button" onClick={() => { onReanalyze(); setMenuOpen(false); }} className={`${menuItemClass} flex-col !items-start gap-0`} style={{ color: "var(--text-main)" }}>
+                <span className="flex items-center gap-2.5"><Bot className="h-4 w-4 shrink-0" strokeWidth={1.75} />{matrix?.aiLabel ?? "Relancer l'analyse IA"}</span>
+                {matrix?.aiSummary ? <span className="pl-[26px] text-[10.5px]" style={{ color: "var(--text-hint)" }}>{matrix.aiSummary}</span> : null}
               </button>
 
-              <button type="button" onClick={() => { onRedoOcr(); setMenuOpen(false); }} className={menuItemClass} style={{ color: "var(--text-main)" }}>
-                <ScanText className="h-4 w-4 shrink-0" strokeWidth={1.75} />
-                Relancer l&apos;OCR
+              <button type="button" onClick={() => { onRedoOcr(); setMenuOpen(false); }} className={`${menuItemClass} flex-col !items-start gap-0`} style={{ color: "var(--text-main)" }}>
+                <span className="flex items-center gap-2.5"><ScanText className="h-4 w-4 shrink-0" strokeWidth={1.75} />{matrix?.ocrLabel ?? "Relancer l'OCR"}</span>
+                {matrix?.ocrSummary ? <span className="pl-[26px] text-[10.5px]" style={{ color: "var(--text-hint)" }}>{matrix.ocrSummary}</span> : null}
               </button>
 
               <button type="button" onClick={() => { onRegenerateThumbnail(); setMenuOpen(false); }} className={menuItemClass} style={{ color: "var(--text-main)" }}>
@@ -165,9 +169,9 @@ export function DocumentBulkActions({
                 Régénérer miniature + aperçu
               </button>
 
-              <button type="button" onClick={() => { onArchive(); setMenuOpen(false); }} className={menuItemClass} style={{ color: "var(--text-main)" }}>
+              <button type="button" disabled={matrix ? !matrix.archiveEnabled : false} title={matrix?.archiveReason ?? undefined} onClick={() => { if (matrix && !matrix.archiveEnabled) return; onArchive(); setMenuOpen(false); }} className={`${menuItemClass} disabled:opacity-40`} style={{ color: "var(--text-main)" }}>
                 <Archive className="h-4 w-4 shrink-0" strokeWidth={1.75} />
-                Archiver
+                {matrix?.archiveLabel ?? "Archiver"}
               </button>
             </div>
           </>
