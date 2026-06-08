@@ -1,9 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, Loader2, TriangleAlert, X } from "lucide-react";
+import { CalendarDays, CheckCircle2, FileText, FileType2, Info, Loader2, Tags, TriangleAlert, User, X } from "lucide-react";
 import type { DocumentVM } from "@/components/documents/types";
 import { EntityAutocomplete, type EntityOption } from "@/components/ui/entity-autocomplete";
+
+/** Section façon Fiche Doc : carte blanche, titre majuscule avec icône. */
+function BulkSection({ icon: Icon, title, children }: { icon: typeof User; title: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-2xl border bg-white p-4" style={{ borderColor: "var(--border)", boxShadow: "0 1px 2px rgba(8,18,37,0.04)" }}>
+      <p className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.06em]" style={{ color: "var(--text-hint)" }}>
+        <Icon className="h-3.5 w-3.5" strokeWidth={1.85} aria-hidden="true" /> {title}
+      </p>
+      {children}
+    </div>
+  );
+}
 
 type Option = { id: number | string; name: string };
 type TagOp = "keep" | "replace" | "add" | "remove" | "clear";
@@ -129,9 +141,9 @@ export function DocumentBulkEditPanel({
           onClick={() => onChange(v)}
           className="rounded-md border px-2 py-0.5 text-[11px] font-semibold transition"
           style={{
-            borderColor: op === v ? "var(--blue-600)" : "var(--border)",
-            background: op === v ? "rgba(11,92,255,0.08)" : "white",
-            color: op === v ? "var(--blue-600)" : "var(--text-muted)",
+            borderColor: op === v ? "var(--accent)" : "var(--border)",
+            background: op === v ? "var(--accent-soft)" : "white",
+            color: op === v ? "var(--accent)" : "var(--text-muted)",
           }}
         >
           {v === "keep" ? "Ne pas modifier" : v === "replace" ? "Remplacer" : "Vider"}
@@ -163,7 +175,7 @@ export function DocumentBulkEditPanel({
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto p-5">
+        <div className="flex-1 overflow-y-auto p-5" style={{ background: "var(--bg-page)" }}>
           {status === "success" ? (
             <div className="py-8 text-center">
               <CheckCircle2 className="mx-auto mb-3 h-10 w-10 text-emerald-600" strokeWidth={1.5} />
@@ -182,7 +194,7 @@ export function DocumentBulkEditPanel({
               <ul className="space-y-1.5 rounded-xl border p-4" style={{ borderColor: "var(--border)" }}>
                 {summary.map((line, i) => (
                   <li key={i} className="flex items-center gap-2 text-[13px]">
-                    <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: "var(--blue-600)" }} />
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: "var(--accent)" }} />
                     <span style={{ color: "var(--text-main)" }}>{line}</span>
                   </li>
                 ))}
@@ -194,105 +206,58 @@ export function DocumentBulkEditPanel({
               )}
             </div>
           ) : (
-            <div className="space-y-5">
-              {/* Correspondant */}
-              <div>
-                <p className="mb-1.5 text-[12px] font-bold" style={{ color: "var(--text-main)" }}>Correspondant</p>
+            <div className="space-y-4">
+              <p className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold" style={{ background: "var(--gedify-info-soft)", color: "var(--gedify-info)" }}>
+                <Info className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden="true" /> Seuls les champs explicitement activés seront modifiés.
+              </p>
+
+              <BulkSection icon={User} title="Correspondant">
                 {opToggle("Correspondant", patch.correspondentOp, (v) => set("correspondentOp", v))}
                 {patch.correspondentOp === "replace" && (
                   <div className="mt-2">
-                    <EntityAutocomplete
-                      entityType="correspondent"
-                      allowCreate
-                      value={patch.correspondentOpt}
-                      onChange={(v) => set("correspondentOpt", (Array.isArray(v) ? v[0] : v) ?? null)}
-                      placeholder="Choisir ou créer un correspondant…"
-                    />
+                    <EntityAutocomplete entityType="correspondent" allowCreate value={patch.correspondentOpt} onChange={(v) => set("correspondentOpt", (Array.isArray(v) ? v[0] : v) ?? null)} placeholder="Choisir ou créer un correspondant…" />
                   </div>
                 )}
-              </div>
+              </BulkSection>
 
-              {/* Type */}
-              <div>
-                <p className="mb-1.5 text-[12px] font-bold" style={{ color: "var(--text-main)" }}>Type de document</p>
+              <BulkSection icon={FileType2} title="Type de document">
                 {opToggle("Type", patch.typeOp, (v) => set("typeOp", v))}
                 {patch.typeOp === "replace" && (
                   <div className="mt-2">
-                    <EntityAutocomplete
-                      entityType="documentType"
-                      allowCreate
-                      value={patch.typeOpt}
-                      onChange={(v) => set("typeOpt", (Array.isArray(v) ? v[0] : v) ?? null)}
-                      placeholder="Choisir ou créer un type…"
-                    />
+                    <EntityAutocomplete entityType="documentType" allowCreate value={patch.typeOpt} onChange={(v) => set("typeOpt", (Array.isArray(v) ? v[0] : v) ?? null)} placeholder="Choisir ou créer un type…" />
                   </div>
                 )}
-              </div>
+              </BulkSection>
 
-              {/* Tags */}
-              <div>
-                <p className="mb-1.5 text-[12px] font-bold" style={{ color: "var(--text-main)" }}>Tags</p>
+              <BulkSection icon={Tags} title="Tags">
                 <div className="flex flex-wrap gap-1.5">
                   {(["keep", "add", "remove", "replace", "clear"] as TagOp[]).map((v) => (
-                    <button
-                      key={v}
-                      type="button"
-                      onClick={() => set("tagOp", v)}
-                      className="rounded-md border px-2 py-0.5 text-[11px] font-semibold transition"
-                      style={{
-                        borderColor: patch.tagOp === v ? "var(--blue-600)" : "var(--border)",
-                        background: patch.tagOp === v ? "rgba(11,92,255,0.08)" : "white",
-                        color: patch.tagOp === v ? "var(--blue-600)" : "var(--text-muted)",
-                      }}
-                    >
+                    <button key={v} type="button" onClick={() => set("tagOp", v)} className="rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition"
+                      style={{ borderColor: patch.tagOp === v ? "var(--accent)" : "var(--border)", background: patch.tagOp === v ? "var(--accent-soft)" : "white", color: patch.tagOp === v ? "var(--accent)" : "var(--text-muted)" }}>
                       {v === "keep" ? "Ne pas modifier" : v === "add" ? "Ajouter" : v === "remove" ? "Retirer" : v === "replace" ? "Remplacer" : "Vider"}
                     </button>
                   ))}
                 </div>
                 {["add", "remove", "replace"].includes(patch.tagOp) && (
                   <div className="mt-2">
-                    <EntityAutocomplete
-                      entityType="tag"
-                      multiple
-                      allowCreate={patch.tagOp !== "remove"}
-                      value={patch.tagOptions}
-                      onChange={(v) => set("tagOptions", Array.isArray(v) ? v : v ? [v] : [])}
-                      placeholder={patch.tagOp === "remove" ? "Tags à retirer…" : "Tags à ajouter ou créer…"}
-                    />
+                    <EntityAutocomplete entityType="tag" multiple allowCreate={patch.tagOp !== "remove"} value={patch.tagOptions} onChange={(v) => set("tagOptions", Array.isArray(v) ? v : v ? [v] : [])} placeholder={patch.tagOp === "remove" ? "Tags à retirer…" : "Tags à ajouter ou créer…"} />
                   </div>
                 )}
-              </div>
+              </BulkSection>
 
-              {/* Date document */}
-              <div>
-                <p className="mb-1.5 text-[12px] font-bold" style={{ color: "var(--text-main)" }}>Date du document</p>
+              <BulkSection icon={CalendarDays} title="Date du document">
                 {opToggle("Date", patch.createdOp, (v) => set("createdOp", v))}
                 {patch.createdOp === "replace" && (
-                  <input
-                    type="date"
-                    className="mt-2 h-9 w-full rounded-lg border px-2.5 text-[13px] outline-none"
-                    style={{ borderColor: "var(--border)" }}
-                    value={patch.created}
-                    onChange={(e) => set("created", e.target.value)}
-                  />
+                  <input type="date" className="mt-2 h-9 w-full rounded-xl border px-2.5 text-[13px] outline-none focus:border-[var(--accent)]" style={{ borderColor: "var(--border)" }} value={patch.created} onChange={(e) => set("created", e.target.value)} />
                 )}
-              </div>
+              </BulkSection>
 
-              {/* Notes */}
-              <div>
-                <p className="mb-1.5 text-[12px] font-bold" style={{ color: "var(--text-main)" }}>Notes</p>
+              <BulkSection icon={FileText} title="Notes">
                 {opToggle("Notes", patch.notesOp, (v) => set("notesOp", v))}
                 {patch.notesOp === "replace" && (
-                  <textarea
-                    className="mt-2 w-full rounded-lg border px-2.5 py-2 text-[13px] outline-none resize-none"
-                    style={{ borderColor: "var(--border)" }}
-                    rows={3}
-                    value={patch.notes}
-                    onChange={(e) => set("notes", e.target.value)}
-                    placeholder="Entrez les notes…"
-                  />
+                  <textarea className="mt-2 w-full resize-none rounded-xl border px-2.5 py-2 text-[13px] outline-none focus:border-[var(--accent)]" style={{ borderColor: "var(--border)" }} rows={3} value={patch.notes} onChange={(e) => set("notes", e.target.value)} placeholder="Entrez les notes…" />
                 )}
-              </div>
+              </BulkSection>
             </div>
           )}
         </div>
@@ -310,7 +275,7 @@ export function DocumentBulkEditPanel({
                   disabled={status === "loading"}
                   onClick={() => void apply()}
                   className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-[13px] font-bold text-white transition hover:opacity-90 disabled:opacity-50"
-                  style={{ background: "var(--blue-600)" }}
+                  style={{ background: "var(--accent)" }}
                 >
                   {status === "loading" && <Loader2 className="h-4 w-4 animate-spin" />}
                   Appliquer
@@ -326,7 +291,7 @@ export function DocumentBulkEditPanel({
                   disabled={!hasChanges}
                   onClick={() => setStep("confirm")}
                   className="rounded-xl px-4 py-2 text-[13px] font-bold text-white transition hover:opacity-90 disabled:opacity-50"
-                  style={{ background: "var(--blue-600)" }}
+                  style={{ background: "var(--accent)" }}
                 >
                   Continuer ({count})
                 </button>
