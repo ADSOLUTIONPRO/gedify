@@ -202,7 +202,6 @@ export const SPACE_MENUS: Record<string, SpaceMenu> = {
       { label: "À venir", href: "/rappels/a-venir", icon: Clock },
       { label: "En retard", href: "/rappels/en-retard", icon: AlertTriangle },
       { label: "Tâches automatiques", href: "/rappels/recurrents", icon: Repeat },
-      { label: "Actions à traiter", href: "/actions", icon: CheckCircle2 },
     ],
   },
 
