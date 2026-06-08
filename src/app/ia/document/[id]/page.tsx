@@ -5,6 +5,7 @@ import {
   Brain,
   Coins,
   ExternalLink,
+  Eye,
   FileText,
   ScanText,
   Zap,
@@ -21,6 +22,7 @@ import { FinancialExtractionReview } from "@/components/budget/financial-extract
 import { bulkUpsertFromSynthesis } from "@/lib/ai/detected-info-store";
 import { synthesizeDetectedInfos } from "@/lib/ai/detected-info-utils";
 import { DocumentPreview } from "@/components/ui/document-preview";
+import { DocumentPreviewButton } from "@/components/documents/document-preview-button";
 import { toBudgetMonth } from "@/lib/budget/budget-periods";
 import type { FinancialKind } from "@/lib/budget/financial-item-types";
 import { ErrorState } from "@/components/ui/error-state";
@@ -161,6 +163,14 @@ export default async function DocumentAnalysisPage({ params }: Props) {
         description={analysis.summary || "Synthèse en cours de génération."}
         actions={
           <>
+            <DocumentPreviewButton
+              documentId={documentId}
+              title={document.title || `Document #${documentId}`}
+              triggerClassName="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 px-4 text-sm font-semibold text-slate-700 shadow-sm backdrop-blur transition hover:bg-white"
+            >
+              <Eye className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+              Aperçu du document
+            </DocumentPreviewButton>
             <Link
               href={`/documents/${documentId}`}
               className="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 px-4 text-sm font-semibold text-slate-700 shadow-sm backdrop-blur transition hover:bg-white"
@@ -231,14 +241,23 @@ export default async function DocumentAnalysisPage({ params }: Props) {
       ) : null}
 
       <div className="mb-6 grid gap-6 xl:grid-cols-[minmax(0,220px)_minmax(0,1fr)]">
-        <DocumentPreview
+        <DocumentPreviewButton
           documentId={documentId}
-          title={document.title}
-          fileName={fileName}
-          mimeType={mimeType}
-          size="lg"
-          className="mx-auto"
-        />
+          title={document.title || `Document #${documentId}`}
+          triggerClassName="group relative mx-auto block w-full cursor-zoom-in rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+        >
+          <DocumentPreview
+            documentId={documentId}
+            title={document.title}
+            fileName={fileName}
+            mimeType={mimeType}
+            size="lg"
+          />
+          <span className="pointer-events-none absolute inset-x-2 bottom-2 flex items-center justify-center gap-1.5 rounded-xl bg-slate-950/72 py-1.5 text-[11.5px] font-semibold text-white opacity-0 backdrop-blur-sm transition group-hover:opacity-100">
+            <Eye className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+            Agrandir
+          </span>
+        </DocumentPreviewButton>
         <div className="space-y-4">
           <HelpCard
             tone="blue"
