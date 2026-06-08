@@ -10,6 +10,7 @@ export const GOOGLE_USERINFO_URL = "https://openidconnect.googleapis.com/v1/user
 export const DEFAULT_GMAIL_SCOPES = [
   "https://www.googleapis.com/auth/gmail.readonly",
   "https://www.googleapis.com/auth/contacts.readonly",
+  "https://www.googleapis.com/auth/calendar",
   "openid",
   "email",
   "profile",
@@ -41,6 +42,9 @@ export function getGmailOAuthConfig(): GmailOAuthConfig | null {
     "email",
     "profile",
     "https://www.googleapis.com/auth/contacts.readonly",
+    // Agenda complet : lecture/écriture des événements ET énumération des
+    // agendas (calendarList) — même connexion Google que pour les emails.
+    "https://www.googleapis.com/auth/calendar",
   ]) {
     if (!scopes.includes(required)) scopes.push(required);
   }
