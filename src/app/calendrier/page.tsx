@@ -1,6 +1,5 @@
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
-import { CalendarSidebar } from "@/components/calendar/calendar-sidebar";
 import { AgendaShell } from "@/components/calendar/agenda-shell";
 import { AgendaCalendar, type AgendaView, type AllDayItem } from "@/components/calendar/agenda-calendar";
 import { AgendaRightPanel, type RailEvent, type RailOverdue } from "@/components/calendar/agenda-right-panel";
@@ -85,8 +84,9 @@ export default async function CalendrierPage({ searchParams }: { searchParams?: 
         }
       />
 
-      {/* Structure 3 colonnes façon Google Calendar (drawers sur mobile/tablette). */}
-      <AgendaShell sidebar={<CalendarSidebar />} rightPanel={<AgendaRightPanel upcoming={upcoming} overdue={overdue} />}>
+      {/* Calendrier (dominant) + panneau droit. La sidebar gauche unique est
+          celle de l'espace « Agenda & tâches » (layout), pas dupliquée ici. */}
+      <AgendaShell rightPanel={<AgendaRightPanel upcoming={upcoming} overdue={overdue} />}>
         <AgendaCalendar initialView={initialView} initialDateISO={focusDate} todayISO={today.toISOString()} allDayItems={allDayItems} />
       </AgendaShell>
     </PageShell>

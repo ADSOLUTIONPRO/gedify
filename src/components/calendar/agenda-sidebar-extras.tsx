@@ -1,31 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { AlertTriangle, Calendar, CalendarClock, ChevronLeft, ChevronRight, Clock, ListChecks, Repeat, Settings2 } from "lucide-react";
-import { CreateCalendarItemButton } from "@/components/calendar/create-calendar-item-button";
+import { useRouter } from "next/navigation";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { CalendarAgendasPanel } from "@/components/calendar/calendar-agendas-panel";
 
-/* Sidebar métier Agenda & tâches (façon Google Calendar, charte GEDify) :
-   titre + sous-titre, bouton Nouvelle tâche, entrées de navigation, mini
-   calendrier, « Mes agendas » (cases on/off), accès « Gérer les agendas ». */
+/* Widgets de l'espace Agenda injectés DANS la sidebar d'espace (une seule
+   sidebar gauche) : mini-calendrier + « Mes agendas » (cases on/off + iCloud).
+   L'en-tête, le bouton « Nouvelle tâche » et le menu viennent déjà du menu
+   d'espace (space-menus.ts → SpaceMenuInner). */
 
 const DAY_INITIALS = ["L", "M", "M", "J", "V", "S", "D"];
 const MONTHS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
 
-const ENTRIES: { href: string; label: string; icon: typeof Calendar }[] = [
-  { href: "/calendrier", label: "Calendrier", icon: Calendar },
-  { href: "/calendrier?vue=detectes", label: "Rendez-vous détectés", icon: CalendarClock },
-  { href: "/rappels", label: "Mes tâches", icon: ListChecks },
-  { href: "/rappels/a-venir", label: "À venir", icon: Clock },
-  { href: "/rappels/en-retard", label: "En retard", icon: AlertTriangle },
-  { href: "/rappels/recurrents", label: "Tâches automatiques", icon: Repeat },
-];
-
-export function CalendarSidebar() {
+export function AgendaSidebarExtras({ onNavigate }: { onNavigate?: () => void }) {
   const router = useRouter();
-  const pathname = usePathname();
   const [refMonth, setRefMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const today = new Date();
   const todayKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
@@ -37,35 +26,12 @@ export function CalendarSidebar() {
 
   function pickDay(day: number) {
     const d = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    onNavigate?.();
     router.push(`/calendrier?view=jour&d=${d}`);
   }
 
   return (
-    <div className="space-y-4">
-      {/* Titre + sous-titre */}
-      <div>
-        <h2 className="text-[17px] font-extrabold leading-tight" style={{ color: "var(--text-main)" }}>Agenda &amp; tâches</h2>
-        <p className="mt-0.5 text-[12px]" style={{ color: "var(--text-muted)" }}>Calendrier, tâches, rappels &amp; échéances</p>
-      </div>
-
-      <CreateCalendarItemButton
-        label="Nouvelle tâche"
-        defaultTab="task"
-        className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl text-[14px] font-bold text-white shadow-sm transition hover:opacity-90"
-      />
-
-      {/* Entrées de navigation */}
-      <nav className="space-y-0.5">
-        {ENTRIES.map((e) => {
-          const active = e.href === "/calendrier" && pathname === "/calendrier";
-          return (
-            <Link key={e.label} href={e.href} className="flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-[13px] font-semibold transition hover:bg-[var(--bg-card-soft)]" style={active ? { background: "var(--accent-soft)", color: "var(--accent)" } : { color: "var(--text-muted)" }}>
-              <e.icon className="h-4 w-4 shrink-0" strokeWidth={1.85} style={{ color: active ? "var(--accent)" : "var(--text-hint)" }} aria-hidden="true" /> {e.label}
-            </Link>
-          );
-        })}
-      </nav>
-
+    <div className="space-y-3">
       {/* Mini-calendrier */}
       <div className="rounded-2xl border bg-white p-3" style={{ borderColor: "var(--border)" }}>
         <div className="mb-1.5 flex items-center justify-between">
@@ -88,13 +54,8 @@ export function CalendarSidebar() {
         </div>
       </div>
 
-      {/* Mes agendas : cases on/off (local + Google) + légende */}
+      {/* Mes agendas (cases on/off + légende + connexion iCloud) */}
       <CalendarAgendasPanel />
-
-      {/* Gérer les agendas */}
-      <Link href="/emails/comptes" className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-[12.5px] font-semibold transition hover:bg-[var(--bg-card-soft)]" style={{ color: "var(--text-muted)" }}>
-        <Settings2 className="h-4 w-4 shrink-0" strokeWidth={1.85} style={{ color: "var(--text-hint)" }} aria-hidden="true" /> Gérer les agendas
-      </Link>
     </div>
   );
 }

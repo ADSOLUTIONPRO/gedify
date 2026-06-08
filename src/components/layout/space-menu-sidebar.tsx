@@ -6,6 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { Home, PanelLeft, X } from "lucide-react";
 import { BrandLogo } from "@/components/ui/brand-logo";
 import { SidebarFolderTree } from "@/components/organiser/sidebar-folder-tree";
+import { AgendaSidebarExtras } from "@/components/calendar/agenda-sidebar-extras";
 import { getSpaceById } from "@/config/spaces";
 import { getActiveSpaceId, getSpaceMenu, type SpaceMenu, type SpaceMenuItem } from "@/config/space-menus";
 
@@ -118,7 +119,7 @@ function SpaceMenuInner({ onNavigate }: { onNavigate?: () => void }) {
       </div>
 
       {/* Liste du menu (groupée si `menu.groups`, sinon plate) */}
-      <nav className={`${activeId === "organiser" ? "" : "flex-1"} overflow-y-auto px-2 pb-2`}>
+      <nav className={`${activeId === "organiser" || activeId === "agenda" ? "" : "flex-1"} overflow-y-auto px-2 pb-2`}>
         {menu.groups && menu.groups.length > 0 ? (
           menu.groups.map((group, gi) => {
             const groupItems = menu.items.filter((it) => it.group === group.id);
@@ -150,6 +151,13 @@ function SpaceMenuInner({ onNavigate }: { onNavigate?: () => void }) {
       {activeId === "organiser" ? (
         <div className="flex min-h-0 flex-1 flex-col border-t px-2 pb-4 pt-3" style={{ borderColor: "var(--border)" }}>
           <SidebarFolderTree onNavigate={onNavigate} />
+        </div>
+      ) : null}
+
+      {/* Espace Agenda : mini-calendrier + agendas (cases on/off + iCloud) */}
+      {activeId === "agenda" ? (
+        <div className="min-h-0 flex-1 overflow-y-auto border-t px-3 pb-4 pt-3" style={{ borderColor: "var(--border)" }}>
+          <AgendaSidebarExtras onNavigate={onNavigate} />
         </div>
       ) : null}
     </div>
