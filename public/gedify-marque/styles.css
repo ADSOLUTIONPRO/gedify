@@ -194,7 +194,7 @@ p { color: var(--text-secondary); font-size: 1rem; line-height: 1.65; margin-bot
 .button-demo-grid .btn { width: 100%; }
 
 .document-card-demo, .status-panel { padding: 24px; }
-.doc-thumb { height: 160px; border: 1px solid var(--border-soft); border-radius: 18px; background: var(--card-soft); display: flex; align-items: center; justify-content: center; margin-bottom: 18px; }
+.doc-thumb { height: 160px; border: 1px solid var(--border-soft); border-radius: 12px; background: var(--card-soft); display: flex; align-items: center; justify-content: center; margin-bottom: 18px; }
 .doc-thumb img { max-width: 120px; max-height: 110px; }
 .badge-row { margin: 16px 0; }
 .badge-list { display: flex; flex-wrap: wrap; gap: 10px; }

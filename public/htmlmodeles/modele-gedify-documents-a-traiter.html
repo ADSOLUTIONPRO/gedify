@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GEDify — Documents à traiter</title>
+  <style>
+    :root{
+      --bg:#f7f1e8;
+      --sidebar:#f4ede2;
+      --panel:#fffdf9;
+      --panel-soft:#fbf7f1;
+      --line:#e8ddd0;
+      --text:#162033;
+      --muted:#718095;
+      --pink:#f65387;
+      --pink-dark:#e83f75;
+      --pink-soft:#fdeaf1;
+      --green:#26ad63;
+      --green-soft:#e9f8ef;
+      --orange:#f59e0b;
+      --orange-soft:#fff3dd;
+      --blue:#3a7afe;
+      --blue-soft:#eaf2ff;
+      --purple:#8b5cf6;
+      --purple-soft:#f1ecff;
+      --shadow:0 8px 24px rgba(85,61,38,.06);
+      --radius-xl:18px;
+      --radius-lg:14px;
+      --rail:66px;
+      --side:310px;
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    }
+    button,input,select{font:inherit}
+    a{text-decoration:none;color:inherit}
+
+    .app{
+      display:grid;
+      grid-template-columns:var(--rail) var(--side) minmax(0,1fr);
+      min-height:100vh;
+    }
+
+    .rail{
+      position:fixed;
+      inset:0 auto 0 0;
+      width:var(--rail);
+      background:#f2ebdf;
+      border-right:1px solid var(--line);
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      padding:14px 0;
+      z-index:40;
+    }
+    .rail-logo{
+      width:36px;height:36px;border-radius:10px;
+      background:linear-gradient(135deg,#17233b,#2b3d62);
+      position:relative;margin-bottom:18px;
+    }
+    .rail-logo::after{
+      content:"";position:absolute;left:6px;right:6px;top:7px;height:8px;
+      border-radius:4px;background:linear-gradient(90deg,#ff7aa6,#f65387);
+    }
+    .rail-nav{display:flex;flex-direction:column;gap:8px;width:100%;align-items:center}
+    .rail-item{
+      width:54px;min-height:58px;border-radius:14px;
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      gap:4px;color:#637188;font-size:10px;font-weight:700;text-align:center;
+    }
+    .rail-item .ico{font-size:21px}
+    .rail-item.active{background:var(--pink-soft);color:var(--pink)}
+    .rail-bottom{margin-top:auto}
+
+    .sidebar{
+      position:fixed;
+      left:var(--rail);top:0;bottom:0;
+      width:var(--side);
+      background:#f7f1e8;
+      border-right:1px solid var(--line);
+      padding:18px 16px 22px;
+      overflow:auto;
+      z-index:30;
+    }
+    .brand{display:flex;align-items:center;gap:10px;font-size:22px;font-weight:850;margin-bottom:24px}
+    .brand-mark{
+      width:32px;height:25px;border-radius:6px;background:linear-gradient(135deg,#17233b,#2b3d62);position:relative;
+    }
+    .brand-mark::after{
+      content:"";position:absolute;left:4px;right:4px;top:5px;height:7px;border-radius:4px;
+      background:linear-gradient(90deg,#ff7aa6,#f65387);
+    }
+    .menu-group{
+      background:rgba(255,255,255,.25);
+      border:1px solid rgba(232,221,208,.8);
+      border-radius:18px;
+      padding:14px 10px;
+      margin-bottom:14px;
+    }
+    .group-title{
+      padding:0 8px 10px;
+      font-size:12px;
+      font-weight:900;
+      letter-spacing:.04em;
+      color:#233149;
+      text-transform:uppercase;
+    }
+    .group-sub{
+      margin:-5px 8px 10px;
+      color:var(--muted);
+      font-size:11px;
+    }
+    .menu-list{display:flex;flex-direction:column;gap:4px}
+    .menu-link{
+      min-height:46px;border-radius:12px;
+      display:flex;align-items:center;gap:12px;
+      padding:7px 10px;color:#536278;
+    }
+    .menu-link:hover{background:#f5e9dc}
+    .menu-link.active{background:var(--pink-soft);color:var(--pink)}
+    .menu-link .ico{font-size:19px;width:24px;text-align:center}
+    .menu-copy{display:flex;flex-direction:column;min-width:0}
+    .menu-copy strong{font-size:13px}
+    .menu-copy span{font-size:10px;color:var(--muted)}
+    .menu-link.active .menu-copy span{color:#b9627f}
+    .badge{
+      margin-left:auto;min-width:30px;height:22px;border-radius:999px;
+      background:#fff;color:#66758a;border:1px solid var(--line);
+      display:grid;place-items:center;font-size:10px;font-weight:800;padding:0 7px;
+    }
+
+    .main{grid-column:3;min-width:0}
+    .topbar{
+      height:64px;position:sticky;top:0;z-index:20;
+      background:rgba(255,253,249,.94);
+      backdrop-filter:blur(14px);
+      border-bottom:1px solid var(--line);
+      display:flex;align-items:center;gap:14px;padding:0 24px;
+    }
+    .search{
+      width:min(620px,54vw);height:40px;border:1px solid var(--line);
+      background:#fbf8f3;border-radius:14px;padding:0 14px;color:#8a96a8;
+      display:flex;align-items:center;font-size:13px;
+    }
+    .top-actions{margin-left:auto;display:flex;align-items:center;gap:9px}
+    .top-btn{
+      height:38px;border-radius:12px;border:1px solid var(--line);
+      background:#fffaf5;color:#445268;font-weight:750;padding:0 14px;
+    }
+    .top-btn.primary{background:linear-gradient(135deg,var(--pink),#f86b99);color:#fff;border-color:transparent}
+    .circle{
+      width:36px;height:36px;border-radius:50%;border:1px solid var(--line);
+      background:#fffaf5;display:grid;place-items:center;color:#637188;
+    }
+    .avatar{
+      width:36px;height:36px;border-radius:50%;background:var(--pink);color:#fff;
+      display:grid;place-items:center;font-weight:850;
+    }
+
+    .page{padding:24px 26px 44px}
+    .breadcrumbs{font-size:12px;color:#7c899b;margin-bottom:10px}
+    .eyebrow{font-size:11px;font-weight:900;letter-spacing:.09em;color:var(--pink);text-transform:uppercase}
+    .title{font-size:32px;line-height:1.1;margin:4px 0 6px;font-weight:900}
+    .subtitle{font-size:13px;color:var(--muted);margin-bottom:18px}
+
+    .stats{
+      display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:12px;margin-bottom:16px;
+    }
+    .stat{
+      background:var(--panel);border:1px solid var(--line);border-radius:14px;
+      padding:14px 16px;box-shadow:var(--shadow);
+    }
+    .stat.active{border-color:#ff8bae;background:linear-gradient(180deg,#fff9fb,#fffdf9)}
+    .stat-label{font-size:11px;color:#77869a;display:flex;align-items:center;gap:7px}
+    .dot{width:7px;height:7px;border-radius:50%;background:#cbd3df}
+    .dot.pink{background:var(--pink)}
+    .dot.orange{background:var(--orange)}
+    .dot.blue{background:var(--blue)}
+    .stat-value{font-size:25px;font-weight:900;margin-top:7px}
+
+    .content-card{
+      background:var(--panel);border:1px solid var(--line);border-radius:18px;
+      box-shadow:var(--shadow);overflow:hidden;
+    }
+    .toolbar{
+      padding:12px 14px;border-bottom:1px solid var(--line);
+      display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+      background:linear-gradient(180deg,#fffdf9,#fffaf5);
+    }
+    .doc-search{
+      flex:1 1 340px;height:42px;border:1px solid var(--line);border-radius:12px;
+      background:#fff;padding:0 13px;color:#47556b;
+    }
+    .toolbar-btn{
+      height:42px;border-radius:11px;border:1px solid var(--line);
+      background:#fff;color:#4b5a70;font-weight:750;padding:0 13px;
+    }
+    .toolbar-btn.active{background:var(--pink);border-color:var(--pink);color:#fff}
+    .spacer{margin-left:auto}
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:14px;padding:14px;
+    }
+    .doc-card{
+      border:1px solid var(--line);border-radius:15px;background:#fff;
+      min-height:238px;padding:15px;display:flex;flex-direction:column;
+      transition:.18s ease;
+    }
+    .doc-card:hover{transform:translateY(-2px);box-shadow:0 10px 22px rgba(60,45,30,.08)}
+    .doc-top{display:flex;align-items:center;gap:10px}
+    .file-icon{
+      width:34px;height:34px;border-radius:10px;background:#f9e7e7;color:#d64545;
+      display:grid;place-items:center;font-size:11px;font-weight:900;
+    }
+    .file-icon.xlsx{background:#e7f6ed;color:#269558}
+    .file-icon.docx{background:#eaf1ff;color:#3b6fd4}
+    .file-type{font-size:11px;color:#7d8999;font-weight:850}
+    .favorite{
+      margin-left:auto;border:none;background:transparent;color:#8c98a8;font-size:23px;cursor:pointer;
+    }
+    .favorite.active{color:#f2b01e}
+    .doc-title{font-size:15px;font-weight:850;margin:14px 0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .doc-meta{font-size:11px;color:var(--muted);line-height:1.5}
+    .tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:11px}
+    .tag{font-size:10px;border-radius:999px;background:#f4f1ec;color:#667386;padding:5px 8px}
+    .status{
+      display:inline-flex;margin-top:10px;align-self:flex-start;
+      border-radius:999px;padding:5px 8px;font-size:10px;font-weight:850;
+    }
+    .status.orange{background:var(--orange-soft);color:#b86c00}
+    .status.purple{background:var(--purple-soft);color:#7b4bd8}
+    .status.blue{background:var(--blue-soft);color:#2f69dc}
+    .card-actions{margin-top:auto;display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-top:14px}
+    .card-btn{
+      height:36px;border-radius:10px;border:1px solid var(--line);
+      background:#fff;color:#415068;font-size:11px;font-weight:800;
+    }
+    .card-btn.primary{background:linear-gradient(135deg,var(--pink),#f86b99);color:#fff;border-color:transparent}
+
+    .pagination{
+      border-top:1px solid var(--line);
+      min-height:68px;padding:12px 16px;
+      display:flex;align-items:center;gap:10px;justify-content:center;
+      position:relative;
+    }
+    .pagination-info{position:absolute;left:16px;color:#7a8799;font-size:11px}
+    .page-btn{
+      width:34px;height:34px;border-radius:9px;border:1px solid var(--line);
+      background:#fff;color:#526176;font-weight:800;
+    }
+    .page-btn.active{border-color:#ff8bae;color:var(--pink);background:var(--pink-soft)}
+    .page-size{position:absolute;right:16px;height:34px;border:1px solid var(--line);border-radius:9px;background:#fff;padding:0 10px}
+
+    .assistant{
+      position:fixed;right:24px;bottom:22px;z-index:10;
+      height:52px;padding:0 22px;border:none;border-radius:999px;
+      background:linear-gradient(135deg,#8a36ee,#ef4f95);
+      color:#fff;font-weight:850;box-shadow:0 12px 28px rgba(138,54,238,.25);
+    }
+
+    @media(max-width:1350px){
+      :root{--side:280px}
+      .grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+    }
+    @media(max-width:1100px){
+      .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+    }
+    @media(max-width:900px){
+      .app{grid-template-columns:var(--rail) minmax(0,1fr)}
+      .sidebar{display:none}
+      .main{grid-column:2}
+      .grid{grid-template-columns:1fr}
+      .pagination{padding-bottom:82px}
+      .assistant{right:16px;bottom:16px;height:48px}
+    }
+    @media(max-width:620px){
+      .page{padding:18px 12px 34px}
+      .stats{grid-template-columns:1fr}
+      .topbar{padding:0 12px}
+      .search{width:100%}
+      .top-actions .top-btn:not(.primary){display:none}
+      .pagination{flex-wrap:wrap;justify-content:flex-start;padding:12px}
+      .pagination-info,.page-size{position:static}
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <aside class="rail">
+    <div class="rail-logo"></div>
+    <nav class="rail-nav">
+      <div class="rail-item"><div class="ico">⌂</div><span>Accueil</span></div>
+      <div class="rail-item active"><div class="ico">▤</div><span>Documents</span></div>
+      <div class="rail-item"><div class="ico">✣</div><span>Analyse IA</span></div>
+      <div class="rail-item"><div class="ico">◔</div><span>Finances</span></div>
+      <div class="rail-item"><div class="ico">✉</div><span>Mails</span></div>
+      <div class="rail-item"><div class="ico">♧</div><span>Contacts</span></div>
+      <div class="rail-item"><div class="ico">▣</div><span>Agenda</span></div>
+      <div class="rail-item"><div class="ico">⌘</div><span>Organiser</span></div>
+      <div class="rail-item"><div class="ico">T</div><span>Office</span></div>
+      <div class="rail-item"><div class="ico">⬡</div><span>Administration</span></div>
+    </nav>
+    <div class="rail-bottom"><div class="avatar">A</div></div>
+  </aside>
+
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-mark"></span>Gedify</div>
+
+    <section class="menu-group">
+      <div class="group-title">Documents</div>
+      <div class="group-sub">Consulter et trier vos documents</div>
+      <nav class="menu-list">
+        <a class="menu-link" href="#">
+          <span class="ico">▤</span>
+          <span class="menu-copy"><strong>Tous les documents</strong><span>Ensemble de la GED</span></span>
+        </a>
+        <a class="menu-link" href="#">
+          <span class="ico">◷</span>
+          <span class="menu-copy"><strong>Récents</strong><span>Ajoutés il y a moins de 48 h</span></span>
+          <span class="badge">48 h</span>
+        </a>
+        <a class="menu-link" href="#">
+          <span class="ico">☆</span>
+          <span class="menu-copy"><strong>Favoris</strong><span>Documents marqués d’une étoile</span></span>
+        </a>
+        <a class="menu-link active" href="#">
+          <span class="ico">▱</span>
+          <span class="menu-copy"><strong>À traiter</strong><span>À valider ou à compléter</span></span>
+        </a>
+        <a class="menu-link" href="#">
+          <span class="ico">▭</span>
+          <span class="menu-copy"><strong>Archives</strong><span>Documents archivés</span></span>
+        </a>
+        <a class="menu-link" href="#">
+          <span class="ico">♜</span>
+          <span class="menu-copy"><strong>Corbeille</strong><span>Documents supprimés</span></span>
+        </a>
+      </nav>
+    </section>
+
+    <section class="menu-group">
+      <div class="group-title">Organisation & taxonomies</div>
+      <div class="group-sub">Structurer et automatiser</div>
+      <nav class="menu-list">
+        <a class="menu-link" href="#"><span class="ico">⌁</span><span class="menu-copy"><strong>Signatures & paraphes</strong><span>Gérer vos signatures</span></span></a>
+        <a class="menu-link" href="#"><span class="ico">T</span><span class="menu-copy"><strong>Types de documents</strong><span>Catégoriser vos documents</span></span></a>
+        <a class="menu-link" href="#"><span class="ico">◇</span><span class="menu-copy"><strong>Tags</strong><span>Étiquettes et mots-clés</span></span></a>
+        <a class="menu-link" href="#"><span class="ico">▦</span><span class="menu-copy"><strong>Vues</strong><span>Vues personnalisées</span></span></a>
+        <a class="menu-link" href="#"><span class="ico">⌘</span><span class="menu-copy"><strong>Workflows</strong><span>Automatiser vos processus</span></span></a>
+        <a class="menu-link" href="#"><span class="ico">♧</span><span class="menu-copy"><strong>Modèles IA appris</strong><span>Modèles entraînés par l’IA</span></span></a>
+      </nav>
+    </section>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="search">⌕&nbsp;&nbsp;Rechercher dans les documents, dossiers, taxonomies…</div>
+      <div class="top-actions">
+        <button class="top-btn primary">⇧ Importer</button>
+        <button class="top-btn">☷ Administration⌄</button>
+        <button class="circle">◔</button>
+        <button class="circle">♧</button>
+        <div class="avatar">A</div>
+      </div>
+    </header>
+
+    <div class="page">
+      <div class="breadcrumbs">Documents &nbsp;›&nbsp; À traiter</div>
+      <div class="eyebrow">Classement rapide</div>
+      <h1 class="title">À traiter</h1>
+      <div class="subtitle">Documents nécessitant votre validation, une information ou une action.</div>
+
+      <section class="stats">
+        <div class="stat active">
+          <div class="stat-label"><span class="dot pink"></span>À traiter</div>
+          <div class="stat-value">44</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label"><span class="dot orange"></span>En retard</div>
+          <div class="stat-value">5</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label"><span class="dot blue"></span>À échéance (7 j)</div>
+          <div class="stat-value">12</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label"><span class="dot"></span>En attente d’infos</div>
+          <div class="stat-value">8</div>
+        </div>
+      </section>
+
+      <section class="content-card">
+        <div class="toolbar">
+          <input class="doc-search" placeholder="Rechercher dans les documents à traiter…" />
+          <button class="toolbar-btn">⌕ Filtres</button>
+          <button class="toolbar-btn active">▦</button>
+          <button class="toolbar-btn">☷</button>
+          <select class="toolbar-btn"><option>Plus récent en premier</option></select>
+          <span class="spacer"></span>
+          <button class="toolbar-btn">☑ Sélectionner⌄</button>
+        </div>
+
+        <div class="grid">
+          <article class="doc-card">
+            <div class="doc-top"><div class="file-icon">PDF</div><span class="file-type">PDF</span><button class="favorite">☆</button></div>
+            <div class="doc-title">Paiement RCD 2021</div>
+            <div class="doc-meta">Correspondant<br>12 mai 2024</div>
+            <div class="tags"><span class="tag">Banque</span><span class="tag">Facture</span><span class="tag">+1</span></div>
+            <span class="status orange">En retard</span>
+            <div class="card-actions"><button class="card-btn primary">Ouvrir</button><button class="card-btn">Fiche Doc</button></div>
+          </article>
+
+          <article class="doc-card">
+            <div class="doc-top"><div class="file-icon xlsx">XLSX</div><span class="file-type">XLSX</span><button class="favorite active">★</button></div>
+            <div class="doc-title">Relevé bancaire — Avril 2024</div>
+            <div class="doc-meta">Banque Populaire<br>10 mai 2024</div>
+            <div class="tags"><span class="tag">Banque</span><span class="tag">Relevé</span></div>
+            <span class="status purple">À valider</span>
+            <div class="card-actions"><button class="card-btn primary">Ouvrir</button><button class="card-btn">Fiche Doc</button></div>
+          </article>
+
+          <article class="doc-card">
+            <div class="doc-top"><div class="file-icon docx">DOCX</div><span class="file-type">DOCX</span><button class="favorite">☆</button></div>
+            <div class="doc-title">Contrat de prestation</div>
+            <div class="doc-meta">Adrien Martin<br>9 mai 2024</div>
+            <div class="tags"><span class="tag">Contrat</span><span class="tag">Client</span></div>
+            <span class="status orange">En attente d’infos</span>
+            <div class="card-actions"><button class="card-btn primary">Ouvrir</button><button class="card-btn">Fiche Doc</button></div>
+          </article>
+
+          <article class="doc-card">
+            <div class="doc-top"><div class="file-icon">PDF</div><span class="file-type">PDF</span><button class="favorite">☆</button></div>
+            <div class="doc-title">Facture F-2024-0042</div>
+            <div class="doc-meta">Fournisseur SARL<br>8 mai 2024</div>
+            <div class="tags"><span class="tag">Facture</span><span class="tag">Fournisseur</span></div>
+            <span class="status purple">À valider</span>
+            <div class="card-actions"><button class="card-btn primary">Ouvrir</button><button class="card-btn">Fiche Doc</button></div>
+          </article>
+
+          <article class="doc-card">
+            <div class="doc-top"><div class="file-icon xlsx">XLSX</div><span class="file-type">XLSX</span><button class="favorite">☆</button></div>
+            <div class="doc-title">Budget prévisionnel 2024</div>
+            <div class="doc-meta">Interne<br>7 mai 2024</div>
+            <div class="tags"><span class="tag">Interne</span><span class="tag">Budget</span></div>
+            <span class="status purple">À valider</span>
+            <div class="card-actions"><button class="card-btn primary">Ouvrir</button><button class="card-btn">Fiche Doc</button></div>
+          </article>
+
+          <article class="doc-card">
+            <div class="doc-top"><div class="file-icon">PDF</div><span class="file-type">PDF</span><button class="favorite active">★</button></div>
+            <div class="doc-title">Permis de conduire</div>
+            <div class="doc-meta">Correspondant<br>6 mai 2024</div>
+            <div class="tags"><span class="tag">Pièce d’identité</span></div>
+            <span class="status blue">À compléter</span>
+            <div class="card-actions"><button class="card-btn primary">Ouvrir</button><button class="card-btn">Fiche Doc</button></div>
+          </article>
+
+          <article class="doc-card">
+            <div class="doc-top"><div class="file-icon docx">DOCX</div><span class="file-type">DOCX</span><button class="favorite">☆</button></div>
+            <div class="doc-title">Courrier client — Relance</div>
+            <div class="doc-meta">Lumina SA<br>5 mai 2024</div>
+            <div class="tags"><span class="tag">Client</span><span class="tag">Courrier</span></div>
+            <span class="status purple">À valider</span>
+            <div class="card-actions"><button class="card-btn primary">Ouvrir</button><button class="card-btn">Fiche Doc</button></div>
+          </article>
+
+          <article class="doc-card">
+            <div class="doc-top"><div class="file-icon">PDF</div><span class="file-type">PDF</span><button class="favorite">☆</button></div>
+            <div class="doc-title">Avenant n°2</div>
+            <div class="doc-meta">Prestataire Alpha<br>4 mai 2024</div>
+            <div class="tags"><span class="tag">Contrat</span><span class="tag">Avenant</span></div>
+            <span class="status purple">À valider</span>
+            <div class="card-actions"><button class="card-btn primary">Ouvrir</button><button class="card-btn">Fiche Doc</button></div>
+          </article>
+        </div>
+
+        <div class="pagination">
+          <div class="pagination-info">1–12 sur 44 résultats</div>
+          <button class="page-btn">‹</button>
+          <button class="page-btn active">1</button>
+          <button class="page-btn">2</button>
+          <button class="page-btn">3</button>
+          <button class="page-btn">4</button>
+          <button class="page-btn">›</button>
+          <select class="page-size"><option>Afficher 12</option></select>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<button class="assistant">✣ Assistant IA</button>
+</body>
+</html>

@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GEDify — Agenda & Tâches</title>
+  <style>
+    :root{
+      --bg:#f7f1e8;
+      --panel:#fffdf9;
+      --panel-soft:#fbf7f1;
+      --line:#e8ddd0;
+      --text:#172033;
+      --muted:#748197;
+      --pink:#f65387;
+      --pink-dark:#e64277;
+      --pink-soft:#fdeaf1;
+      --blue:#4f8df7;
+      --green:#43b779;
+      --purple:#9a63e7;
+      --orange:#f1a23a;
+      --shadow:0 12px 30px rgba(78,54,34,.08);
+      --radius:18px;
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    }
+    button,input,select,textarea{font:inherit}
+    button{cursor:pointer}
+    .app{
+      min-height:100vh;
+      display:grid;
+      grid-template-columns:230px minmax(0,1fr) 300px;
+      background:var(--bg);
+    }
+
+    .sidebar{
+      background:#fbf7f1;
+      border-right:1px solid var(--line);
+      padding:20px 14px;
+      display:flex;
+      flex-direction:column;
+      gap:16px;
+    }
+    .brand{
+      display:flex;align-items:center;justify-content:space-between;
+      font-size:24px;font-weight:900;margin-bottom:8px;
+    }
+    .brand small{font-size:18px;color:var(--muted)}
+    .main-nav{display:flex;flex-direction:column;gap:5px}
+    .nav-item{
+      display:flex;align-items:center;gap:12px;
+      min-height:42px;padding:0 12px;border-radius:12px;
+      color:#4c5a6e;font-weight:650;font-size:14px;
+    }
+    .nav-item.active{background:var(--pink-soft);color:var(--pink)}
+    .nav-ico{width:22px;text-align:center}
+
+    .mini-calendar{
+      margin-top:8px;padding:14px 10px;border-top:1px solid var(--line);
+      border-bottom:1px solid var(--line);
+    }
+    .mini-head{
+      display:flex;align-items:center;justify-content:space-between;
+      font-weight:850;margin-bottom:12px;
+    }
+    .mini-grid{
+      display:grid;grid-template-columns:repeat(7,1fr);gap:7px;
+      font-size:11px;text-align:center;color:#536177;
+    }
+    .mini-grid .dayname{font-size:9px;color:#8b97a8;font-weight:800}
+    .mini-grid span{height:24px;display:grid;place-items:center;border-radius:50%}
+    .mini-grid .active{background:var(--pink);color:#fff;font-weight:850}
+
+    .section-title{
+      font-size:12px;font-weight:900;text-transform:uppercase;
+      letter-spacing:.05em;color:#26344a;margin:2px 0 8px;
+    }
+    .filters,.calendars{display:flex;flex-direction:column;gap:8px}
+    .check-row{
+      display:flex;align-items:center;gap:8px;font-size:12px;color:#536177;
+    }
+    .check-row input{accent-color:var(--pink)}
+    .color-dot{width:9px;height:9px;border-radius:50%}
+    .sync-card{
+      margin-top:auto;border:1px solid var(--line);background:var(--panel);
+      border-radius:14px;padding:12px;font-size:11px;color:#627086;
+    }
+    .sync-ok{display:flex;align-items:center;gap:8px;color:#2f9a62;font-weight:800;margin-bottom:6px}
+
+    .main{
+      min-width:0;
+      display:flex;flex-direction:column;
+      border-right:1px solid var(--line);
+    }
+    .topbar{
+      height:72px;padding:0 24px;border-bottom:1px solid var(--line);
+      background:rgba(255,253,249,.95);backdrop-filter:blur(12px);
+      display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:15;
+    }
+    .topbar h1{font-size:20px;margin:0}
+    .date-title{font-size:19px;font-weight:850}
+    .top-spacer{margin-left:auto}
+    .segmented{
+      display:flex;border:1px solid var(--line);background:#fff;border-radius:12px;padding:3px;
+    }
+    .segmented button{
+      border:0;background:transparent;padding:8px 14px;border-radius:9px;color:#536177;font-weight:750;
+    }
+    .segmented button.active{background:var(--pink-soft);color:var(--pink)}
+    .icon-btn,.outline-btn{
+      border:1px solid var(--line);background:#fff;border-radius:11px;height:38px;
+      padding:0 12px;color:#4f5d71;font-weight:750;
+    }
+    .primary-btn{
+      border:0;background:linear-gradient(135deg,var(--pink),#ef3275);
+      color:#fff;border-radius:12px;height:40px;padding:0 18px;font-weight:850;
+    }
+
+    .calendar-wrap{
+      display:flex;flex-direction:column;min-height:calc(100vh - 72px);
+      background:#fffaf5;
+    }
+    .calendar-toolbar{
+      display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line);
+      background:#fffdf9;
+    }
+    .calendar-toolbar strong{font-size:17px}
+    .view-label{margin-left:auto;color:#7a8799;font-size:12px}
+
+    .calendar{
+      display:grid;
+      grid-template-columns:56px repeat(7,minmax(120px,1fr));
+      border-bottom:1px solid var(--line);
+      background:var(--panel);
+      min-height:760px;
+      overflow:auto;
+    }
+    .time-col,.day-col{border-right:1px solid var(--line)}
+    .time-col{background:#fffdf9}
+    .day-head{
+      position:sticky;top:0;z-index:4;background:#fffdf9;
+      height:52px;border-bottom:1px solid var(--line);
+      display:flex;align-items:center;justify-content:center;
+      font-size:11px;font-weight:850;color:#415068;
+    }
+    .day-head.today{color:var(--pink)}
+    .time-slot,.cell{
+      height:58px;border-bottom:1px solid #efe6dc;
+      position:relative;
+    }
+    .time-slot{
+      display:flex;justify-content:flex-end;padding:6px 8px 0 0;
+      font-size:10px;color:#8a96a7;
+    }
+    .all-day{
+      height:48px;border-bottom:1px solid var(--line);position:relative;background:#fffaf6;
+    }
+    .event{
+      position:absolute;left:6px;right:6px;top:5px;
+      min-height:46px;border-radius:8px;padding:7px 8px;
+      font-size:10px;font-weight:750;line-height:1.35;border-left:3px solid;
+      box-shadow:0 3px 8px rgba(0,0,0,.04);
+    }
+    .event.blue{background:#edf4ff;border-color:var(--blue);color:#2f66be}
+    .event.green{background:#ecf8f0;border-color:var(--green);color:#2f8d5e}
+    .event.purple{background:#f5edff;border-color:var(--purple);color:#7f4ac7}
+    .event.orange{background:#fff3e5;border-color:var(--orange);color:#b66f1c}
+    .event.pink{background:#fdebf2;border-color:var(--pink);color:#bc3f68}
+
+    .year-view,.month-view,.day-list-view{display:none}
+    .month-view{
+      grid-template-columns:repeat(7,1fr);
+      min-height:690px;
+      border-top:1px solid var(--line);border-left:1px solid var(--line);
+    }
+    .month-day{
+      min-height:120px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);
+      background:#fffdf9;padding:8px;
+    }
+    .month-day strong{font-size:11px}
+    .mini-event{margin-top:6px;padding:5px 6px;border-radius:6px;font-size:9px;background:var(--pink-soft);color:#b83a65}
+    .year-view{
+      grid-template-columns:repeat(4,1fr);gap:14px;padding:16px;background:#fffaf5;
+    }
+    .year-month{
+      background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;
+      box-shadow:var(--shadow);
+    }
+    .year-month h3{margin:0 0 10px;font-size:13px}
+    .year-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;font-size:9px;text-align:center;color:#637188}
+    .year-grid span{height:20px;display:grid;place-items:center;border-radius:50%}
+    .year-grid .mark{background:var(--pink-soft);color:var(--pink);font-weight:800}
+
+    .day-list-view{
+      padding:16px;background:#fffaf5;
+    }
+    .day-list-card{
+      background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:10px;
+      display:grid;grid-template-columns:90px minmax(0,1fr) auto;gap:14px;align-items:center;
+    }
+    .day-time{font-weight:850;color:#4b5a70}
+    .day-title{font-weight:850}
+    .day-meta{font-size:11px;color:var(--muted);margin-top:4px}
+    .day-status{font-size:10px;border-radius:999px;background:var(--pink-soft);color:var(--pink);padding:5px 8px}
+
+    .right{
+      padding:18px 14px;background:#fbf7f1;display:flex;flex-direction:column;gap:14px;
+    }
+    .side-card{
+      background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:var(--shadow);
+    }
+    .side-card h3{font-size:15px;margin:0 0 12px}
+    .task{
+      display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:8px;
+      align-items:start;padding:8px 0;border-bottom:1px solid #eee5dc;font-size:12px;
+    }
+    .task:last-child{border-bottom:0}
+    .task small{display:block;color:var(--muted);margin-top:3px}
+    .suggestion{
+      border:1px solid var(--line);border-radius:11px;padding:10px;margin-bottom:8px;background:#fff;
+    }
+    .suggestion strong{font-size:11px;display:block;margin-bottom:4px}
+    .suggestion small{color:var(--muted);font-size:10px}
+    .suggestion button{
+      margin-top:8px;border:0;border-radius:8px;background:var(--pink-soft);
+      color:var(--pink);padding:6px 8px;font-size:10px;font-weight:800;
+    }
+
+    .modal-backdrop{
+      position:fixed;inset:0;background:rgba(35,43,55,.18);
+      display:grid;place-items:center;z-index:50;padding:20px;
+    }
+    .modal{
+      width:min(560px,95vw);max-height:90vh;overflow:auto;
+      background:var(--panel);border:1px solid var(--line);border-radius:20px;
+      box-shadow:0 30px 70px rgba(45,32,22,.20);
+    }
+    .modal-head{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:18px 20px;border-bottom:1px solid var(--line);
+    }
+    .modal-head h2{font-size:18px;margin:0}
+    .modal-tabs{
+      display:flex;gap:8px;padding:14px 20px 0;
+    }
+    .modal-tabs button{
+      border:0;background:transparent;border-bottom:2px solid transparent;
+      padding:9px 12px;font-weight:800;color:#667489;
+    }
+    .modal-tabs button.active{color:var(--pink);border-color:var(--pink)}
+    .modal-body{padding:16px 20px 20px}
+    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .field{display:flex;flex-direction:column;gap:6px}
+    .field.full{grid-column:1/-1}
+    .field label{font-size:11px;font-weight:850;color:#415068}
+    .field input,.field select,.field textarea{
+      width:100%;border:1px solid var(--line);border-radius:10px;background:#fff;
+      min-height:40px;padding:9px 11px;color:#415068;
+    }
+    .field textarea{min-height:90px;resize:vertical}
+    .chips{display:flex;flex-wrap:wrap;gap:7px}
+    .chip{border-radius:999px;background:var(--pink-soft);color:var(--pink);padding:6px 9px;font-size:10px;font-weight:800}
+    .modal-foot{
+      display:flex;align-items:center;justify-content:flex-end;gap:10px;
+      padding:14px 20px;border-top:1px solid var(--line);position:sticky;bottom:0;background:var(--panel);
+    }
+
+    @media(max-width:1200px){
+      .app{grid-template-columns:210px minmax(0,1fr)}
+      .right{display:none}
+    }
+    @media(max-width:900px){
+      .app{grid-template-columns:72px minmax(0,1fr)}
+      .sidebar{padding:14px 8px}
+      .brand{font-size:0;justify-content:center}
+      .brand::before{content:"G";font-size:24px}
+      .nav-item{justify-content:center;padding:0}
+      .nav-item span:last-child,.mini-calendar,.filters,.calendars,.sync-card{display:none}
+      .calendar{grid-template-columns:48px repeat(7,minmax(100px,1fr))}
+      .topbar{padding:0 12px}
+      .date-title{display:none}
+      .segmented button{padding:8px 10px}
+    }
+    @media(max-width:680px){
+      .app{display:block}
+      .sidebar{display:none}
+      .topbar{height:auto;padding:10px;flex-wrap:wrap}
+      .topbar h1{width:100%}
+      .calendar-wrap{min-height:0}
+      .calendar{display:none}
+      .day-list-view{display:block}
+      .calendar-toolbar{flex-wrap:wrap}
+      .form-grid{grid-template-columns:1fr}
+      .field.full{grid-column:auto}
+      .modal{width:100%;max-height:100vh;border-radius:0}
+      .modal-backdrop{padding:0}
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">Gedify <small>«</small></div>
+    <nav class="main-nav">
+      <div class="nav-item"><span class="nav-ico">⌂</span><span>Accueil</span></div>
+      <div class="nav-item active"><span class="nav-ico">▣</span><span>Agenda & Tâches</span></div>
+      <div class="nav-item"><span class="nav-ico">✉</span><span>Courriels</span></div>
+      <div class="nav-item"><span class="nav-ico">▤</span><span>Documents</span></div>
+      <div class="nav-item"><span class="nav-ico">♧</span><span>Contacts</span></div>
+      <div class="nav-item"><span class="nav-ico">⌘</span><span>Projets</span></div>
+      <div class="nav-item"><span class="nav-ico">⚙</span><span>Paramètres</span></div>
+    </nav>
+
+    <div class="mini-calendar">
+      <div class="mini-head"><span>Juin 2025</span><span>‹ ›</span></div>
+      <div class="mini-grid">
+        <span class="dayname">L</span><span class="dayname">M</span><span class="dayname">M</span><span class="dayname">J</span><span class="dayname">V</span><span class="dayname">S</span><span class="dayname">D</span>
+        <span>26</span><span>27</span><span>28</span><span>29</span><span>30</span><span>31</span><span>1</span>
+        <span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span>
+        <span>9</span><span>10</span><span class="active">11</span><span>12</span><span>13</span><span>14</span><span>15</span>
+        <span>16</span><span>17</span><span>18</span><span>19</span><span>20</span><span>21</span><span>22</span>
+        <span>23</span><span>24</span><span>25</span><span>26</span><span>27</span><span>28</span><span>29</span>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Filtres</div>
+      <div class="filters">
+        <label class="check-row"><input type="checkbox" checked> Mon agenda</label>
+        <label class="check-row"><input type="checkbox" checked> Rendez-vous uniquement</label>
+        <label class="check-row"><input type="checkbox"> Tâches uniquement</label>
+        <label class="check-row"><input type="checkbox" checked> Invitations</label>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Agendas connectés</div>
+      <div class="calendars">
+        <label class="check-row"><input type="checkbox" checked><span class="color-dot" style="background:#4f8df7"></span>Google Personnel</label>
+        <label class="check-row"><input type="checkbox" checked><span class="color-dot" style="background:#43b779"></span>Google Pro</label>
+        <label class="check-row"><input type="checkbox" checked><span class="color-dot" style="background:#9a63e7"></span>Famille</label>
+        <label class="check-row"><input type="checkbox" checked><span class="color-dot" style="background:#f1a23a"></span>Rendez-vous médicaux</label>
+        <label class="check-row"><input type="checkbox"><span class="color-dot" style="background:#aab3c0"></span>Jours fériés — France</label>
+      </div>
+    </div>
+
+    <div class="sync-card">
+      <div class="sync-ok">✓ Synchronisation active</div>
+      Vos agendas sont synchronisés dans les deux sens.<br>
+      Dernière synchronisation : il y a 2 min
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <h1>Agenda & Tâches</h1>
+      <div class="date-title">Semaine du 9 au 15 juin 2025</div>
+      <button class="outline-btn">Aujourd’hui</button>
+      <button class="icon-btn">‹</button>
+      <button class="icon-btn">›</button>
+      <div class="top-spacer"></div>
+      <div class="segmented" id="view-switcher">
+        <button data-view="day">Jour</button>
+        <button class="active" data-view="week">Semaine</button>
+        <button data-view="month">Mois</button>
+        <button data-view="year">Année</button>
+        <button data-view="list">Liste</button>
+      </div>
+      <button class="icon-btn">☷</button>
+    </header>
+
+    <section class="calendar-wrap">
+      <div class="calendar-toolbar">
+        <button class="outline-btn">Aujourd’hui</button>
+        <button class="icon-btn">‹</button>
+        <button class="icon-btn">›</button>
+        <strong>Juin 2025</strong>
+        <div class="view-label">Synchronisation bidirectionnelle active</div>
+        <button class="primary-btn">+ Nouveau RDV / Nouvelle tâche</button>
+      </div>
+
+      <div class="calendar week-view" id="week-view">
+        <div class="time-col">
+          <div class="day-head"></div>
+          <div class="all-day"></div>
+          <div class="time-slot">07:00</div><div class="time-slot">08:00</div><div class="time-slot">09:00</div><div class="time-slot">10:00</div><div class="time-slot">11:00</div><div class="time-slot">12:00</div><div class="time-slot">13:00</div><div class="time-slot">14:00</div><div class="time-slot">15:00</div><div class="time-slot">16:00</div><div class="time-slot">17:00</div><div class="time-slot">18:00</div><div class="time-slot">19:00</div>
+        </div>
+
+        <div class="day-col"><div class="day-head">LUN. 9</div><div class="all-day"></div><div class="cell"></div><div class="cell"></div><div class="cell"><div class="event blue">Point équipe<br>09:00–10:00</div></div><div class="cell"></div><div class="cell"></div><div class="cell"><div class="event orange">Déjeuner avec Paul<br>12:30–13:30</div></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div>
+        <div class="day-col"><div class="day-head">MAR. 10</div><div class="all-day"></div><div class="cell"><div class="event purple">Sport matin<br>07:00–08:00</div></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"><div class="event green">Atelier<br>14:00–16:00</div></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"><div class="event purple">Cours de piano<br>18:30–19:30</div></div><div class="cell"></div></div>
+        <div class="day-col"><div class="day-head today">MER. 11</div><div class="all-day"><div class="event purple">Déjeuner en famille</div></div><div class="cell"></div><div class="cell"></div><div class="cell"><div class="event pink">RDV Dr. Martin<br>09:30–10:15</div></div><div class="cell"><div class="event green">Réunion projet<br>10:00–11:30</div></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div>
+        <div class="day-col"><div class="day-head">JEU. 12</div><div class="all-day"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div>
+        <div class="day-col"><div class="day-head">VEN. 13</div><div class="all-day"><div class="event green">Télétravail</div></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div>
+        <div class="day-col"><div class="day-head">SAM. 14</div><div class="all-day"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div>
+        <div class="day-col"><div class="day-head">DIM. 15</div><div class="all-day"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div>
+      </div>
+
+      <div class="month-view" id="month-view">
+        <div class="month-day"><strong>1</strong></div><div class="month-day"><strong>2</strong><div class="mini-event">Point équipe</div></div><div class="month-day"><strong>3</strong></div><div class="month-day"><strong>4</strong><div class="mini-event">Présentation offre</div></div><div class="month-day"><strong>5</strong></div><div class="month-day"><strong>6</strong></div><div class="month-day"><strong>7</strong></div>
+        <div class="month-day"><strong>8</strong></div><div class="month-day"><strong>9</strong><div class="mini-event">Call client</div></div><div class="month-day"><strong>10</strong></div><div class="month-day"><strong>11</strong><div class="mini-event">RDV médecin</div></div><div class="month-day"><strong>12</strong></div><div class="month-day"><strong>13</strong><div class="mini-event">Revue budget</div></div><div class="month-day"><strong>14</strong></div>
+      </div>
+
+      <div class="year-view" id="year-view">
+        <div class="year-month"><h3>Janvier</h3><div class="year-grid"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span><span>1</span><span>2</span><span>3</span><span class="mark">4</span><span>5</span><span>6</span><span>7</span></div></div>
+        <div class="year-month"><h3>Février</h3><div class="year-grid"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span><span>1</span><span class="mark">2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span></div></div>
+        <div class="year-month"><h3>Mars</h3><div class="year-grid"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span><span>1</span><span>2</span><span>3</span><span>4</span><span class="mark">5</span><span>6</span><span>7</span></div></div>
+        <div class="year-month"><h3>Avril</h3><div class="year-grid"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span><span>1</span><span>2</span><span class="mark">3</span><span>4</span><span>5</span><span>6</span><span>7</span></div></div>
+        <div class="year-month"><h3>Mai</h3><div class="year-grid"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span class="mark">6</span><span>7</span></div></div>
+        <div class="year-month"><h3>Juin</h3><div class="year-grid"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span class="mark">7</span></div></div>
+        <div class="year-month"><h3>Juillet</h3><div class="year-grid"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span></div></div>
+        <div class="year-month"><h3>Août</h3><div class="year-grid"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span></div></div>
+        <div class="year-month"><h3>Septembre</h3><div class="year-grid"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span></div></div>
+        <div class="year-month"><h3>Octobre</h3><div class="year-grid"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span></div></div>
+        <div class="year-month"><h3>Novembre</h3><div class="year-grid"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span></div></div>
+        <div class="year-month"><h3>Décembre</h3><div class="year-grid"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span></div></div>
+      </div>
+
+      <div class="day-list-view" id="list-view">
+        <div class="day-list-card"><div class="day-time">09:00</div><div><div class="day-title">Point équipe</div><div class="day-meta">Google Pro · Salle Océan · 6 participants</div></div><div class="day-status">Rendez-vous</div></div>
+        <div class="day-list-card"><div class="day-time">10:30</div><div><div class="day-title">Valider le devis ACME</div><div class="day-meta">Tâche liée au projet ACME</div></div><div class="day-status">Tâche</div></div>
+        <div class="day-list-card"><div class="day-time">13:30</div><div><div class="day-title">Présentation offre Gedify</div><div class="day-meta">Depuis Gmail · 15 rue de la Paix, Paris</div></div><div class="day-status">Rendez-vous</div></div>
+        <div class="day-list-card"><div class="day-time">16:45</div><div><div class="day-title">Point projet site web</div><div class="day-meta">Depuis un document · Rappel 30 min avant</div></div><div class="day-status">Tâche</div></div>
+      </div>
+    </section>
+  </main>
+
+  <aside class="right">
+    <section class="side-card">
+      <h3>Tâches du jour <span style="color:var(--muted)">6</span></h3>
+      <div class="task"><input type="checkbox"><div>Répondre à l’appel d’offres<small>Google Pro</small></div><strong>09:00</strong></div>
+      <div class="task"><input type="checkbox"><div>Préparer point équipe<small>Google Pro</small></div><strong>11:00</strong></div>
+      <div class="task"><input type="checkbox"><div>Faire les courses<small>Famille</small></div><strong>16:00</strong></div>
+      <div class="task"><input type="checkbox"><div>Suivi dossier client<small>Google Pro</small></div><strong>18:00</strong></div>
+    </section>
+
+    <section class="side-card">
+      <h3>Courriels et documents transformables en actions</h3>
+      <div class="suggestion"><strong>Entretien avec Sophie Martin</strong><small>RDV détecté dans un mail</small><button>Créer le RDV</button></div>
+      <div class="suggestion"><strong>Préparer le rapport d’étape</strong><small>Tâche détectée dans un mail</small><button>Créer la tâche</button></div>
+      <div class="suggestion"><strong>Mettre à jour le budget prévisionnel</strong><small>Tâche suggérée depuis un document</small><button>Créer la tâche</button></div>
+      <div class="suggestion"><strong>Point de validation comité</strong><small>RDV suggéré depuis un document</small><button>Créer le RDV</button></div>
+    </section>
+  </aside>
+</div>
+
+<div class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Nouveau rendez-vous ou tâche</h2>
+      <button class="icon-btn">×</button>
+    </div>
+    <div class="modal-tabs">
+      <button class="active">Rendez-vous</button>
+      <button>Tâche</button>
+      <button>Planning</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="field full">
+          <label>Agenda</label>
+          <select>
+            <option>Google Pro</option>
+            <option>Google Personnel</option>
+            <option>Famille</option>
+            <option>Rendez-vous médicaux</option>
+          </select>
+        </div>
+        <div class="field full">
+          <label>Titre</label>
+          <input placeholder="Ex. : Réunion de suivi projet">
+        </div>
+        <div class="field">
+          <label>Date</label>
+          <input type="date" value="2025-06-11">
+        </div>
+        <div class="field">
+          <label>Heure</label>
+          <div style="display:flex;gap:8px"><input value="13:30"><input value="14:30"></div>
+        </div>
+        <div class="field full">
+          <label>Récurrence</label>
+          <select><option>Ne se répète pas</option><option>Tous les jours</option><option>Toutes les semaines</option><option>Tous les mois</option></select>
+        </div>
+        <div class="field full">
+          <label>Invités</label>
+          <input placeholder="Ajouter des personnes ou des groupes">
+        </div>
+        <div class="field full">
+          <label>Lieu</label>
+          <input placeholder="Rechercher un lieu ou ajouter une adresse via Google Maps">
+        </div>
+        <div class="field full">
+          <label>Rappels</label>
+          <div class="chips"><span class="chip">15 minutes avant ×</span><span class="chip">Le jour même à 09:00 ×</span></div>
+        </div>
+        <div class="field">
+          <label>Disponibilité</label>
+          <select><option>Occupé</option><option>Disponible</option></select>
+        </div>
+        <div class="field">
+          <label>Visibilité</label>
+          <select><option>Par défaut</option><option>Privé</option><option>Public</option></select>
+        </div>
+        <div class="field full">
+          <label>Notes</label>
+          <textarea placeholder="Ajouter une description, un ordre du jour, des liens…"></textarea>
+        </div>
+        <div class="field full">
+          <label>Synchronisation</label>
+          <label class="check-row"><input type="checkbox" checked> Synchroniser dans les deux sens avec Google Agenda</label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="outline-btn">Annuler</button>
+      <button class="primary-btn">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const buttons = document.querySelectorAll('#view-switcher button');
+  const views = {
+    week: document.getElementById('week-view'),
+    month: document.getElementById('month-view'),
+    year: document.getElementById('year-view'),
+    list: document.getElementById('list-view'),
+    day: document.getElementById('list-view')
+  };
+
+  buttons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      buttons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      Object.values(views).forEach(v => v.style.display = 'none');
+
+      const key = btn.dataset.view;
+      if (key === 'week') views.week.style.display = 'grid';
+      else if (key === 'month') views.month.style.display = 'grid';
+      else if (key === 'year') views.year.style.display = 'grid';
+      else views[key].style.display = 'block';
+    });
+  });
+</script>
+</body>
+</html>
