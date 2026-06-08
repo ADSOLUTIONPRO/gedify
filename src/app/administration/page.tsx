@@ -1,450 +1,262 @@
 import Link from "next/link";
 import {
-  Activity,
-  Bot,
-  CheckCircle2,
-  Database,
-  ExternalLink,
-  Gauge,
-  HeartPulse,
-  KeyRound,
-  Mail,
-  RefreshCw,
-  RotateCcw,
-  ScrollText,
-  Server,
-  Settings,
-  ShieldCheck,
-  Sparkles,
-  Trash2,
-  UserCog,
-  UsersRound,
-  Workflow,
+  Activity, AlertTriangle, CheckCircle2, ChevronRight, Database, DatabaseBackup,
+  Download, HardDrive, HeartPulse, RefreshCw, ScrollText, ShieldCheck, Trash2,
+  UserCog, UserPlus, Users,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
-import { SectionCard } from "@/components/ui/section-card";
-import { StatCard } from "@/components/ui/stat-card";
-import { StatusPill } from "@/components/ui/status-pill";
+import { AdminSidebar } from "@/components/admin/admin-sidebar";
 import { OrphanCleanupButton } from "@/components/admin/orphan-cleanup-button";
 import { PermisTagCleanupButton } from "@/components/admin/permis-tag-cleanup-button";
 import { ResetHistoryButton } from "@/components/admin/reset-history-button";
 import { SyncDeletedButton } from "@/components/admin/sync-deleted-button";
 import { ScopedResetButton } from "@/components/admin/scoped-reset-button";
-import { getPaperlessPublicUrl, getPaperlessStatus } from "@/lib/paperless";
+import { getPaperlessStatus } from "@/lib/paperless";
+import { listUsers } from "@/lib/engine/users";
+import { listAudit, type AuditEntry } from "@/lib/audit/audit-store";
+import { pgStorageActive, sqliteActive } from "@/lib/db/pg-store";
+import { listGmailAccounts } from "@/lib/connectors/gmail/gmail-token-store";
 
 export const dynamic = "force-dynamic";
 
-const ENGINES = [
-  { name: "Moteur OCR (local)", description: "OCR par défaut", tone: "blue" as const, icon: Database },
-  { name: "OpenAI", description: "Analyse documentaire IA", tone: "violet" as const, icon: Bot },
-  { name: "Mailbox", description: "Connecteurs email", tone: "emerald" as const, icon: Mail },
-  { name: "Webhooks", description: "Notifications sortantes", tone: "amber" as const, icon: Workflow },
-];
+const TONE: Record<string, { bg: string; color: string }> = {
+  green: { bg: "var(--gedify-green-soft)", color: "var(--gedify-green)" },
+  blue: { bg: "var(--gedify-info-soft)", color: "var(--gedify-info)" },
+  purple: { bg: "var(--gedify-purple-soft)", color: "var(--gedify-purple)" },
+  amber: { bg: "var(--gedify-orange-soft)", color: "var(--gedify-orange)" },
+  rose: { bg: "#FDECEF", color: "#E11D48" },
+};
 
-const SECURITY_CHECKS = [
-  "Token Gedify conservé côté serveur",
-  "Chiffrement TLS de la communication",
-  "Pas d'accès anonymes",
-  "Auth Gedify requise",
-  "Logs d'activité tracés",
-];
+function relTime(iso: string): string {
+  const d = new Date(iso).getTime();
+  if (Number.isNaN(d)) return "—";
+  const min = Math.round((Date.now() - d) / 60000);
+  if (min < 1) return "à l'instant";
+  if (min < 60) return `il y a ${min} min`;
+  const h = Math.round(min / 60);
+  if (h < 24) return `il y a ${h} h`;
+  return new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+}
 
 export default async function AdministrationPage() {
-  const status = await getPaperlessStatus();
-  const paperlessUrl = getPaperlessPublicUrl();
+  const [status, users, audit, gmailAccounts] = await Promise.all([
+    getPaperlessStatus().catch(() => ({ connected: false } as Awaited<ReturnType<typeof getPaperlessStatus>>)),
+    listUsers().catch(() => []),
+    listAudit(6).catch(() => [] as AuditEntry[]),
+    listGmailAccounts().catch(() => []),
+  ]);
+  const stats = status.statistics ?? null;
+  const backend = sqliteActive() ? "SQLite" : pgStorageActive() ? "PostgreSQL" : "JSON local";
+  const activeUsers = users.filter((u) => u.is_active !== false).length;
+  const aiOn = Boolean(process.env.OLLAMA_BASE_URL || process.env.OPENAI_API_KEY || process.env.AI_CLOUD_BASE_URL);
+  const docsTotal = stats?.documents_total ?? null;
 
-  const statistics = status.statistics ?? null;
-  const userInfo = status.user ?? null;
-  const auditTrails = [
-    { label: "Connexion au moteur", status: status.connected ? "OK" : "Erreur", tone: status.connected ? "emerald" : "rose" },
-    { label: "Version API", status: status.apiVersion ?? "—", tone: "blue" },
-    { label: "Statistiques", status: statistics ? "Synchronisées" : "—", tone: statistics ? "emerald" : "slate" },
-    { label: "Mise à jour", status: status.updateAvailable ? "Disponible" : "À jour", tone: status.updateAvailable ? "amber" : "emerald" },
-  ] as const;
+  const services = [
+    { label: "Base de données", sub: backend, on: true },
+    { label: "Connecteur email", sub: gmailAccounts.length ? `${gmailAccounts.length} compte(s)` : "Non connecté", on: gmailAccounts.length > 0 },
+    { label: "OCR local", sub: "Disponible", on: true },
+    { label: "Analyse IA", sub: aiOn ? "Configurée" : "Non configurée", on: aiOn },
+    { label: "Sauvegarde", sub: "Planifiable", on: true },
+  ];
+
+  const alert = !status.connected
+    ? { tone: "rose" as const, title: "Moteur documentaire injoignable", sub: "Vérifiez la configuration du backend." }
+    : status.updateAvailable
+    ? { tone: "amber" as const, title: "Mise à jour disponible", sub: "Une nouvelle version peut être installée." }
+    : { tone: "green" as const, title: "Aucune alerte critique", sub: "Votre système fonctionne normalement." };
 
   return (
     <PageShell>
       <PageHeader
-        breadcrumb={[
-          { href: "/dashboard", label: "Accueil" },
-          { label: "Administration" },
-        ]}
-        title="Administration"
-        description="Gérez les utilisateurs, les rôles et la configuration de votre plateforme."
-        actions={
-          paperlessUrl ? (
-            <a
-              href={paperlessUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex h-10 items-center gap-2 rounded-xl border bg-white px-3 text-sm font-semibold transition hover:bg-slate-50"
-              style={{ borderColor: "var(--border)", color: "var(--text-main)" }}
-            >
-              <ExternalLink className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-              Ouvrir Gedify
-            </a>
-          ) : null
-        }
+        breadcrumb={[{ href: "/dashboard", label: "Accueil" }, { label: "Administration" }]}
+        title="Tableau de bord administration"
+        description="Vue d'ensemble de votre environnement GEDify."
       />
 
-      {/* Row 1: 4 wide stat cards */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label="Compte & sécurité"
-          value={userInfo ? "Connecté" : "Anonyme"}
-          helper={userInfo ? `${userInfo.first_name ?? ""} ${userInfo.last_name ?? ""}`.trim() || userInfo.email || "—" : "Configurez votre profil"}
-          icon={ShieldCheck}
-          tone="blue"
-        />
-        <StatCard
-          label="Utilisateurs"
-          value={1}
-          helper="comptes connectés à la GED"
-          icon={UserCog}
-          tone="emerald"
-        />
-        <StatCard
-          label="Groupes"
-          value={1}
-          helper="groupes configurés"
-          icon={UsersRound}
-          tone="violet"
-        />
-        <StatCard
-          label="Tokens API"
-          value={status.connected ? 1 : 0}
-          helper="actifs côté serveur"
-          icon={KeyRound}
-          tone="amber"
-        />
-      </div>
+      <div className="flex flex-col gap-5 lg:flex-row">
+        {/* Sidebar de gouvernance */}
+        <div className="shrink-0 lg:w-[270px]">
+          <AdminSidebar />
+        </div>
 
-      {/* Row 2: 3 wide cards */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        <SectionCard
-          icon={ShieldCheck}
-          title="API protégée"
-          description="Toutes les routes /api sont relayées côté serveur."
-        >
-          <ul className="space-y-2 text-sm" style={{ color: "var(--text-main)" }}>
-            <li className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4" style={{ color: "#16A34A" }} strokeWidth={2} />
-              Token Gedify côté serveur uniquement
-            </li>
-            <li className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4" style={{ color: "#16A34A" }} strokeWidth={2} />
-              Pas d&apos;exposition de OPENAI_API_KEY au client
-            </li>
-            <li className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4" style={{ color: "#16A34A" }} strokeWidth={2} />
-              Routes proxy avec authentification serveur
-            </li>
-          </ul>
-          <Link
-            href="/statut"
-            className="mt-4 inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold text-white transition hover:opacity-90"
-            style={{ background: "var(--blue-600)" }}
-          >
-            Voir le statut
-            <ExternalLink className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
-          </Link>
-        </SectionCard>
-
-        <SectionCard
-          icon={ScrollText}
-          title="Journaux d'audit"
-          description="Derniers contrôles de connexion."
-        >
-          <ul className="space-y-2.5 text-sm">
-            {auditTrails.map((row) => (
-              <li key={row.label} className="flex items-center justify-between gap-3">
-                <span style={{ color: "var(--text-muted)" }}>{row.label}</span>
-                <StatusPill tone={row.tone} dot>
-                  {row.status}
-                </StatusPill>
-              </li>
-            ))}
-          </ul>
-          <Link
-            href="/journaux"
-            className="mt-4 inline-flex h-9 items-center gap-1.5 rounded-xl border bg-white px-3 text-xs font-semibold transition hover:bg-slate-50"
-            style={{ borderColor: "var(--border)", color: "var(--text-main)" }}
-          >
-            Tous les journaux
-            <ExternalLink className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
-          </Link>
-        </SectionCard>
-
-        <SectionCard
-          icon={Server}
-          title="Santé du système"
-          description="État Gedify en direct."
-        >
-          <div className="space-y-3 text-sm">
-            <Row label="Connexion" value={status.connected ? "OK" : "Erreur"} tone={status.connected ? "emerald" : "rose"} />
-            <Row label="Version" value={status.version ?? "—"} tone="blue" />
-            <Row label="API" value={status.apiVersion ?? "—"} tone="slate" />
-            <Row
-              label="Documents"
-              value={statistics?.documents_total != null ? String(statistics.documents_total) : "—"}
-              tone="violet"
-            />
-            <Row
-              label="Inbox"
-              value={statistics?.documents_inbox != null ? String(statistics.documents_inbox) : "—"}
-              tone={statistics?.documents_inbox && statistics.documents_inbox > 0 ? "amber" : "slate"}
-            />
-            <Row
-              label="ASN courant"
-              value={statistics?.current_asn != null ? String(statistics.current_asn) : "—"}
-              tone="blue"
-            />
+        {/* Dashboard */}
+        <div className="min-w-0 flex-1 space-y-4">
+          {/* Stats */}
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Stat icon={Activity} tone={status.connected ? "green" : "rose"} label="Statut global" value={status.connected ? "En bonne santé" : "Dégradé"} />
+            <Stat icon={Users} tone="purple" label="Utilisateurs" value={String(users.length)} helper={`${activeUsers} actif(s)`} />
+            <Stat icon={HardDrive} tone="blue" label="Base de données" value={backend} helper={docsTotal != null ? `${docsTotal} document(s)` : undefined} />
+            <Stat icon={RefreshCw} tone={status.updateAvailable ? "amber" : "green"} label="Mises à jour" value={status.updateAvailable ? "Disponible" : "À jour"} />
           </div>
-        </SectionCard>
-      </div>
 
-      {/* Row 3: Engines + Security */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <SectionCard
-          icon={Sparkles}
-          title="Moteurs d'extraction"
-          description="Pipelines connectés à votre GED."
-        >
-          <div className="grid grid-cols-2 gap-3">
-            {ENGINES.map((engine) => {
-              const Icon = engine.icon;
-              const PALETTE: Record<typeof engine.tone, { bg: string; color: string }> = {
-                blue: { bg: "rgba(11,92,255,0.08)", color: "var(--blue-600)" },
-                violet: { bg: "rgba(124,58,237,0.10)", color: "#7C3AED" },
-                emerald: { bg: "rgba(16,163,74,0.08)", color: "#16A34A" },
-                amber: { bg: "rgba(245,158,11,0.12)", color: "#B45309" },
-              };
-              const p = PALETTE[engine.tone];
-              return (
-                <div
-                  key={engine.name}
-                  className="flex items-start gap-3 rounded-xl p-3"
-                  style={{ background: p.bg, border: `1px solid ${p.color}33` }}
-                >
-                  <span
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-                    style={{ background: "white" }}
-                  >
-                    <Icon className="h-4 w-4" style={{ color: p.color }} strokeWidth={1.75} />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold" style={{ color: "var(--text-main)" }}>
-                      {engine.name}
-                    </p>
-                    <p
-                      className="text-[11px] leading-snug"
-                      style={{ color: "var(--text-muted)" }}
-                    >
-                      {engine.description}
-                    </p>
-                  </div>
+          {/* Dashboard cards */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* Activités récentes */}
+            <Card icon={ScrollText} title="Activités récentes" cta={{ href: "/journaux", label: "Voir tout" }}>
+              {audit.length === 0 ? (
+                <p className="py-3 text-[13px]" style={{ color: "var(--text-muted)" }}>Aucune activité récente.</p>
+              ) : (
+                <ul>
+                  {audit.map((a) => (
+                    <li key={a.id} className="grid grid-cols-[34px_minmax(0,1fr)_auto] items-center gap-2.5 border-b py-2.5 last:border-0" style={{ borderColor: "var(--border-soft)" }}>
+                      <span className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: "var(--bg-card-soft)", color: "var(--text-muted)" }}>
+                        <Activity className="h-4 w-4" strokeWidth={1.85} aria-hidden="true" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-[13px] font-bold" style={{ color: "var(--text-main)" }}>{a.action}{a.target ? ` · ${a.target}` : ""}</span>
+                        <span className="block truncate text-[11.5px]" style={{ color: "var(--text-muted)" }}>{a.user} · {relTime(a.at)}</span>
+                      </span>
+                      <ResultPill result={a.result} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+
+            {/* Santé & ressources */}
+            <Card icon={HeartPulse} title="Santé & ressources">
+              <div className="space-y-2.5 py-1">
+                <InfoRow label="Connexion moteur" value={status.connected ? "OK" : "Erreur"} tone={status.connected ? "green" : "rose"} />
+                <InfoRow label="Version" value={status.version ?? "—"} tone="blue" />
+                <InfoRow label="API" value={status.apiVersion ?? "—"} tone="blue" />
+                <InfoRow label="Base de données" value={backend} tone="purple" />
+                <InfoRow label="Documents" value={docsTotal != null ? String(docsTotal) : "—"} tone="blue" />
+                <InfoRow label="À traiter (inbox)" value={stats?.documents_inbox != null ? String(stats.documents_inbox) : "—"} tone={stats?.documents_inbox ? "amber" : "green"} />
+              </div>
+            </Card>
+
+            {/* Alertes système */}
+            <Card icon={ShieldCheck} title="Alertes système">
+              <div className="flex items-center gap-3 py-2">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full" style={{ background: TONE[alert.tone].bg, color: TONE[alert.tone].color }}>
+                  {alert.tone === "green" ? <CheckCircle2 className="h-5 w-5" strokeWidth={2} /> : <AlertTriangle className="h-5 w-5" strokeWidth={2} />}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-bold" style={{ color: "var(--text-main)" }}>{alert.title}</p>
+                  <p className="text-[12px]" style={{ color: "var(--text-muted)" }}>{alert.sub}</p>
                 </div>
-              );
-            })}
-          </div>
-        </SectionCard>
+              </div>
+            </Card>
 
-        <SectionCard
-          icon={ShieldCheck}
-          title="Sécurité"
-          description="Garanties de la couche serveur."
-        >
-          <ul className="space-y-2 text-sm">
-            {SECURITY_CHECKS.map((check) => (
-              <li
-                key={check}
-                className="flex items-center gap-2"
-                style={{ color: "var(--text-main)" }}
-              >
-                <CheckCircle2 className="h-4 w-4" style={{ color: "#16A34A" }} strokeWidth={2} />
-                {check}
-              </li>
-            ))}
-          </ul>
-        </SectionCard>
+            {/* Services connectés */}
+            <Card icon={Database} title="Services connectés" cta={{ href: "/emails", label: "Gérer" }}>
+              <div className="grid grid-cols-2 gap-2 py-1 sm:grid-cols-3">
+                {services.map((s) => (
+                  <div key={s.label} className="relative rounded-xl border p-2.5 text-center" style={{ borderColor: "var(--border-soft)", background: "var(--surface)" }}>
+                    <span className="absolute right-2 top-2 h-2 w-2 rounded-full" style={{ background: s.on ? "var(--gedify-green)" : "var(--text-hint)", boxShadow: s.on ? "0 0 0 3px var(--gedify-green-soft)" : "none" }} />
+                    <p className="text-[12px] font-bold" style={{ color: "var(--text-main)" }}>{s.label}</p>
+                    <p className="mt-0.5 text-[10.5px]" style={{ color: "var(--text-muted)" }}>{s.sub}</p>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            {/* Actions rapides */}
+            <Card icon={Activity} title="Actions rapides" wide>
+              <div className="grid grid-cols-1 gap-2.5 py-1 sm:grid-cols-2 lg:grid-cols-4">
+                <Quick href="/utilisateurs" icon={UserPlus} title="Créer un utilisateur" sub="Ajouter un nouvel accès GEDify." />
+                <Quick href="/administration/sauvegarde" icon={DatabaseBackup} title="Lancer une sauvegarde" sub="Créer un point de restauration." />
+                <Quick href="/administration/mises-a-jour" icon={RefreshCw} title="Vérifier les mises à jour" sub="Contrôler la dernière version." />
+                <Quick href="/administration/sauvegarde" icon={Download} title="Exporter les données" sub="Archive .zip complète." />
+              </div>
+            </Card>
+          </div>
+
+          {/* Outils de maintenance (fonctionnels) */}
+          <div id="maintenance" className="space-y-4">
+            <Card icon={UserCog} title="Maintenance des données" description="Nettoyage des données IA orphelines + correction des tags de permis.">
+              <div className="flex flex-col gap-4 py-1">
+                <OrphanCleanupButton />
+                <div className="border-t pt-4" style={{ borderColor: "var(--border-soft)" }}>
+                  <PermisTagCleanupButton />
+                </div>
+              </div>
+            </Card>
+
+            <Card icon={RefreshCw} title="Synchronisation des suppressions" description="Détecte les documents supprimés côté moteur et nettoie les données locales associées.">
+              <div className="py-1"><SyncDeletedButton /></div>
+            </Card>
+
+            <Card icon={Trash2} title="Nettoyage & réinitialisation" description="Historique interne, analyses IA, finances détectées, actions — réinitialisation ciblée.">
+              <div className="flex flex-col gap-5 py-1">
+                <ResetHistoryButton />
+                <div className="grid gap-4 border-t pt-4 sm:grid-cols-2" style={{ borderColor: "var(--border-soft)" }}>
+                  <ScopedResetButton scope="ai" />
+                  <ScopedResetButton scope="finances" />
+                  <ScopedResetButton scope="actions" />
+                  <ScopedResetButton scope="all-internal" />
+                </div>
+              </div>
+            </Card>
+          </div>
+        </div>
       </div>
-
-      {/* Santé GED */}
-      <SectionCard
-        icon={HeartPulse}
-        title="Santé GED"
-        description="Diagnostic du stockage, des miniatures/aperçus, de l'OCR, de la base et des sauvegardes — avec les outils de maintenance."
-      >
-        <Link
-          href="/administration/sante"
-          className="inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-white transition hover:opacity-90"
-          style={{ background: "var(--blue-600)" }}
-        >
-          <HeartPulse className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-          Ouvrir la Santé GED
-        </Link>
-      </SectionCard>
-
-      {/* Rôles & permissions */}
-      <SectionCard
-        icon={ShieldCheck}
-        title="Rôles & permissions"
-        description="Attribuez un rôle à chaque utilisateur (administrateur, gestionnaire, éditeur, lecteur) et consultez le journal d'audit."
-      >
-        <Link
-          href="/administration/roles"
-          className="inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-white transition hover:opacity-90"
-          style={{ background: "var(--blue-600)" }}
-        >
-          <ShieldCheck className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-          Ouvrir Rôles & permissions
-        </Link>
-      </SectionCard>
-
-      {/* Sauvegarde & migration */}
-      <SectionCard
-        icon={Database}
-        title="Sauvegarde & migration"
-        description="Importez une archive .zip Gedify, ou exportez toutes vos données."
-      >
-        <Link
-          href="/administration/sauvegarde"
-          className="inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-white transition hover:opacity-90"
-          style={{ background: "var(--blue-600)" }}
-        >
-          <Database className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-          Ouvrir Sauvegarde & migration
-        </Link>
-      </SectionCard>
-
-      {/* Maintenance */}
-      <SectionCard
-        icon={Database}
-        title="Maintenance des données"
-        description="Nettoyage des données IA orphelines non liées à un document existant."
-      >
-        <div className="flex flex-col gap-4">
-          <OrphanCleanupButton />
-          <div className="border-t pt-4" style={{ borderColor: "var(--border)" }}>
-            <PermisTagCleanupButton />
-          </div>
-        </div>
-      </SectionCard>
-
-      {/* Synchronisation suppressions Gedify */}
-      <SectionCard
-        icon={RefreshCw}
-        title="Synchronisation des suppressions Gedify"
-        description="Détecte les documents supprimés côté Gedify et nettoie automatiquement les données locales associées."
-      >
-        <SyncDeletedButton />
-      </SectionCard>
-
-      {/* Reset historique interne GED (rapide) */}
-      <SectionCard
-        icon={Trash2}
-        title="Nettoyage de l'historique GED"
-        description="Supprime l'historique interne de la surcouche : analyses IA, suggestions, infos détectées et brouillons non validés."
-      >
-        <ResetHistoryButton />
-      </SectionCard>
-
-      {/* Réinitialisation scopée */}
-      <SectionCard
-        icon={RotateCcw}
-        title="Réinitialisation ciblée"
-        description="Réinitialisez sélectivement l'historique IA, les finances détectées, les actions ou l'intégralité de la surcouche interne."
-      >
-        <div className="flex flex-col gap-5">
-          <ScopedResetButton scope="ai" />
-          <ScopedResetButton scope="finances" />
-          <ScopedResetButton scope="actions" />
-          <ScopedResetButton scope="all-internal" />
-        </div>
-      </SectionCard>
-
-      {/* Bottom: shortcuts */}
-      <SectionCard
-        icon={Settings}
-        title="Raccourcis administration"
-      >
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Shortcut href="/utilisateurs" icon={UserCog} label="Utilisateurs" tone="blue" />
-          <Shortcut href="/groupes" icon={UsersRound} label="Groupes" tone="violet" />
-          <Shortcut href="/tokens" icon={KeyRound} label="Tokens API" tone="amber" />
-          <Shortcut href="/workflows" icon={Workflow} label="Workflows" tone="emerald" />
-          <Shortcut href="/emails" icon={Mail} label="Emails" tone="blue" />
-          <Shortcut href="/journaux" icon={ScrollText} label="Journaux" tone="amber" />
-          <Shortcut href="/activite" icon={Activity} label="Activité" tone="rose" />
-          <Shortcut href="/statut" icon={Gauge} label="Statut" tone="emerald" />
-        </div>
-      </SectionCard>
     </PageShell>
   );
 }
 
-function Row({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone: "blue" | "amber" | "emerald" | "violet" | "rose" | "slate";
-}) {
+/* ── Sous-composants ── */
+
+function Stat({ icon: Icon, tone, label, value, helper }: { icon: typeof Activity; tone: keyof typeof TONE; label: string; value: string; helper?: string }) {
+  const t = TONE[tone];
   return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-sm" style={{ color: "var(--text-muted)" }}>
-        {label}
+    <div className="flex items-center gap-3 rounded-2xl border bg-white p-4" style={{ borderColor: "var(--border)" }}>
+      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full" style={{ background: t.bg, color: t.color }}>
+        <Icon className="h-5 w-5" strokeWidth={2} aria-hidden="true" />
       </span>
-      <StatusPill tone={tone} dot>
-        {value}
-      </StatusPill>
+      <div className="min-w-0">
+        <p className="text-[12px]" style={{ color: "var(--text-muted)" }}>{label}</p>
+        <p className="truncate text-[18px] font-extrabold" style={{ color: "var(--text-main)" }}>{value}</p>
+        {helper ? <p className="text-[11px]" style={{ color: "var(--text-hint)" }}>{helper}</p> : null}
+      </div>
     </div>
   );
 }
 
-function Shortcut({
-  href,
-  icon: Icon,
-  label,
-  tone,
-}: {
-  href: string;
-  icon: typeof Settings;
-  label: string;
-  tone: "blue" | "violet" | "emerald" | "amber" | "rose";
-}) {
-  const PALETTE: Record<typeof tone, { bg: string; color: string }> = {
-    blue: { bg: "rgba(11,92,255,0.08)", color: "var(--blue-600)" },
-    violet: { bg: "rgba(124,58,237,0.10)", color: "#7C3AED" },
-    emerald: { bg: "rgba(16,163,74,0.08)", color: "#16A34A" },
-    amber: { bg: "rgba(245,158,11,0.12)", color: "#B45309" },
-    rose: { bg: "rgba(239,68,68,0.10)", color: "#DC2626" },
-  };
-  const p = PALETTE[tone];
+function Card({ icon: Icon, title, description, cta, wide, children }: { icon: typeof Activity; title: string; description?: string; cta?: { href: string; label: string }; wide?: boolean; children: React.ReactNode }) {
   return (
-    <Link
-      href={href}
-      className="flex items-center gap-3 rounded-xl border bg-white p-3 transition hover:shadow-md"
-      style={{ borderColor: "var(--border)" }}
-    >
-      <span
-        className="flex h-10 w-10 items-center justify-center rounded-xl"
-        style={{ background: p.bg }}
-      >
-        <Icon className="h-4 w-4" style={{ color: p.color }} strokeWidth={1.75} />
-      </span>
-      <div>
-        <p className="text-sm font-bold" style={{ color: "var(--text-main)" }}>
-          {label}
-        </p>
-        <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-          Ouvrir →
-        </p>
+    <section className={`overflow-hidden rounded-2xl border bg-white ${wide ? "lg:col-span-2" : ""}`} style={{ borderColor: "var(--border)" }}>
+      <div className="flex items-center justify-between gap-3 border-b px-4 py-3" style={{ borderColor: "var(--border-soft)" }}>
+        <div className="flex min-w-0 items-center gap-2">
+          <Icon className="h-4 w-4 shrink-0" strokeWidth={1.85} style={{ color: "var(--accent)" }} aria-hidden="true" />
+          <div className="min-w-0">
+            <h3 className="truncate text-[14px] font-extrabold" style={{ color: "var(--text-main)" }}>{title}</h3>
+            {description ? <p className="truncate text-[11.5px]" style={{ color: "var(--text-muted)" }}>{description}</p> : null}
+          </div>
+        </div>
+        {cta ? <Link href={cta.href} className="inline-flex shrink-0 items-center gap-1 text-[12px] font-bold" style={{ color: "var(--accent)" }}>{cta.label} <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} /></Link> : null}
       </div>
-    </Link>
+      <div className="px-4 py-2.5">{children}</div>
+    </section>
   );
 }
 
+function InfoRow({ label, value, tone }: { label: string; value: string; tone: keyof typeof TONE }) {
+  const t = TONE[tone];
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-[12.5px]" style={{ color: "var(--text-muted)" }}>{label}</span>
+      <span className="rounded-full px-2.5 py-0.5 text-[11px] font-bold" style={{ background: t.bg, color: t.color }}>{value}</span>
+    </div>
+  );
+}
+
+function ResultPill({ result }: { result: AuditEntry["result"] }) {
+  const map = { success: TONE.green, denied: TONE.amber, error: TONE.rose } as const;
+  const label = result === "success" ? "Succès" : result === "denied" ? "Refusé" : "Erreur";
+  const t = map[result];
+  return <span className="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-extrabold" style={{ background: t.bg, color: t.color }}>{label}</span>;
+}
+
+function Quick({ href, icon: Icon, title, sub }: { href: string; icon: typeof Activity; title: string; sub: string }) {
+  return (
+    <Link href={href} className="flex flex-col gap-1.5 rounded-xl border p-3 transition hover:shadow-md" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+      <span className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>
+        <Icon className="h-4 w-4" strokeWidth={1.85} aria-hidden="true" />
+      </span>
+      <span className="text-[13px] font-bold" style={{ color: "var(--text-main)" }}>{title}</span>
+      <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{sub}</span>
+    </Link>
+  );
+}
