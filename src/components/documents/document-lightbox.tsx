@@ -33,7 +33,9 @@ export function DocumentLightbox({ doc, onClose }: { doc: DocumentVM; onClose: (
   return (
     <div className="fixed inset-0 z-[80]" role="dialog" aria-modal="true" aria-label={`Aperçu — ${doc.displayTitle}`}>
       <button type="button" aria-label="Fermer l'aperçu" onClick={onClose} className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" />
-      <div className="relative z-10 flex h-full flex-col">
+      {/* pt = hauteur de la barre de titre desktop (--titlebar-h, 0 hors desktop) :
+          le header du lightbox ne passe jamais sous la titlebar (z-200). */}
+      <div className="relative z-10 flex h-full flex-col" style={{ paddingTop: "max(env(safe-area-inset-top, 0px), var(--titlebar-h, 0px))" }}>
         {/* Barre d'actions */}
         <div className="flex items-center justify-between gap-3 px-4 py-3">
           <span className="min-w-0 truncate text-[14px] font-bold text-white" title={doc.displayTitle}>
