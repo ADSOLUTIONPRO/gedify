@@ -19,6 +19,8 @@ import {
   XCircle,
 } from "lucide-react";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input";
+import { FolderPickerField } from "@/components/folders/folder-picker-field";
+import type { FolderSelection } from "@/components/folders/folder-picker-modal";
 import { ConfirmActionDialog } from "@/components/ui/confirm-action-dialog";
 import {
   DETECTED_KIND_LABEL,
@@ -511,7 +513,9 @@ function EditForm({ info, onSaved }: EditFormProps) {
   const [dateValue, setDateValue] = useState(info.dateValue ?? "");
   const [correspondentName, setCorrespondentName] = useState(info.correspondentName ?? "");
   const [categoryName, setCategoryName] = useState(info.categoryName ?? "");
-  const [projectName, setProjectName] = useState(info.projectName ?? "");
+  const [folderSel, setFolderSel] = useState<FolderSelection | null>(
+    info.projectId ? { id: info.projectId, type: "folder", name: info.projectName ?? "Dossier", path: info.projectName ?? "" } : null,
+  );
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
@@ -529,7 +533,9 @@ function EditForm({ info, onSaved }: EditFormProps) {
         value,
         correspondentName: correspondentName || null,
         categoryName: categoryName || null,
-        projectName: projectName || null,
+        // Dossier choisi via l'explorateur : id réel + nom conservés.
+        projectId: folderSel?.id ?? null,
+        projectName: folderSel?.name ?? null,
       };
       if (isAmount) {
         const parsed = Number.parseFloat(amount);
@@ -620,13 +626,7 @@ function EditForm({ info, onSaved }: EditFormProps) {
         />
       </Field>
       <Field label="Dossier / Projet" full>
-        <AutocompleteInput
-          endpoint="/api/autocomplete/projects"
-          value={projectName}
-          onChange={(next) => setProjectName(next)}
-          allowCreate
-          placeholder="Ex. Vente maison, Litige…"
-        />
+        <FolderPickerField value={folderSel} onChange={setFolderSel} allowCreate />
       </Field>
 
       {feedback ? (
