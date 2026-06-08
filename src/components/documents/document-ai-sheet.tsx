@@ -9,16 +9,19 @@ import {
   Check,
   Copy,
   FileText,
+  FolderPlus,
   FolderTree,
+  Image as ImageIcon,
   Loader2,
   RefreshCw,
+  ScanText,
   Sparkles,
   Wallet,
   X,
 } from "lucide-react";
 import { AutocompleteInput, type AutocompleteSuggestion } from "@/components/ui/autocomplete-input";
 import { FolderPickerField } from "@/components/folders/folder-picker-field";
-import type { FolderSelection } from "@/components/folders/folder-picker-modal";
+import { FolderPickerModal, type FolderSelection } from "@/components/folders/folder-picker-modal";
 import { AmountBreakdownEditor, type BreakdownSeed } from "@/components/documents/amount-breakdown-editor";
 import { DocumentSecondaryCorrespondents } from "@/components/documents/document-secondary-correspondents";
 import { formatAmount, type DocumentVM } from "@/components/documents/types";
@@ -173,6 +176,11 @@ export function DocumentAiSheet({ doc, onClose, onApplied }: { doc: DocumentVM; 
   const [tagQuery, setTagQuery] = useState("");
   // Sélection EXPLICITE d'un dossier via l'explorateur (conserve l'id réel).
   const [folderSel, setFolderSel] = useState<FolderSelection | null>(null);
+  // Actions de traitement (OCR / aperçu / ajout à un dossier) — réutilisent les
+  // endpoints existants ; n'altèrent pas le flux d'analyse.
+  const [procBusy, setProcBusy] = useState<string | null>(null);
+  const [procMsg, setProcMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [folderModalOpen, setFolderModalOpen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   // Animation de progression pendant l'analyse.
@@ -252,6 +260,43 @@ export function DocumentAiSheet({ doc, onClose, onApplied }: { doc: DocumentVM; 
     if (!sug.summary) return;
     try { await navigator.clipboard.writeText(sug.summary); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* ignore */ }
   }
+
+  async function runProc(key: string, url: string, okText: string) {
+    setProcBusy(key);
+    setProcMsg(null);
+    try {
+      const res = await fetch(url, { method: "POST", credentials: "include" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setProcMsg({ ok: true, text: okText });
+      router.refresh();
+    } catch (e) {
+      setProcMsg({ ok: false, text: e instanceof Error ? e.message : "Action impossible." });
+    } finally {
+      setProcBusy(null);
+    }
+  }
+
+  async function addToFolder(sel: FolderSelection) {
+    setFolderModalOpen(false);
+    setProcBusy("folder");
+    setProcMsg(null);
+    try {
+      const res = await fetch(`/api/projects/${sel.id}/documents/link`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+        body: JSON.stringify({ documentIds: [doc.id] }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setProcMsg({ ok: true, text: `Ajouté à « ${sel.name} ».` });
+      router.refresh();
+    } catch (e) {
+      setProcMsg({ ok: false, text: e instanceof Error ? e.message : "Association impossible." });
+    } finally {
+      setProcBusy(null);
+    }
+  }
+
+  // Libellés conditionnels selon l'état réel (statuts dérivés du document).
+  const ocrLabel = doc.statuses.ocr === "pending" ? "Lancer l'OCR" : "Relancer l'OCR";
 
   function addTag(name: string) {
     const t = name.trim();
@@ -472,6 +517,14 @@ export function DocumentAiSheet({ doc, onClose, onApplied }: { doc: DocumentVM; 
 
         {/* Barre d'actions selon l'état */}
         <div className="flex flex-wrap items-center justify-end gap-2 border-t px-5 py-3" style={{ borderColor: "var(--border)" }}>
+          {phase !== "running" ? (
+            <div className="mr-auto flex flex-wrap items-center gap-1.5">
+              <ProcBtn busy={procBusy === "ocr"} onClick={() => void runProc("ocr", `/api/documents/${doc.id}/redo-ocr`, "OCR relancé — traitement en arrière-plan.")} icon={ScanText}>{procBusy === "ocr" ? "OCR en cours…" : ocrLabel}</ProcBtn>
+              <ProcBtn busy={procBusy === "preview"} onClick={() => void runProc("preview", `/api/documents/${doc.id}/regenerate-preview`, "Miniature et aperçu régénérés.")} icon={ImageIcon}>Régénérer l&apos;aperçu</ProcBtn>
+              <ProcBtn busy={procBusy === "folder"} onClick={() => setFolderModalOpen(true)} icon={FolderPlus}>Ajouter à un dossier</ProcBtn>
+              {procMsg ? <span className="text-[11.5px] font-semibold" style={{ color: procMsg.ok ? "var(--gedify-green)" : "var(--danger)" }}>{procMsg.text}</span> : null}
+            </div>
+          ) : null}
           {phase === "running" ? (
             <>
               <span className="mr-auto flex items-center gap-1.5 text-[12.5px] font-semibold" style={{ color: "var(--text-muted)" }}><Loader2 className="h-4 w-4 animate-spin" /> Analyse en cours…</span>
@@ -506,7 +559,26 @@ export function DocumentAiSheet({ doc, onClose, onApplied }: { doc: DocumentVM; 
           )}
         </div>
       </div>
+
+      {folderModalOpen ? (
+        <FolderPickerModal currentValue={folderSel} allowCreate onSelect={(v) => void addToFolder(v)} onClose={() => setFolderModalOpen(false)} />
+      ) : null}
     </div>
+  );
+}
+
+function ProcBtn({ icon: Icon, children, onClick, busy }: { icon: typeof ScanText; children: React.ReactNode; onClick: () => void; busy?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={busy}
+      className="inline-flex h-8 items-center gap-1.5 rounded-[18px] border px-3 text-[12px] font-bold transition hover:bg-[var(--bg-card-soft)] disabled:opacity-50"
+      style={{ borderColor: "var(--border-strong)", color: "var(--text-main)", background: "var(--surface)" }}
+    >
+      {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Icon className="h-3.5 w-3.5" strokeWidth={1.85} aria-hidden="true" />}
+      {children}
+    </button>
   );
 }
 
