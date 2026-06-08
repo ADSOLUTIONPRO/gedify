@@ -39,6 +39,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   try {
     const { id } = await params;
     const patch = (await req.json().catch(() => ({}))) as Partial<CalendarEventInput>;
+    const requestConference = Boolean((patch as Record<string, unknown>).requestConference);
     let event = await updateEvent(u, id, patch);
     if (!event) return NextResponse.json({ error: "Événement introuvable." }, { status: 404 });
     // Propage la modification vers Google si l'événement y est synchronisé.
@@ -46,8 +47,8 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       try {
         const account = await getActiveGmailAccount();
         if (account) {
-          await pushEventToGoogle(account.accountId, event.calendarId, event);
-          event = (await updateEvent(u, id, { syncStatus: "synced", lastSyncedAt: new Date().toISOString() })) ?? event;
+          const { conferenceUrl } = await pushEventToGoogle(account.accountId, event.calendarId, event, { requestConference });
+          event = (await updateEvent(u, id, { syncStatus: "synced", lastSyncedAt: new Date().toISOString(), ...(conferenceUrl ? { conferenceUrl } : {}) })) ?? event;
         }
       } catch (e) {
         event = (await updateEvent(u, id, { syncStatus: "error", syncError: e instanceof Error ? e.message : "push" })) ?? event;

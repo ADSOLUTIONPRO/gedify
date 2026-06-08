@@ -43,6 +43,11 @@ export type CalendarEventDateTime = {
   timeZone?: string;
 };
 
+export type ConferenceData = {
+  createRequest?: { requestId: string; conferenceSolutionKey: { type: string } };
+  entryPoints?: { entryPointType: string; uri: string; label?: string }[];
+};
+
 export type CalendarEventInput = {
   summary: string;
   description?: string;
@@ -54,6 +59,10 @@ export type CalendarEventInput = {
     useDefault?: boolean;
     overrides?: { method: "email" | "popup"; minutes: number }[];
   };
+  recurrence?: string[];           // ex. ["RRULE:FREQ=WEEKLY"]
+  visibility?: string;             // default | public | private
+  transparency?: string;           // opaque (occupé) | transparent (disponible)
+  conferenceData?: ConferenceData; // Google Meet
 };
 
 export type CalendarEvent = CalendarEventInput & {
@@ -63,6 +72,7 @@ export type CalendarEvent = CalendarEventInput & {
   created: string;
   updated: string;
   organizer: { email: string; displayName?: string };
+  hangoutLink?: string;
 };
 
 export type CalendarListEntry = {
@@ -95,9 +105,11 @@ export async function createCalendarEvent(
   event: CalendarEventInput,
 ): Promise<CalendarEvent> {
   const accessToken = await getAccessTokenForAccount(accountId);
+  // conferenceDataVersion=1 requis dès qu'on demande la création d'un Meet.
+  const conf = event.conferenceData ? "?conferenceDataVersion=1" : "";
   return calendarFetch<CalendarEvent>(
     accessToken,
-    `/calendars/${encodeURIComponent(calendarId)}/events`,
+    `/calendars/${encodeURIComponent(calendarId)}/events${conf}`,
     {
       method: "POST",
       body: JSON.stringify(event),

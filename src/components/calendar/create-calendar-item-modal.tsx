@@ -11,7 +11,8 @@ type CalendarOpt = { id: string; name: string; provider: "local" | "google"; col
    (document, email, contact…). Préremplissable. Rendez-vous → API agenda
    (/api/calendar/events, socle CalendarEvent) ; Tâche → API actions
    existante (/api/actions). La relation à la source est conservée.
-   Différé (phases suivantes) : invités, récurrence, Google Maps/Meet.
+   Options avancées (rendez-vous) : récurrence, invités, rappel, visibilité,
+   Google Meet — propagées vers Google si l'agenda cible est un agenda Google.
    ──────────────────────────────────────────────────────────────────────── */
 
 export type CalendarItemSource = {
@@ -30,7 +31,28 @@ export type EditableEvent = {
   end?: string | null;
   allDay?: boolean;
   location?: { displayName?: string | null } | null;
+  recurrence?: string | null;
+  participants?: { email: string; name?: string | null }[] | null;
+  reminders?: { minutesBefore: number; channel?: string }[] | null;
+  visibility?: "default" | "public" | "private" | null;
+  conferenceUrl?: string | null;
 };
+
+const RECURRENCE_OPTIONS: { value: string; label: string }[] = [
+  { value: "", label: "Ne se répète pas" },
+  { value: "FREQ=DAILY", label: "Tous les jours" },
+  { value: "FREQ=WEEKLY", label: "Toutes les semaines" },
+  { value: "FREQ=MONTHLY", label: "Tous les mois" },
+  { value: "FREQ=YEARLY", label: "Tous les ans" },
+];
+const REMINDER_OPTIONS: { value: string; label: string }[] = [
+  { value: "", label: "Aucun rappel" },
+  { value: "0", label: "À l'heure de l'événement" },
+  { value: "10", label: "10 minutes avant" },
+  { value: "30", label: "30 minutes avant" },
+  { value: "60", label: "1 heure avant" },
+  { value: "1440", label: "1 jour avant" },
+];
 
 type Prefill = { title?: string; startISO?: string; dueISO?: string };
 
@@ -84,6 +106,13 @@ export function CreateCalendarItemModal({
   // Agenda cible (local GEDify ou agenda Google connecté). Mode création uniquement.
   const [calendars, setCalendars] = useState<CalendarOpt[]>([]);
   const [calendarId, setCalendarId] = useState("local");
+  // Options avancées (rendez-vous)
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [recurrence, setRecurrence] = useState(editEvent?.recurrence ?? "");
+  const [guests, setGuests] = useState((editEvent?.participants ?? []).map((p) => p.email).join(", "));
+  const [reminder, setReminder] = useState(editEvent?.reminders?.length ? String(editEvent.reminders[0].minutesBefore) : "");
+  const [visibility, setVisibility] = useState<"default" | "public" | "private">(editEvent?.visibility ?? "default");
+  const [addMeet, setAddMeet] = useState(false);
 
   useEffect(() => {
     if (isEdit) return;
@@ -107,6 +136,8 @@ export function CreateCalendarItemModal({
       if (tab === "event") {
         if (!start && !allDay) { setError("Renseignez une date de début."); setBusy(false); return; }
         const startISO = allDay ? new Date(`${(start || new Date().toISOString()).slice(0, 10)}T00:00:00`).toISOString() : new Date(start).toISOString();
+        const participants = guests.split(/[,;]/).map((s) => s.trim()).filter(Boolean).map((email) => ({ email }));
+        const reminders = reminder ? [{ minutesBefore: Number(reminder), channel: "notification" as const }] : [];
         const payload = {
           title: title.trim(),
           description: description || null,
@@ -114,6 +145,11 @@ export function CreateCalendarItemModal({
           end: end ? new Date(end).toISOString() : null,
           allDay,
           location: location ? { displayName: location } : null,
+          recurrence: recurrence || null,
+          participants,
+          reminders,
+          visibility,
+          requestConference: addMeet, // lu par l'API pour créer un Meet (non stocké tel quel)
         };
         const res = isEdit
           ? await fetch(`/api/calendar/events/${editEvent!.id}`, {
@@ -228,9 +264,46 @@ export function CreateCalendarItemModal({
               <Field label="Lieu">
                 <div className="flex items-center gap-1.5 rounded-xl border px-2.5" style={{ borderColor: "var(--border)" }}>
                   <MapPin className="h-4 w-4 shrink-0" style={{ color: "var(--text-hint)" }} aria-hidden="true" />
-                  <input value={location} onChange={(e) => setLocation(e.target.value)} className="h-9 w-full bg-transparent text-[13px] outline-none" placeholder="Adresse ou lieu…" />
+                  <input value={location} onChange={(e) => setLocation(e.target.value)} className="h-9 w-full bg-transparent text-[13px] outline-none" placeholder="Adresse ou lieu (Google Maps)…" />
                 </div>
               </Field>
+
+              <button type="button" onClick={() => setShowAdvanced((v) => !v)} className="inline-flex items-center gap-1 text-[12px] font-bold" style={{ color: "var(--accent)" }}>
+                {showAdvanced ? "− Masquer les options" : "+ Plus d'options"}
+              </button>
+
+              {showAdvanced ? (
+                <div className="space-y-3 rounded-xl border p-3" style={{ borderColor: "var(--border-soft)", background: "var(--bg-card-soft)" }}>
+                  <Field label="Récurrence">
+                    <select value={recurrence} onChange={(e) => setRecurrence(e.target.value)} className={inputCls}>
+                      {RECURRENCE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </Field>
+                  <Field label="Invités">
+                    <input value={guests} onChange={(e) => setGuests(e.target.value)} className={inputCls} placeholder="Emails séparés par des virgules" />
+                  </Field>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Field label="Rappel">
+                      <select value={reminder} onChange={(e) => setReminder(e.target.value)} className={inputCls}>
+                        {REMINDER_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Visibilité">
+                      <select value={visibility} onChange={(e) => setVisibility(e.target.value as typeof visibility)} className={inputCls}>
+                        <option value="default">Par défaut</option>
+                        <option value="private">Privé</option>
+                        <option value="public">Public</option>
+                      </select>
+                    </Field>
+                  </div>
+                  <label className="flex items-center gap-2 text-[12.5px] font-semibold" style={{ color: "var(--text-main)" }}>
+                    <input type="checkbox" checked={addMeet} onChange={(e) => setAddMeet(e.target.checked)} className="h-4 w-4 accent-[var(--accent)]" /> Ajouter une visioconférence Google Meet
+                  </label>
+                  {editEvent?.conferenceUrl ? (
+                    <a href={editEvent.conferenceUrl} target="_blank" rel="noreferrer" className="inline-flex text-[12px] font-bold" style={{ color: "var(--gedify-green)" }}>Rejoindre la visioconférence →</a>
+                  ) : null}
+                </div>
+              ) : null}
             </>
           ) : (
             <div className="grid grid-cols-2 gap-2">

@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
     if (!body.title?.trim() || !body.start) {
       return NextResponse.json({ error: "title et start requis." }, { status: 400 });
     }
+    const requestConference = Boolean((body as Record<string, unknown>).requestConference);
     let event = await createEvent(u, body);
     // Synchro GEDify → Google : si l'agenda cible est un agenda Google, créer
     // l'événement chez Google et mémoriser son externalId (bidirectionnel).
@@ -46,8 +47,8 @@ export async function POST(req: NextRequest) {
       try {
         const account = await getActiveGmailAccount();
         if (account) {
-          const externalId = await pushEventToGoogle(account.accountId, event.calendarId, event);
-          event = (await updateEvent(u, event.id, { provider: "google", externalId, syncStatus: "synced", lastSyncedAt: new Date().toISOString() })) ?? event;
+          const { externalId, conferenceUrl } = await pushEventToGoogle(account.accountId, event.calendarId, event, { requestConference });
+          event = (await updateEvent(u, event.id, { provider: "google", externalId, conferenceUrl: conferenceUrl ?? event.conferenceUrl, syncStatus: "synced", lastSyncedAt: new Date().toISOString() })) ?? event;
         }
       } catch (e) {
         event = (await updateEvent(u, event.id, { syncStatus: "error", syncError: e instanceof Error ? e.message : "push" })) ?? event;

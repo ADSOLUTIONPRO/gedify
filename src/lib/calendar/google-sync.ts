@@ -1,6 +1,7 @@
 import "server-only";
 
-import { createCalendarEvent, deleteCalendarEvent, listCalendars, listCalendarEvents, updateCalendarEvent, type CalendarEventInput } from "@/lib/connectors/google/calendar-api";
+import { randomUUID } from "node:crypto";
+import { createCalendarEvent, deleteCalendarEvent, listCalendars, listCalendarEvents, updateCalendarEvent, type CalendarEvent as GoogleCalendarEvent, type CalendarEventInput } from "@/lib/connectors/google/calendar-api";
 import { upsertByExternal, type CalendarEvent } from "@/lib/calendar/calendar-event-store";
 
 /* ────────────────────────────────────────────────────────────────────────
@@ -26,6 +27,9 @@ function toGoogleDateTime(iso: string, allDay: boolean, addDay = false): { date?
 
 function mapEventToGoogle(event: CalendarEvent): CalendarEventInput {
   const endIso = event.end ?? event.start;
+  const rrule = event.recurrence
+    ? (event.recurrence.startsWith("RRULE") ? event.recurrence : `RRULE:${event.recurrence}`)
+    : null;
   return {
     summary: event.title,
     description: event.description ?? undefined,
@@ -36,18 +40,38 @@ function mapEventToGoogle(event: CalendarEvent): CalendarEventInput {
     reminders: event.reminders?.length
       ? { useDefault: false, overrides: event.reminders.map((r) => ({ method: r.channel === "email" ? "email" : "popup", minutes: r.minutesBefore })) }
       : undefined,
+    recurrence: rrule ? [rrule] : undefined,
+    visibility: event.visibility && event.visibility !== "default" ? event.visibility : undefined,
   };
 }
 
-/** Crée ou met à jour l'événement sur Google. Renvoie l'externalId. */
-export async function pushEventToGoogle(accountId: string, calendarId: string, event: CalendarEvent): Promise<string> {
+/** Lien de visioconférence d'un événement Google (Meet), s'il existe. */
+function conferenceUrlOf(ev: GoogleCalendarEvent): string | null {
+  if (ev.hangoutLink) return ev.hangoutLink;
+  const video = ev.conferenceData?.entryPoints?.find((e) => e.entryPointType === "video");
+  return video?.uri ?? null;
+}
+
+/**
+ * Crée ou met à jour l'événement sur Google. Renvoie l'externalId et l'URL de
+ * visioconférence éventuelle. `requestConference` demande la création d'un Meet.
+ */
+export async function pushEventToGoogle(
+  accountId: string,
+  calendarId: string,
+  event: CalendarEvent,
+  opts: { requestConference?: boolean } = {},
+): Promise<{ externalId: string; conferenceUrl: string | null }> {
   const payload = mapEventToGoogle(event);
+  if (opts.requestConference && !event.conferenceUrl) {
+    payload.conferenceData = { createRequest: { requestId: randomUUID(), conferenceSolutionKey: { type: "hangoutsMeet" } } };
+  }
   if (event.externalId) {
     const updated = await updateCalendarEvent(accountId, calendarId, event.externalId, payload);
-    return updated.id;
+    return { externalId: updated.id, conferenceUrl: conferenceUrlOf(updated) };
   }
   const created = await createCalendarEvent(accountId, calendarId, payload);
-  return created.id;
+  return { externalId: created.id, conferenceUrl: conferenceUrlOf(created) };
 }
 
 export async function deleteEventFromGoogle(accountId: string, calendarId: string, externalId: string): Promise<void> {
