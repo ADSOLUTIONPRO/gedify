@@ -21,6 +21,8 @@ import { SegmentedTabs } from "@/components/ui/segmented-tabs";
 import { StatusPill } from "@/components/ui/status-pill";
 import { listActions } from "@/lib/actions/action-store";
 import { getAllDueItems } from "@/lib/budget/budget-calculations";
+import { listEvents } from "@/lib/calendar/calendar-event-store";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { formatMoney } from "@/lib/format-money";
 
 export const dynamic = "force-dynamic";
@@ -172,10 +174,16 @@ function MonthCalendar({ events }: { events: CalendarEvent[] }) {
 }
 
 export default async function CalendrierPage() {
-  const [actions, dueItemsData] = await Promise.all([listActions(), getAllDueItems()]);
+  const [actions, dueItemsData, user] = await Promise.all([listActions(), getAllDueItems(), getCurrentUser()]);
+  const calendarEvents = await listEvents(user ? String(user.id) : "local").catch(() => []);
 
   const today = new Date();
   const events: CalendarEvent[] = [];
+
+  // Événements de l'agenda (socle CalendarEvent : RDV créés depuis la Fiche Doc, etc.).
+  for (const ev of calendarEvents) {
+    events.push({ date: ev.start, label: ev.title.slice(0, 32), tone: "violet", href: "/calendrier" });
+  }
 
   for (const action of actions) {
     if (!action.dueDate) continue;
