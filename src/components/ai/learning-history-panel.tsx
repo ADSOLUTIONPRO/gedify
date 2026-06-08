@@ -6,7 +6,7 @@ import { ArrowRight, Brain, Loader2 } from "lucide-react";
 type Evt = { id: string; documentId: number; field: string; aiValue: string | null; validatedValue: string | null; wasCorrected: boolean; source: string; user: string | null; createdAt: string };
 type Stats = { total: number; corrected: number; byField: Record<string, { total: number; corrected: number }> };
 
-const FIELD_LABEL: Record<string, string> = { documentType: "Type", correspondent: "Correspondant", tags: "Tags", folder: "Dossier", date: "Date", summary: "Résumé" };
+const FIELD_LABEL: Record<string, string> = { documentType: "Type", correspondent: "Correspondant", tags: "Tags", folder: "Dossier", date: "Date", dueDate: "Échéance", summary: "Résumé", title: "Titre" };
 
 /** Historique d'apprentissage : valeurs IA proposées vs validées par champ. */
 export function LearningHistoryPanel() {

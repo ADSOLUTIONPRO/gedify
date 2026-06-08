@@ -141,11 +141,18 @@ export async function POST(request: NextRequest, { params }: Ctx) {
         });
         // Historique d'apprentissage par champ : valeur IA proposée vs valeur
         // validée → savoir si l'IA s'était trompée (§14/§20).
+        // TOUTE la métadonnée éditable de la Fiche Doc est tracée (valeur IA/
+        // antérieure vs valeur validée) → l'apprentissage tient compte de
+        // l'ensemble des champs, pas seulement du classement.
         await recordLearningEvents([
           { documentId, field: "documentType", aiValue: latest?.suggestedDocumentTypeName ?? null, validatedValue: resolved.documentType?.name ?? overrides.documentTypeName ?? null, source: "manual", templateId: template.id, user },
           { documentId, field: "correspondent", aiValue: latest?.suggestedCorrespondentName ?? null, validatedValue: resolved.correspondent?.name ?? overrides.correspondentName ?? null, source: "manual", templateId: template.id, user },
           { documentId, field: "tags", aiValue: (latest?.suggestedTagNames ?? []).join(", ") || null, validatedValue: resolved.tags.map((t) => t.name).join(", ") || null, source: "manual", templateId: template.id, user },
           { documentId, field: "folder", aiValue: latest?.suggestedFolderName ?? null, validatedValue: resolved.folder?.name ?? overrides.folderName ?? null, source: "manual", templateId: template.id, user },
+          { documentId, field: "date", aiValue: doc.created ?? null, validatedValue: overrides.created ?? null, source: "manual", templateId: template.id, user },
+          { documentId, field: "dueDate", aiValue: latest?.dueDate ?? null, validatedValue: overrides.dueDate || null, source: "manual", templateId: template.id, user },
+          { documentId, field: "summary", aiValue: latest?.summary ?? null, validatedValue: overrides.summary ?? null, source: "manual", templateId: template.id, user },
+          { documentId, field: "title", aiValue: latest?.suggestedTitle ?? doc.title ?? null, validatedValue: overrides.title ?? null, source: "manual", templateId: template.id, user },
         ]).catch(() => {});
 
         await appendGedLog({

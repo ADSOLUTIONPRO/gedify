@@ -14,7 +14,7 @@ import { getDataDir } from "@/lib/storage/data-dir";
    Complète learnFromValidation (qui agrège les modèles) sans le remplacer.
    ──────────────────────────────────────────────────────────────────────── */
 
-export type LearningField = "documentType" | "correspondent" | "folder" | "tags" | "date" | "summary";
+export type LearningField = "documentType" | "correspondent" | "folder" | "tags" | "date" | "dueDate" | "summary" | "title";
 export type LearningSource = "manual" | "bulk_manual_edit" | "validated_ai" | "workflow";
 
 export type LearningEvent = {
