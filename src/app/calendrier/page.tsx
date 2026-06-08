@@ -24,6 +24,7 @@ import { listEvents } from "@/lib/calendar/calendar-event-store";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { CreateCalendarItemButton } from "@/components/calendar/create-calendar-item-button";
 import { AgendaEventsCard } from "@/components/calendar/agenda-events-card";
+import { CalendarTimeViews } from "@/components/calendar/calendar-time-views";
 import { formatMoney } from "@/lib/format-money";
 
 export const dynamic = "force-dynamic";
@@ -311,19 +312,28 @@ export default async function CalendrierPage({ searchParams }: { searchParams?: 
 
       <SegmentedTabs
         tabs={[
+          { href: "/calendrier?view=jour", label: "Jour" },
+          { href: "/calendrier?view=semaine", label: "Semaine" },
           { href: "/calendrier", label: "Mois" },
+          { href: "/calendrier?view=annee", label: "Année" },
           { href: "/calendrier?view=liste", label: "Liste" },
         ]}
-        activeHref={view === "liste" ? "/calendrier?view=liste" : "/calendrier"}
+        activeHref={["jour", "semaine", "annee", "liste"].includes(view) ? `/calendrier?view=${view}` : "/calendrier"}
       />
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(300px,1fr)]">
         <SectionCard
           icon={CalendarRange}
-          title={view === "liste" ? "Vue Liste" : "Vue du mois"}
+          title={view === "liste" ? "Vue Liste" : view === "jour" ? "Vue Jour" : view === "semaine" ? "Vue Semaine" : view === "annee" ? "Vue Année" : "Vue du mois"}
           description={`${events.length} événement(s) au total`}
         >
-          {view === "liste" ? <EventList events={events} today={today} /> : <MonthCalendar events={events} />}
+          {view === "liste" ? (
+            <EventList events={events} today={today} />
+          ) : view === "jour" || view === "semaine" || view === "annee" ? (
+            <CalendarTimeViews view={view} allDayItems={events} todayISO={today.toISOString()} />
+          ) : (
+            <MonthCalendar events={events} />
+          )}
         </SectionCard>
 
         <aside className="space-y-5">
