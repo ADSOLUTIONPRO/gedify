@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { History, Loader2, MessageSquarePlus, Save, Settings2, Sparkles, X } from "lucide-react";
+import { Archive, Download, History, Loader2, MessageSquarePlus, MoreVertical, Pencil, Save, Settings2, Sparkles, Trash2, X } from "lucide-react";
 import { AiAssistantMessageList, type ActionRuntimeState, type UiMessage } from "./ai-assistant-message-list";
 import { AiAssistantInput } from "./ai-assistant-input";
 import { AiAssistantSuggestions } from "./ai-assistant-suggestions";
@@ -59,6 +59,32 @@ export function AiAssistantPanel({
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [headerMenu, setHeaderMenu] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
+
+  function exportConversation() {
+    setHeaderMenu(false);
+    if (messages.length === 0) return;
+    const lines = [
+      `# ${conversationTitle || "Conversation"}`,
+      `_Exporté le ${new Date().toLocaleString("fr-FR")}_`,
+      "",
+      ...messages.map((m) => `**${m.role === "user" ? "Vous" : "Assistant"} :**\n\n${m.content}\n`),
+    ];
+    const blob = new Blob([lines.join("\n")], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const slug = (conversationTitle || "conversation").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 50) || "conversation";
+    a.href = url; a.download = `${slug}.md`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function commitRename() {
+    setRenaming(false);
+    if (activeConversationId && renameValue.trim()) onRenameConversation(activeConversationId, renameValue.trim());
+  }
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -78,7 +104,18 @@ export function AiAssistantPanel({
             <Sparkles className="h-4 w-4" strokeWidth={2.25} aria-hidden="true" />
           </span>
           <div className="min-w-0 leading-tight">
-            <p className="truncate text-[13px] font-bold" title={conversationTitle}>{conversationTitle || "Assistant IA Gedify"}</p>
+            {renaming ? (
+              <input
+                autoFocus
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") commitRename(); if (e.key === "Escape") setRenaming(false); }}
+                onBlur={commitRename}
+                className="w-full rounded-md bg-white/15 px-1.5 py-0.5 text-[13px] font-bold text-white outline-none ring-1 ring-white/40"
+              />
+            ) : (
+              <p className="truncate text-[13px] font-bold" title={conversationTitle}>{conversationTitle || "Assistant IA Gedify"}</p>
+            )}
             <p className="flex items-center gap-1 text-[10.5px] opacity-80">
               {saving ? (
                 <><Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> Enregistrement…</>
@@ -117,6 +154,30 @@ export function AiAssistantPanel({
           >
             <Settings2 className="h-4 w-4" strokeWidth={2} />
           </button>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setHeaderMenu((s) => !s)}
+              aria-label="Plus d'options"
+              aria-haspopup="menu"
+              aria-expanded={headerMenu}
+              className={`rounded-lg p-1.5 transition hover:bg-white/15 ${headerMenu ? "bg-white/15" : ""}`}
+            >
+              <MoreVertical className="h-4 w-4" strokeWidth={2} />
+            </button>
+            {headerMenu ? (
+              <>
+                <button type="button" aria-hidden="true" tabIndex={-1} onClick={() => setHeaderMenu(false)} className="fixed inset-0 z-[1] cursor-default" />
+                <div role="menu" className="absolute right-0 top-full z-[2] mt-1 w-52 overflow-hidden rounded-xl border bg-white py-1 text-left shadow-xl" style={{ borderColor: "var(--border)" }}>
+                  <HeaderMenuItem icon={Pencil} label="Renommer" disabled={!activeConversationId} onClick={() => { setHeaderMenu(false); setRenameValue(conversationTitle); setRenaming(true); }} />
+                  <HeaderMenuItem icon={Download} label="Exporter (Markdown)" disabled={messages.length === 0} onClick={exportConversation} />
+                  <HeaderMenuItem icon={Archive} label="Archiver" disabled={!activeConversationId} onClick={() => { setHeaderMenu(false); if (activeConversationId) onArchiveConversation(activeConversationId, true); }} />
+                  <div className="my-1 border-t" style={{ borderColor: "var(--border-soft)" }} />
+                  <HeaderMenuItem icon={Trash2} danger label="Supprimer" disabled={!activeConversationId} onClick={() => { setHeaderMenu(false); if (activeConversationId && window.confirm("Supprimer définitivement cette conversation ?")) onDeleteConversation(activeConversationId); }} />
+                </div>
+              </>
+            ) : null}
+          </div>
           <button type="button" onClick={onClose} aria-label="Fermer" className="rounded-lg p-1.5 transition hover:bg-white/15">
             <X className="h-4.5 w-4.5" strokeWidth={2} />
           </button>
@@ -184,6 +245,21 @@ export function AiAssistantPanel({
         </>
       )}
     </div>
+  );
+}
+
+function HeaderMenuItem({ icon: Icon, label, onClick, disabled, danger }: { icon: typeof Pencil; label: string; onClick: () => void; disabled?: boolean; danger?: boolean }) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      disabled={disabled}
+      onClick={onClick}
+      className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[12.5px] font-semibold transition hover:bg-[var(--bg-card-soft)] disabled:opacity-40"
+      style={{ color: danger ? "#DC2626" : "var(--text-main)" }}
+    >
+      <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={1.85} style={{ color: danger ? "#DC2626" : "var(--text-muted)" }} aria-hidden="true" /> {label}
+    </button>
   );
 }
 
