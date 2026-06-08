@@ -17,6 +17,7 @@ import { sanitizeFinalAnalysis } from "@/lib/ai/rules/final-analysis-sanitizer";
 import { getCorrespondents, getDocument, getDocumentTypes, getTags, updateDocument } from "@/lib/paperless";
 import { linkProjectDocuments, listProjectFolders } from "@/lib/projects/project-store";
 import { getTitleOverride, setTitleOverride } from "@/lib/documents/document-title-store";
+import { buildTitleFromAnalysis } from "@/lib/documents/document-title-service";
 import { resolveClassification } from "@/lib/ai/resolve-classification";
 import { findTemplateMatch, templateClassificationOverride } from "@/lib/ai/learned-template-apply";
 import type { TemplateMatch } from "@/lib/ai/learned-templates-types";
@@ -109,11 +110,18 @@ async function finalizeAnalysis(
   const ocrLength = ocrText.length;
   const tagsBefore = Array.isArray(document.tags) ? (document.tags as number[]) : [];
 
-  // Titre IA — jamais par-dessus une correction utilisateur.
-  if (analysis.suggestedTitle && analysis.suggestedTitle.trim().length > 0) {
+  // Titre via le SERVICE CENTRAL (convention déterministe > IA libre > fichier).
+  // Jamais par-dessus une correction utilisateur. Seuils de confiance :
+  //   ≥ 0.60 → appliquer (≥0.85 = convention/haute confiance) ; < 0.60 → ne pas écraser.
+  {
     const existing = await getTitleOverride(documentId);
     if (!existing?.editedByUser) {
-      await setTitleOverride(documentId, analysis.suggestedTitle.trim(), "ai", analysis.titleConfidence ?? null, false);
+      const fileName = document.original_file_name ?? document.original_filename ?? document.filename ?? null;
+      const built = buildTitleFromAnalysis(analysis, fileName);
+      if (built.title && built.title.length >= 3 && built.confidence >= 0.6) {
+        const src = built.source === "convention" ? "rule" : built.source; // convention déterministe = "rule"
+        await setTitleOverride(documentId, built.title, src, built.confidence, false);
+      }
     }
   }
 
