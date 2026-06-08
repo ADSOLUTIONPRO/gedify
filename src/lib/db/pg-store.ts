@@ -115,6 +115,14 @@ export async function pgWriteAll<T>(
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    // Auto-création de la table si absente (collections récentes non présentes
+    // dans le schéma init.sql — ex. pinned_items, calendar_events, caldav_accounts).
+    // Idempotent : n'affecte JAMAIS une table existante (IF NOT EXISTS).
+    const extraDefs = extras.map((c) => `, "${c.name}" TEXT`).join("");
+    await client.query(`CREATE TABLE IF NOT EXISTS "${table}" ("${idCol}" TEXT PRIMARY KEY, "${blobCol}" JSONB${extraDefs})`);
+    for (const c of extras) {
+      await client.query(`ALTER TABLE "${table}" ADD COLUMN IF NOT EXISTS "${c.name}" TEXT`);
+    }
     const ids: (string | number)[] = [];
     // Colonnes insérées : idCol, blobCol, puis les extras. Le SET du ON CONFLICT
     // met à jour blobCol + extras (jamais idCol, clé de conflit).

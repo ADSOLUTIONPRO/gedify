@@ -20,10 +20,36 @@ import { ensureGedStorage } from "./ged-paths";
  * vers ce répertoire sans écraser les données plus récentes.
  */
 
+let resolvedRootCache: string | null = null;
+
+/** Vrai si `dir` peut être créé ET écrit (test réel, créé si besoin). */
+function canCreateAndWrite(dir: string): boolean {
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.accessSync(dir, fs.constants.W_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Racine des données. Priorité : DATA_DIR → APP_DATA_DIR → <cwd>/.data.
+ * SÉCURITÉ ROBUSTESSE : si le chemin configuré n'est pas créable/écrivable
+ * (ex. DATA_DIR=/app/.data hérité du conteneur mais lancé en local macOS où
+ * « /app » n'existe pas), on retombe sur <cwd>/.data plutôt que de faire
+ * échouer silencieusement toutes les écritures JSON. Sur le serveur (Docker),
+ * /app/.data est écrivable → aucun repli.
+ */
 function resolveRoot(): string {
-  const fromEnv = process.env.DATA_DIR ?? process.env.APP_DATA_DIR;
-  if (fromEnv && fromEnv.trim()) return fromEnv.trim();
-  return path.join(process.cwd(), ".data");
+  if (resolvedRootCache) return resolvedRootCache;
+  const fallback = path.join(process.cwd(), ".data");
+  const configured = (process.env.DATA_DIR ?? process.env.APP_DATA_DIR ?? "").trim();
+  if (!configured) { resolvedRootCache = fallback; return fallback; }
+  if (canCreateAndWrite(configured)) { resolvedRootCache = configured; return configured; }
+  console.warn(`[DATA_DIR] « ${configured} » non créable/écrivable → repli sur « ${fallback} ».`);
+  resolvedRootCache = fallback;
+  return fallback;
 }
 
 /** Anciens répertoires racine (relatifs au cwd) à migrer vers le nouveau. */
