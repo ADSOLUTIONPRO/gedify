@@ -17,6 +17,21 @@ import { DEFAULT_SENDER_FILTER } from "@/lib/mail-connector/mail-filter-types";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/**
+ * Origine joignable par le navigateur pour la redirection post-OAuth.
+ * En dev, `request.nextUrl.origin` peut valoir http://0.0.0.0:PORT (adresse de
+ * bind « toutes interfaces »), non routable côté client → ERR_CONNECTION_REFUSED.
+ * On privilégie l'en-tête Host réel et on réécrit les hôtes non joignables.
+ */
+function resolveAppOrigin(request: NextRequest): string {
+  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  const proto = request.headers.get("x-forwarded-proto") ?? request.nextUrl.protocol.replace(":", "") ?? "http";
+  let origin = host ? `${proto}://${host}` : request.nextUrl.origin;
+  // 0.0.0.0 / :: / [::] ne sont pas des destinations valides pour le navigateur.
+  origin = origin.replace(/:\/\/(0\.0\.0\.0|\[::\]|::)(:|\/|$)/, "://localhost$2");
+  return origin;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const config = getGmailOAuthConfig();
@@ -112,7 +127,7 @@ export async function GET(request: NextRequest) {
     });
 
     const returnTo = (decoded.returnTo as string | undefined) || "/emails/comptes";
-    const successUrl = new URL(returnTo, request.nextUrl.origin);
+    const successUrl = new URL(returnTo, resolveAppOrigin(request));
     successUrl.searchParams.set("gmail", "connected");
     successUrl.searchParams.set("accountId", accountId);
     return NextResponse.redirect(successUrl);
@@ -122,7 +137,7 @@ export async function GET(request: NextRequest) {
 }
 
 function redirectToError(message: string, request: NextRequest) {
-  const url = new URL("/emails/connecter", request.nextUrl.origin);
+  const url = new URL("/emails/connecter", resolveAppOrigin(request));
   url.searchParams.set("gmail_error", message);
   return NextResponse.redirect(url);
 }
