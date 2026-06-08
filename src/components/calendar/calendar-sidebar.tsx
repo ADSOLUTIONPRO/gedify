@@ -3,8 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Calendar, CalendarClock, CheckSquare, ChevronLeft, ChevronRight, Clock, ListChecks, Repeat } from "lucide-react";
+import { AlertTriangle, Calendar, CalendarClock, ChevronLeft, ChevronRight, Clock, ListChecks, Repeat } from "lucide-react";
 import { CreateCalendarItemButton } from "@/components/calendar/create-calendar-item-button";
+import { CalendarAgendasPanel } from "@/components/calendar/calendar-agendas-panel";
 
 /* Colonne de navigation de l'agenda (façon Google Calendar) : bouton Nouveau,
    mini-calendrier mensuel navigable, sélecteur de vues, accès rapides. */
@@ -98,15 +99,8 @@ export function CalendarSidebar({ currentView }: { currentView: string }) {
         </ul>
       </div>
 
-      {/* Légende agendas (couleurs) */}
-      <div className="rounded-2xl border bg-white p-2.5" style={{ borderColor: "var(--border)" }}>
-        <p className="pb-1.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--text-hint)" }}>Agendas</p>
-        <div className="space-y-1 text-[12px]" style={{ color: "var(--text-main)" }}>
-          <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: "var(--gedify-purple)" }} /> Mes rendez-vous</span>
-          <span className="flex items-center gap-2"><CheckSquare className="h-3.5 w-3.5" style={{ color: "var(--gedify-info)" }} strokeWidth={1.85} /> Tâches</span>
-          <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: "var(--gedify-orange)" }} /> Échéances</span>
-        </div>
-      </div>
+      {/* Agendas : cases on/off (local + Google) + légende tâches/échéances */}
+      <CalendarAgendasPanel />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { CreateCalendarItemModal, type EditableEvent } from "@/components/calendar/create-calendar-item-modal";
+import { getHiddenCalendars, subscribeCalendarVisibility } from "@/lib/calendar/calendar-visibility-store";
 
 /* ────────────────────────────────────────────────────────────────────────
    Vues temporelles de l'agenda : Jour, Semaine, Année. Données = socle
@@ -13,7 +14,13 @@ import { CreateCalendarItemModal, type EditableEvent } from "@/components/calend
    ──────────────────────────────────────────────────────────────────────── */
 
 type AllDayItem = { date: string; label: string; tone: string; href: string };
-type Evt = EditableEvent & { allDay: boolean; location: { displayName?: string | null } | null; color: string | null };
+type Evt = EditableEvent & { allDay: boolean; location: { displayName?: string | null } | null; color: string | null; calendarId?: string | null };
+type CalendarMeta = { id: string; name: string; color: string };
+
+/** Agenda d'appartenance d'un événement (null/"" → agenda local GEDify). */
+function calKeyOf(ev: Evt): string {
+  return ev.calendarId && ev.calendarId !== "" ? ev.calendarId : "local";
+}
 
 const TONE: Record<string, string> = { blue: "var(--gedify-info)", violet: "var(--gedify-purple)", emerald: "var(--gedify-green)", amber: "var(--gedify-orange)", rose: "#E11D48" };
 const HOUR_H = 44; // px par heure
@@ -33,6 +40,31 @@ export function CalendarTimeViews({ view, allDayItems, todayISO, initialDateISO 
   const [events, setEvents] = useState<Evt[]>([]);
   const [createAt, setCreateAt] = useState<string | null>(null);
   const [editing, setEditing] = useState<Evt | null>(null);
+  // Multi-agendas : agendas masqués (partagés avec la sidebar) + couleurs par agenda.
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const [calColors, setCalColors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setHidden(getHiddenCalendars());
+    return subscribeCalendarVisibility(() => setHidden(getHiddenCalendars()));
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/calendars", { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : { calendars: [] }))
+      .then((d: { calendars?: CalendarMeta[] }) => {
+        if (cancelled || !Array.isArray(d.calendars)) return;
+        const m: Record<string, string> = {};
+        d.calendars.forEach((c) => { m[c.id] = c.color; });
+        setCalColors(m);
+      })
+      .catch(() => { /* agenda local seul */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  const visibleEvents = useMemo(() => events.filter((e) => !hidden.has(calKeyOf(e))), [events, hidden]);
 
   // Plage visible selon la vue.
   const range = useMemo(() => {
@@ -99,13 +131,14 @@ export function CalendarTimeViews({ view, allDayItems, todayISO, initialDateISO 
       </div>
 
       {view === "annee" ? (
-        <YearView refDate={refDate} events={events} allDayItems={allDayItems} onPickDay={(d) => { setRefDate(d); router.push("/calendrier?view=jour"); }} />
+        <YearView refDate={refDate} events={visibleEvents} allDayItems={allDayItems} onPickDay={(d) => { setRefDate(d); router.push("/calendrier?view=jour"); }} />
       ) : (
         <TimeGrid
           days={view === "semaine" ? Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(refDate), i)) : [new Date(refDate)]}
-          events={events}
+          events={visibleEvents}
           allDayItems={allDayItems}
           todayISO={todayISO}
+          calColors={calColors}
           onSlot={(iso) => setCreateAt(iso)}
           onEvent={(ev) => setEditing(ev)}
           onMove={(ev, iso) => void moveEvent(ev, iso)}
@@ -118,12 +151,14 @@ export function CalendarTimeViews({ view, allDayItems, todayISO, initialDateISO 
   );
 }
 
-function TimeGrid({ days, events, allDayItems, todayISO, onSlot, onEvent, onMove }: {
-  days: Date[]; events: Evt[]; allDayItems: AllDayItem[]; todayISO: string;
+function TimeGrid({ days, events, allDayItems, todayISO, calColors, onSlot, onEvent, onMove }: {
+  days: Date[]; events: Evt[]; allDayItems: AllDayItem[]; todayISO: string; calColors: Record<string, string>;
   onSlot: (iso: string) => void; onEvent: (ev: Evt) => void; onMove: (ev: Evt, newStartISO: string) => void;
 }) {
   const hours = Array.from({ length: 24 }, (_, i) => i);
   const todayY = ymd(new Date(todayISO));
+  // Couleur d'un événement : sa couleur propre, sinon celle de son agenda, sinon violet.
+  const colorOf = (e: Evt) => e.color ?? calColors[calKeyOf(e)] ?? "var(--gedify-purple)";
 
   // Dépose un événement glissé sur la colonne du jour `day` : calcule la nouvelle
   // heure de début (pas de 15 min) à partir de la position du curseur.
@@ -164,13 +199,13 @@ function TimeGrid({ days, events, allDayItems, todayISO, onSlot, onEvent, onMove
         {days.map((d) => {
           const dy = ymd(d);
           const items = [
-            ...allDayItems.filter((a) => a.date.slice(0, 10) === dy),
-            ...events.filter((e) => e.allDay && e.start.slice(0, 10) === dy).map((e) => ({ date: e.start, label: e.title, tone: "violet", href: "", ev: e })),
+            ...allDayItems.filter((a) => a.date.slice(0, 10) === dy).map((a) => ({ ...a, ev: null as Evt | null, color: TONE[a.tone] ?? "var(--gedify-purple)" })),
+            ...events.filter((e) => e.allDay && e.start.slice(0, 10) === dy).map((e) => ({ date: e.start, label: e.title, tone: "violet", href: "", ev: e as Evt | null, color: colorOf(e) })),
           ];
           return (
             <div key={dy} className="min-h-[26px] space-y-0.5 border-l p-1" style={{ borderColor: "var(--border-soft)" }}>
               {items.map((it, i) => (
-                <button key={i} type="button" onClick={() => "ev" in it && it.ev ? onEvent(it.ev as Evt) : undefined} className="block w-full truncate rounded px-1 py-0.5 text-left text-[10.5px] font-semibold text-white" style={{ background: TONE[it.tone] ?? "var(--gedify-purple)" }}>{it.label}</button>
+                <button key={i} type="button" onClick={() => (it.ev ? onEvent(it.ev) : undefined)} className="block w-full truncate rounded px-1 py-0.5 text-left text-[10.5px] font-semibold text-white" style={{ background: it.color }}>{it.label}</button>
               ))}
             </div>
           );
@@ -214,7 +249,7 @@ function TimeGrid({ days, events, allDayItems, todayISO, onSlot, onEvent, onMove
                     }}
                     onClick={() => onEvent(e)}
                     className="absolute left-1 right-1 cursor-grab overflow-hidden rounded-lg px-1.5 py-0.5 text-left text-[11px] font-semibold text-white shadow-sm active:cursor-grabbing"
-                    style={{ top, height, background: e.color ?? "var(--gedify-purple)" }}
+                    style={{ top, height, background: colorOf(e) }}
                     title="Glisser pour replanifier"
                   >
                     <span className="block truncate">{e.title}</span>
