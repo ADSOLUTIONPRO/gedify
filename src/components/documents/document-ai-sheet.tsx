@@ -182,6 +182,17 @@ export function DocumentAiSheet({ doc, onClose, onApplied }: { doc: DocumentVM; 
   const [tagQuery, setTagQuery] = useState("");
   // Sélection EXPLICITE d'un dossier via l'explorateur (conserve l'id réel).
   const [folderSel, setFolderSel] = useState<FolderSelection | null>(null);
+
+  // À l'ouverture, recharge le dossier RÉELLEMENT rattaché au document (le lien
+  // est persisté côté serveur) → le sélecteur de dossier ne repart pas à vide.
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/documents/${doc.id}/folder`, { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : { folder: null }))
+      .then((d: { folder?: FolderSelection | null }) => { if (!cancelled && d.folder) setFolderSel(d.folder); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [doc.id]);
   // Actions de traitement (OCR / aperçu / ajout à un dossier) — réutilisent les
   // endpoints existants ; n'altèrent pas le flux d'analyse.
   const [procBusy, setProcBusy] = useState<string | null>(null);
@@ -248,6 +259,9 @@ export function DocumentAiSheet({ doc, onClose, onApplied }: { doc: DocumentVM; 
             folderName: folderSel ? folderSel.path : (sug.folder || null),
             title: sug.title || null,
             created: sug.dateISO || null,
+            // Persistés sur l'analyse → relus à la réouverture.
+            summary: sug.summary ?? "",
+            dueDate: sug.dueISO || "",
           },
         }),
       });

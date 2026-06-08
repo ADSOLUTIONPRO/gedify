@@ -32,6 +32,10 @@ type Overrides = {
   folderId?: string | null;
   title?: string | null;
   created?: string | null;
+  /** Édités manuellement dans la Fiche Doc → persistés sur l'analyse pour être
+   *  relus à la réouverture (priment sur la détection IA). */
+  summary?: string | null;
+  dueDate?: string | null;
 };
 
 /**
@@ -97,7 +101,19 @@ export async function POST(request: NextRequest, { params }: Ctx) {
       }
 
       const latest = await getLatestAnalysisForDocument(documentId);
-      if (latest) await upsertAnalysis({ ...latest, id: latest.id, status: "applied", appliedFields: applied, appliedAt: new Date().toISOString(), needsReview: false, classificationSource: "user" }).catch(() => {});
+      if (latest) {
+        // Persiste aussi les valeurs manuelles éditées (résumé, échéance,
+        // dossier appliqué) sur l'analyse → relues telles quelles à la
+        // réouverture (priment sur la détection IA).
+        if (overrides.summary != null || overrides.dueDate != null) applied.push("infos");
+        await upsertAnalysis({
+          ...latest, id: latest.id, status: "applied", appliedFields: applied,
+          appliedAt: new Date().toISOString(), needsReview: false, classificationSource: "user",
+          summary: overrides.summary != null ? overrides.summary : latest.summary,
+          dueDate: overrides.dueDate != null ? (overrides.dueDate || null) : latest.dueDate,
+          appliedFolderName: resolved.folder?.name ?? overrides.folderName ?? latest.appliedFolderName,
+        }).catch(() => {});
+      }
 
       await appendGedLog({
         level: "success",

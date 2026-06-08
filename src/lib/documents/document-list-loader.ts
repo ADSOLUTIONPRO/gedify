@@ -174,7 +174,10 @@ export async function buildDocumentVMs(documents: PaperlessDocument[], deps: Doc
     const correspondentName = doc.correspondent__name ?? getNameById(correspondents, doc.correspondent) ?? null;
     const typeName = doc.document_type__name ?? getNameById(types, doc.document_type) ?? null;
     const amount = analysis?.detectedAmounts?.[0] ?? null;
-    const dueDate = analysis?.detectedDates?.find((d) => DUE_DATE_LABEL.test(d.label)) ?? null;
+    // Échéance manuelle persistée (analysis.dueDate) PRIORITAIRE sur la date
+    // détectée → la valeur saisie dans la Fiche Doc est relue telle quelle.
+    const dueDate = (analysis?.dueDate ? { label: "Échéance", iso: analysis.dueDate } : null)
+      ?? analysis?.detectedDates?.find((d) => DUE_DATE_LABEL.test(d.label)) ?? null;
 
     return {
       id,

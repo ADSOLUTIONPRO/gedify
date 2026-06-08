@@ -117,6 +117,9 @@ export type AIAnalysis = {
   id: string;
   documentId: number;
   summary: string;
+  /** Échéance saisie manuellement dans la Fiche Doc (ISO date), persistée pour
+   *  être relue à la réouverture (prime sur les dates détectées). */
+  dueDate?: string | null;
   plainLanguageExplanation: string;
   detectedDocumentKind: string;
   suggestedTitle?: string | null;
