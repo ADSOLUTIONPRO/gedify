@@ -22,21 +22,45 @@ export function normalizeType(s: string | null | undefined): string {
  * Conventions (motif `{{variable}}`). Clés = marqueurs cherchés dans le type/kind
  * normalisé (premier marqueur contenu gagne). Variables manquantes = omises.
  */
-const CONVENTIONS: { markers: string[]; pattern: string }[] = [
-  { markers: ["arret de travail", "arret maladie", "avis d arret", "teletransmises"], pattern: "Arrêt maladie {{date}}" },
-  { markers: ["bulletin de salaire", "fiche de paie", "bulletin de paie", "paie"], pattern: "Bulletin de salaire {{mois}} {{annee}}" },
-  { markers: ["avis d imposition", "avis d impot", "impot sur le revenu"], pattern: "Avis d'imposition {{annee}}" },
-  { markers: ["taxe fonciere", "taxe d habitation"], pattern: "{{type}} {{annee}}" },
-  { markers: ["releve bancaire", "releve de compte", "releve"], pattern: "Relevé bancaire {{emetteur}} {{mois}} {{annee}}" },
-  { markers: ["facture", "facturation"], pattern: "Facture {{emetteur}} {{reference}} {{date}}" },
-  { markers: ["devis"], pattern: "Devis {{emetteur}} {{reference}} {{date}}" },
-  { markers: ["ordonnance"], pattern: "Ordonnance {{emetteur}} {{date}}" },
-  { markers: ["contrat"], pattern: "Contrat {{emetteur}} {{date}}" },
-  { markers: ["convocation"], pattern: "Convocation {{objet}} {{date}}" },
-  { markers: ["attestation"], pattern: "Attestation {{objet}} {{date}}" },
-  { markers: ["quittance", "loyer"], pattern: "Quittance de loyer {{mois}} {{annee}}" },
-  { markers: ["courrier", "lettre"], pattern: "Courrier {{emetteur}} {{objet}}" },
+const CONVENTIONS: { family: string; markers: string[]; pattern: string }[] = [
+  { family: "arret_maladie", markers: ["arret de travail", "arret maladie", "avis d arret", "teletransmises"], pattern: "Arrêt maladie {{date}}" },
+  { family: "bulletin_salaire", markers: ["bulletin de salaire", "fiche de paie", "bulletin de paie", "paie"], pattern: "Bulletin de salaire {{mois}} {{annee}}" },
+  { family: "imposition", markers: ["avis d imposition", "avis d impot", "impot sur le revenu"], pattern: "Avis d'imposition {{annee}}" },
+  { family: "taxe", markers: ["taxe fonciere", "taxe d habitation"], pattern: "{{type}} {{annee}}" },
+  { family: "releve_bancaire", markers: ["releve bancaire", "releve de compte", "releve"], pattern: "Relevé bancaire {{emetteur}} {{mois}} {{annee}}" },
+  { family: "facture", markers: ["facture", "facturation"], pattern: "Facture {{emetteur}} {{reference}} {{date}}" },
+  { family: "devis", markers: ["devis"], pattern: "Devis {{emetteur}} {{reference}} {{date}}" },
+  { family: "ordonnance", markers: ["ordonnance"], pattern: "Ordonnance {{emetteur}} {{date}}" },
+  { family: "contrat", markers: ["contrat", "bail", "location"], pattern: "Contrat {{emetteur}} {{date}}" },
+  { family: "convocation", markers: ["convocation"], pattern: "Convocation {{objet}} {{date}}" },
+  { family: "attestation", markers: ["attestation"], pattern: "Attestation {{objet}} {{date}}" },
+  { family: "quittance", markers: ["quittance", "loyer"], pattern: "Quittance de loyer {{mois}} {{annee}}" },
+  { family: "courrier", markers: ["courrier", "lettre"], pattern: "Courrier {{emetteur}} {{objet}}" },
 ];
+
+/** Famille documentaire détectée dans un texte (type, kind ou titre), ou null. */
+export function detectFamily(text: string | null | undefined): string | null {
+  const hay = normalizeType(text);
+  if (!hay) return null;
+  for (const c of CONVENTIONS) {
+    if (c.markers.some((m) => hay.includes(m))) return c.family;
+  }
+  return null;
+}
+
+/**
+ * Cohérence titre ↔ type (§23) : on ne peut PROUVER l'incohérence que si le
+ * titre désigne clairement une AUTRE famille que le type. Sinon on considère
+ * cohérent (pas de faux rejet). Ex. type « Arrêt maladie » + titre « Contrat de
+ * location » → incohérent (familles arret_maladie ≠ contrat).
+ */
+export function titleConsistentWithType(title: string, typeName: string | null | undefined, kind?: string | null): boolean {
+  const famType = detectFamily(`${typeName ?? ""} ${kind ?? ""}`);
+  if (!famType) return true; // type sans famille connue → rien à contredire
+  const famTitle = detectFamily(title);
+  if (!famTitle) return true; // titre neutre → cohérent
+  return famTitle === famType;
+}
 
 export type TitleFields = {
   type?: string | null;

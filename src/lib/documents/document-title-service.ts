@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { AIAnalysis } from "@/lib/ai/types";
-import { findTitlePattern, renderDocumentTitle, titleFromFileName } from "./title-conventions";
+import { findTitlePattern, renderDocumentTitle, titleFromFileName, titleConsistentWithType } from "./title-conventions";
 
 /* ────────────────────────────────────────────────────────────────────────
    Service central de titrage. Toute génération de titre passe par ici :
@@ -49,7 +49,13 @@ export function buildTitleFromAnalysis(analysis: AIAnalysis, fileName?: string |
   }
 
   if (analysis.suggestedTitle && analysis.suggestedTitle.trim().length >= 3) {
-    return { title: analysis.suggestedTitle.trim(), source: "ai", confidence: analysis.titleConfidence ?? 0.5 };
+    const aiTitle = analysis.suggestedTitle.trim();
+    // §23 Cohérence : un titre IA désignant une AUTRE famille que le type
+    // détecté n'est pas appliqué (confiance abaissée → reste une suggestion).
+    if (!titleConsistentWithType(aiTitle, typeName, kind)) {
+      return { title: aiTitle, source: "ai", confidence: 0.3 };
+    }
+    return { title: aiTitle, source: "ai", confidence: analysis.titleConfidence ?? 0.5 };
   }
 
   const fromFile = titleFromFileName(fileName);
