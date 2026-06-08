@@ -30,6 +30,9 @@ import { firstParam, type PageSearchParams } from "@/lib/page-params";
 import { getCorrespondents, getDocumentTypes, getTags } from "@/lib/paperless";
 import { listProjectFolders } from "@/lib/projects/project-store";
 import type { ProjectFolder } from "@/lib/projects/project-types";
+import { FolderPinButton } from "@/components/dashboard/folder-pin-button";
+import { listPins } from "@/lib/dashboard/pinned-store";
+import { getCurrentUser } from "@/lib/auth/current-user";
 
 export const dynamic = "force-dynamic";
 
@@ -79,12 +82,16 @@ export default async function DossiersPage({
   const status = firstParam(params, "status", "all");
 
   try {
-    const [projects, correspondentsData, tagsData, typesData] = await Promise.all([
+    const [projects, correspondentsData, tagsData, typesData, currentUser] = await Promise.all([
       listProjectFolders(),
       getCorrespondents({ page_size: 1000 }),
       getTags({ page_size: 1000 }),
       getDocumentTypes({ page_size: 1000 }),
+      getCurrentUser(),
     ]);
+    // Dossiers déjà épinglés au tableau de bord (pour l'état initial du bouton).
+    const pins = await listPins(currentUser ? String(currentUser.id) : "local").catch(() => []);
+    const pinnedIds = new Set(pins.filter((p) => p.entityType === "folder").map((p) => p.entityId));
 
     const correspondents = correspondentsData.results ?? [];
     const tags = tagsData.results ?? [];
@@ -186,13 +193,16 @@ export default async function DossiersPage({
         header: "",
         className: "text-right",
         cell: (project) => (
-          <Link
-            href={`/dossiers/${project.id}`}
-            className="text-xs font-bold"
-            style={{ color: "var(--blue-600)" }}
-          >
-            Ouvrir →
-          </Link>
+          <div className="flex items-center justify-end gap-2">
+            <FolderPinButton entityId={project.id} initialPinned={pinnedIds.has(project.id)} iconOnly />
+            <Link
+              href={`/dossiers/${project.id}`}
+              className="text-xs font-bold"
+              style={{ color: "var(--blue-600)" }}
+            >
+              Ouvrir →
+            </Link>
+          </div>
         ),
       },
     ];
@@ -295,7 +305,7 @@ export default async function DossiersPage({
               ) : (
                 <div className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-3">
                   {filtered.map((project) => (
-                    <ProjectGridTile key={project.id} project={project} />
+                    <ProjectGridTile key={project.id} project={project} pinned={pinnedIds.has(project.id)} />
                   ))}
                 </div>
               )}

@@ -1,23 +1,28 @@
 import Link from "next/link";
 import { CalendarClock, FileText, Users } from "lucide-react";
 import { ProjectStatusBadge } from "@/components/projects/project-status-badge";
+import { FolderPinButton } from "@/components/dashboard/folder-pin-button";
 import { formatDate } from "@/lib/format";
 import type { ProjectFolder } from "@/lib/projects/project-types";
 
 type ProjectGridTileProps = {
   project: ProjectFolder;
+  pinned?: boolean;
 };
 
-export function ProjectGridTile({ project }: ProjectGridTileProps) {
+export function ProjectGridTile({ project, pinned = false }: ProjectGridTileProps) {
   return (
-    <Link
-      href={`/dossiers/${project.id}`}
-      className="group flex flex-col gap-4 rounded-2xl bg-white p-4 transition hover:shadow-md"
+    <div
+      className="group relative flex flex-col gap-4 rounded-2xl bg-white p-4 transition hover:shadow-md"
       style={{
         border: "1px solid var(--border)",
         boxShadow: "0 1px 8px -2px rgba(8,18,37,0.06)",
       }}
     >
+      {/* Lien étiré : toute la carte navigue, sauf les éléments interactifs (pointer-events-auto). */}
+      <Link href={`/dossiers/${project.id}`} aria-label={`Ouvrir ${project.name}`} className="absolute inset-0 z-0 rounded-2xl" />
+
+      <div className="pointer-events-none relative z-10 flex flex-col gap-4">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
           <span
@@ -43,7 +48,10 @@ export function ProjectGridTile({ project }: ProjectGridTileProps) {
             </p>
           </div>
         </div>
-        <ProjectStatusBadge status={project.status} />
+        <div className="flex shrink-0 items-center gap-1.5">
+          <ProjectStatusBadge status={project.status} />
+          <span className="pointer-events-auto"><FolderPinButton entityId={project.id} initialPinned={pinned} iconOnly /></span>
+        </div>
       </div>
 
       {project.description ? (
@@ -110,6 +118,7 @@ export function ProjectGridTile({ project }: ProjectGridTileProps) {
           {project.priority}
         </span>
       </div>
-    </Link>
+      </div>
+    </div>
   );
 }

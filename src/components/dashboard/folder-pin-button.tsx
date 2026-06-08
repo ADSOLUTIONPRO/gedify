@@ -12,11 +12,14 @@ export function FolderPinButton({
   entityType = "folder",
   initialPinned,
   className,
+  iconOnly = false,
 }: {
   entityId: string;
   entityType?: "folder" | "project";
   initialPinned: boolean;
   className?: string;
+  /** Variante compacte : icône seule (listes / tuiles). */
+  iconOnly?: boolean;
 }) {
   const [pinned, setPinned] = useState(initialPinned);
   const [busy, setBusy] = useState(false);
@@ -43,16 +46,36 @@ export function FolderPinButton({
     }
   }
 
+  const icon = busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : pinned ? <PinOff className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" /> : <Pin className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />;
+  const title = pinned ? "Retirer du tableau de bord" : "Épingler au tableau de bord";
+
+  if (iconOnly) {
+    return (
+      <button
+        type="button"
+        onClick={() => void toggle()}
+        disabled={busy}
+        aria-pressed={pinned}
+        aria-label={title}
+        title={title}
+        className={className ?? "flex h-8 w-8 items-center justify-center rounded-lg border bg-white transition hover:bg-[var(--accent-soft)] disabled:opacity-50"}
+        style={{ borderColor: "var(--border)", color: pinned ? "var(--accent)" : "var(--text-muted)" }}
+      >
+        {icon}
+      </button>
+    );
+  }
+
   return (
     <button
       type="button"
       onClick={() => void toggle()}
       disabled={busy}
       aria-pressed={pinned}
-      title={pinned ? "Retirer du tableau de bord" : "Épingler au tableau de bord"}
+      title={title}
       className={className ?? "inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 px-4 text-sm font-semibold text-slate-700 shadow-sm backdrop-blur transition hover:bg-white disabled:opacity-50"}
     >
-      {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : pinned ? <PinOff className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" /> : <Pin className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />}
+      {icon}
       {pinned ? "Retirer du tableau de bord" : "Épingler"}
     </button>
   );
