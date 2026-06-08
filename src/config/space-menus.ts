@@ -43,8 +43,17 @@ import { getSpaceByHref } from "@/config/spaces";
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
 
-export type SpaceMenuItem = { label: string; href: string; icon: LucideIcon };
+export type SpaceMenuItem = {
+  label: string;
+  href: string;
+  icon: LucideIcon;
+  /** Clé de groupe (référence un `SpaceMenuGroup.id`). Optionnel. */
+  group?: string;
+  /** Sous-titre explicatif (affiché si la sidebar est assez large). */
+  subtitle?: string;
+};
 export type SpaceMenuAction = { label: string; href: string; icon: LucideIcon };
+export type SpaceMenuGroup = { id: string; title: string; subtitle?: string };
 
 export type SpaceMenu = {
   /** id = id d'espace (`@/config/spaces`) ou "accueil". */
@@ -55,6 +64,8 @@ export type SpaceMenu = {
   color?: string;
   /** Bouton d'action rapide en tête de menu (optionnel). */
   action?: SpaceMenuAction;
+  /** Groupes visuels du menu (titre + sous-titre). Si absent → liste plate. */
+  groups?: SpaceMenuGroup[];
   items: SpaceMenuItem[];
 };
 
@@ -91,19 +102,23 @@ export const SPACE_MENUS: Record<string, SpaceMenu> = {
     title: "Documents",
     description: "Tous vos documents indexés",
     action: { label: "Importer", href: "/import", icon: Upload },
+    groups: [
+      { id: "docs", title: "Documents", subtitle: "Consulter et trier vos documents" },
+      { id: "orga", title: "Organisation & taxonomies", subtitle: "Structurer et automatiser" },
+    ],
     items: [
-      { label: "Tous les documents", href: "/documents", icon: FileText },
-      { label: "Récents", href: "/documents?tri=recents", icon: Clock },
-      { label: "Favoris", href: "/documents?filtre=favoris", icon: Star },
-      { label: "À traiter", href: "/a-traiter", icon: Inbox },
-      { label: "Archives", href: "/documents?filtre=archives", icon: Archive },
-      { label: "Corbeille", href: "/corbeille", icon: Trash2 },
-      { label: "Signatures & paraphes", href: "/documents/signatures", icon: PenLine },
-      { label: "Types de documents", href: "/organiser/types", icon: FileType2 },
-      { label: "Tags", href: "/organiser/tags", icon: Tags },
-      { label: "Vues", href: "/organiser/vues", icon: LayoutGrid },
-      { label: "Workflows", href: "/workflows", icon: Workflow },
-      { label: "Modèles IA appris", href: "/documents/modeles-ia", icon: Brain },
+      { label: "Tous les documents", href: "/documents", icon: FileText, group: "docs", subtitle: "Ensemble de la GED" },
+      { label: "Récents", href: "/documents?tri=recents", icon: Clock, group: "docs", subtitle: "Ajoutés il y a moins de 48 h" },
+      { label: "Favoris", href: "/documents?filtre=favoris", icon: Star, group: "docs", subtitle: "Documents marqués d'une étoile" },
+      { label: "À traiter", href: "/a-traiter", icon: Inbox, group: "docs", subtitle: "À valider ou à compléter" },
+      { label: "Archives", href: "/documents?filtre=archives", icon: Archive, group: "docs", subtitle: "Documents archivés" },
+      { label: "Corbeille", href: "/corbeille", icon: Trash2, group: "docs", subtitle: "Documents supprimés" },
+      { label: "Signatures & paraphes", href: "/documents/signatures", icon: PenLine, group: "orga", subtitle: "Gérer vos signatures" },
+      { label: "Types de documents", href: "/organiser/types", icon: FileType2, group: "orga", subtitle: "Catégoriser vos documents" },
+      { label: "Tags", href: "/organiser/tags", icon: Tags, group: "orga", subtitle: "Étiquettes et mots-clés" },
+      { label: "Vues", href: "/organiser/vues", icon: LayoutGrid, group: "orga", subtitle: "Vues personnalisées" },
+      { label: "Workflows", href: "/workflows", icon: Workflow, group: "orga", subtitle: "Automatiser vos processus" },
+      { label: "Modèles IA appris", href: "/documents/modeles-ia", icon: Brain, group: "orga", subtitle: "Modèles entraînés par l'IA" },
     ],
   },
 

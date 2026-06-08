@@ -7,7 +7,7 @@ import { Home, PanelLeft, X } from "lucide-react";
 import { BrandLogo } from "@/components/ui/brand-logo";
 import { SidebarFolderTree } from "@/components/organiser/sidebar-folder-tree";
 import { getSpaceById } from "@/config/spaces";
-import { getActiveSpaceId, getSpaceMenu, type SpaceMenu } from "@/config/space-menus";
+import { getActiveSpaceId, getSpaceMenu, type SpaceMenu, type SpaceMenuItem } from "@/config/space-menus";
 
 /* ── Détection de l'item actif (gère pathname, query et ancres) ────────── */
 
@@ -43,6 +43,29 @@ function activeIndex(menu: SpaceMenu, pathname: string, search: string): number 
     }
   });
   return best;
+}
+
+/* ── Ligne de menu (icône + libellé + sous-titre éventuel) ─────────────── */
+
+function MenuRow({ item, active, onNavigate }: { item: SpaceMenuItem; active: boolean; onNavigate?: () => void }) {
+  const Icon = item.icon;
+  return (
+    <li>
+      <Link
+        href={item.href}
+        onClick={onNavigate}
+        aria-current={active ? "page" : undefined}
+        className={`group flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-[13px] font-semibold transition ${active ? "" : "font-medium hover:bg-black/[0.04]"}`}
+        style={active ? { background: "var(--accent-soft)", color: "var(--accent)" } : { color: "var(--text-muted)" }}
+      >
+        <Icon className="h-4 w-4 shrink-0" strokeWidth={active ? 2.2 : 1.85} style={{ color: active ? "var(--accent)" : "var(--text-hint)" }} aria-hidden="true" />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate">{item.label}</span>
+          {item.subtitle ? <span className="block truncate text-[10.5px] font-normal" style={{ color: active ? "var(--accent)" : "var(--text-hint)" }}>{item.subtitle}</span> : null}
+        </span>
+      </Link>
+    </li>
+  );
 }
 
 /* ── Contenu réutilisable (colonne desktop + drawer mobile) ────────────── */
@@ -94,28 +117,33 @@ function SpaceMenuInner({ onNavigate }: { onNavigate?: () => void }) {
         ) : null}
       </div>
 
-      {/* Liste du menu */}
+      {/* Liste du menu (groupée si `menu.groups`, sinon plate) */}
       <nav className={`${activeId === "organiser" ? "" : "flex-1"} overflow-y-auto px-2 pb-2`}>
-        <ul className="space-y-0.5">
-          {menu.items.map((item, i) => {
-            const Icon = item.icon;
-            const isActive = i === active;
+        {menu.groups && menu.groups.length > 0 ? (
+          menu.groups.map((group, gi) => {
+            const groupItems = menu.items.filter((it) => it.group === group.id);
+            if (groupItems.length === 0) return null;
             return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  onClick={onNavigate}
-                  aria-current={isActive ? "page" : undefined}
-                  className={`group flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-[13px] font-semibold transition ${isActive ? "" : "font-medium hover:bg-black/[0.04]"}`}
-                  style={isActive ? { background: "var(--accent-soft)", color: "var(--accent)" } : { color: "var(--text-muted)" }}
-                >
-                  <Icon className="h-4 w-4 shrink-0" strokeWidth={isActive ? 2.2 : 1.85} style={{ color: isActive ? "var(--accent)" : "var(--text-hint)" }} aria-hidden="true" />
-                  <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                </Link>
-              </li>
+              <div key={group.id} className={gi > 0 ? "mt-3 border-t pt-3" : ""} style={gi > 0 ? { borderColor: "var(--border-soft)" } : undefined}>
+                <div className="px-2.5 pb-1">
+                  <p className="text-[10.5px] font-bold uppercase tracking-[0.07em]" style={{ color: "var(--text-hint)" }}>{group.title}</p>
+                  {group.subtitle ? <p className="text-[10.5px]" style={{ color: "var(--text-hint)" }}>{group.subtitle}</p> : null}
+                </div>
+                <ul className="space-y-0.5">
+                  {groupItems.map((item) => (
+                    <MenuRow key={item.href} item={item} active={menu.items.indexOf(item) === active} onNavigate={onNavigate} />
+                  ))}
+                </ul>
+              </div>
             );
-          })}
-        </ul>
+          })
+        ) : (
+          <ul className="space-y-0.5">
+            {menu.items.map((item, i) => (
+              <MenuRow key={item.href} item={item} active={i === active} onNavigate={onNavigate} />
+            ))}
+          </ul>
+        )}
       </nav>
 
       {/* Espace Organiser : arbre des dossiers directement dans la barre */}
