@@ -226,7 +226,7 @@ export default async function FinancialDocumentsPage() {
                       href={`/ia/document/${analysis.documentId}`}
                       className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 hover:underline"
                     >
-                      Fiche IA
+                      Fiche Doc
                       <ArrowRight className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
                     </Link>
                   </div>

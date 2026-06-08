@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { FileSearch, Folder, Loader2, Search, Sparkles } from "lucide-react";
+import Link from "next/link";
+import { Eye, FileSearch, Folder, Loader2, Search } from "lucide-react";
 import { StatusPill } from "@/components/ui/status-pill";
 import { STATUS_META, formatAmount, type DocumentVM } from "@/components/documents/types";
 import { DocumentStatusBadges } from "@/components/documents/document-status-badges";
-import { DocumentActionMenu, type DocActionHandlers } from "@/components/documents/document-action-menu";
+import { type DocActionHandlers } from "@/components/documents/document-action-menu";
 import { GedifyErrorHint } from "@/components/ui/gedify-error-hint";
 
 type DocumentSpaceCardProps = {
@@ -62,7 +63,7 @@ export function DocumentSpaceCard({ doc, checked, active, onToggle, onActivate, 
       aria-pressed={active}
       className="group relative flex cursor-pointer flex-col overflow-hidden rounded-[18px] bg-white transition hover:-translate-y-0.5 hover:shadow-lg"
       style={{
-        boxShadow: active ? "0 0 0 2px var(--accent), var(--shadow-card)" : "var(--shadow-card)",
+        boxShadow: active ? "0 0 0 1.5px var(--accent), var(--shadow-card)" : "var(--shadow-card)",
       }}
     >
       <label className="absolute left-2 top-2 z-10 flex items-center" onClick={(e) => e.stopPropagation()}>
@@ -178,29 +179,30 @@ export function DocumentSpaceCard({ doc, checked, active, onToggle, onActivate, 
           ) : null}
         </div>
 
-        {/* Actions — n'activent pas la carte (stopPropagation). flex-wrap : jamais de débordement. */}
-        <div className="mt-3 flex flex-wrap items-center gap-1.5 pt-3" style={{ borderTop: "1px solid var(--border-soft)" }} onClick={(e) => e.stopPropagation()}>
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); actions.onAi(doc, "analyse"); }}
-            disabled={aiBusy}
-            className="inline-flex h-8 min-w-0 flex-1 items-center justify-center gap-1 rounded-lg px-2.5 text-[11px] font-bold text-white transition hover:opacity-90 disabled:opacity-50"
+        {/* Actions vignette : Ouvrir (page document) + Fiche Doc. Les actions
+            secondaires individuelles sont centralisées dans la Fiche Doc. */}
+        <div className="mt-3 grid grid-cols-2 gap-1.5 pt-3" style={{ borderTop: "1px solid var(--border-soft)" }} onClick={(e) => e.stopPropagation()}>
+          <Link
+            href={`/documents/${doc.id}`}
+            onClick={(e) => e.stopPropagation()}
+            aria-label={`Ouvrir le document ${doc.displayTitle}`}
+            className="inline-flex h-8 items-center justify-center gap-1 rounded-lg px-2.5 text-[11px] font-bold text-white transition hover:opacity-90"
             style={{ background: "var(--accent)" }}
           >
-            {aiBusy ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden="true" /> : <Sparkles className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden="true" />}
-            <span className="truncate">Analyse IA</span>
-          </button>
+            <Eye className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden="true" />
+            <span className="truncate">Ouvrir</span>
+          </Link>
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); actions.onFicheIA(doc); }}
-            aria-label="Fiche IA"
-            title="Fiche IA"
-            className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg border px-2 text-[11px] font-bold transition hover:opacity-90"
+            aria-label="Fiche Doc"
+            title="Fiche Doc"
+            className="inline-flex h-8 items-center justify-center gap-1 rounded-lg border px-2 text-[11px] font-bold transition hover:bg-[var(--bg-card-soft)]"
             style={{ background: "var(--surface)", color: "var(--text-main)", borderColor: "var(--border-strong)" }}
           >
-            <FileSearch className="h-3.5 w-3.5" strokeWidth={1.85} aria-hidden="true" /> <span className="hidden min-[420px]:inline">Fiche IA</span>
+            <FileSearch className="h-3.5 w-3.5 shrink-0" strokeWidth={1.85} aria-hidden="true" />
+            <span className="truncate">Fiche Doc</span>
           </button>
-          <DocumentActionMenu doc={doc} actions={actions} aiBusy={aiBusy} dropUp />
         </div>
       </div>
     </div>

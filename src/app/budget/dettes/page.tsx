@@ -142,7 +142,7 @@ export default async function DebtsPage({
             className="text-xs font-bold"
             style={{ color: "var(--blue-600)" }}
           >
-            Fiche IA →
+            Fiche Doc →
           </Link>
         ) : (
           <span className="text-xs" style={{ color: "var(--text-muted)" }}>
@@ -468,7 +468,7 @@ export default async function DebtsPage({
                   className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full"
                   style={{ background: "var(--blue-600)" }}
                 />
-                Cliquez sur « Fiche IA » pour ajuster la suggestion.
+                Cliquez sur « Fiche Doc » pour ajuster la suggestion.
               </li>
               <li className="flex items-start gap-2">
                 <span

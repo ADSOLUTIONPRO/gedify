@@ -155,7 +155,7 @@ function fromAnalysis(a: AiAnalysisShape, diag: AiDiagnostics | null, fallbackTi
 type Phase = "view" | "running" | "applying" | "applied" | "error";
 
 /**
- * Popup « Fiche IA » interactive : lance l'analyse en place (sans se fermer),
+ * Popup « Fiche Doc » interactive : lance l'analyse en place (sans se fermer),
  * affiche la progression, puis les suggestions **éditables** organisées en
  * sections lisibles (grille 2-3 colonnes responsive ; titre + résumé pleine
  * largeur), permet de les appliquer au document et de répartir les montants au
@@ -267,7 +267,7 @@ export function DocumentAiSheet({ doc, onClose, onApplied }: { doc: DocumentVM; 
   const busy = phase === "running" || phase === "applying";
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label="Fiche IA du document">
+    <div className="fixed inset-0 z-[80] flex items-end justify-center sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label="Fiche Doc du document">
       <button type="button" aria-label="Fermer" onClick={onClose} className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm" />
       <div className="relative flex max-h-[94vh] w-full max-w-4xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:max-h-[90vh] sm:rounded-2xl" style={{ border: "1px solid var(--border)" }}>
         {/* En-tête */}
@@ -277,7 +277,7 @@ export function DocumentAiSheet({ doc, onClose, onApplied }: { doc: DocumentVM; 
               <Sparkles className="h-5 w-5" style={{ color: "var(--gedify-purple)" }} strokeWidth={2} aria-hidden="true" />
             </span>
             <div className="min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: "var(--text-hint)" }}>Fiche IA du document</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: "var(--text-hint)" }}>Fiche Doc du document</p>
               <h2 className="truncate text-[15px] font-extrabold leading-tight" style={{ color: "var(--gedify-navy)" }} title={doc.displayTitle}>{doc.displayTitle}</h2>
             </div>
           </div>

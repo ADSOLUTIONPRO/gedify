@@ -69,7 +69,7 @@ export function TaxonomyHealthPanel() {
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <p className="text-[12.5px]" style={{ color: "var(--text-muted)" }}>
-          Vérifie que toute valeur créée/validée depuis la Fiche IA existe comme entité réelle et reste proposée partout.
+          Vérifie que toute valeur créée/validée depuis la Fiche Doc existe comme entité réelle et reste proposée partout.
         </p>
         <button
           type="button"

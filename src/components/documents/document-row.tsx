@@ -20,7 +20,7 @@ type DocumentRowProps = {
 /**
  * Ligne de document (vue Liste). Affiche checkbox, miniature, titre, correspondant,
  * type, date, nom de fichier, tags, statut, badges OCR/IA et les MÊMES actions que
- * la carte (Analyse IA, Fiche IA, menu « … » complet). Cliquer la ligne ouvre l'aperçu.
+ * la carte (Analyse IA, Fiche Doc, menu « … » complet). Cliquer la ligne ouvre l'aperçu.
  */
 export function DocumentRow({ doc, checked, active, onToggle, onActivate, actions, aiBusy }: DocumentRowProps) {
   const status = STATUS_META[doc.status];
@@ -127,15 +127,15 @@ export function DocumentRow({ doc, checked, active, onToggle, onActivate, action
           <span className="hidden lg:inline">Analyse IA</span>
         </button>
 
-        {/* Fiche IA : lg+ uniquement */}
+        {/* Fiche Doc : lg+ uniquement */}
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); actions.onFicheIA(doc); }}
-          title="Fiche IA"
+          title="Fiche Doc"
           className="hidden h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[12px] font-bold transition hover:bg-[var(--bg-card-soft)] lg:inline-flex"
           style={{ borderColor: "var(--border-strong)", color: "var(--text-main)" }}
         >
-          <FileSearch className="h-3.5 w-3.5" strokeWidth={1.85} aria-hidden="true" /> Fiche IA
+          <FileSearch className="h-3.5 w-3.5" strokeWidth={1.85} aria-hidden="true" /> Fiche Doc
         </button>
 
         <DocumentActionMenu doc={doc} actions={actions} aiBusy={aiBusy} />

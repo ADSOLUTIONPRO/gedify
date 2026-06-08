@@ -7,14 +7,14 @@ import { DocumentAiResultDialog } from "@/components/documents/document-ai-resul
 import { fetchCurrentUser } from "@/lib/documents/document-quick-edit";
 import { ANALYSIS_ACTIONS, logAiAction, runAiAction, type AiActionId, type AiActionResult } from "@/lib/documents/document-ai";
 
-/** Composant simplifié : un seul bouton d'analyse + Fiche IA + OCR. */
+/** Composant simplifié : un seul bouton d'analyse + Fiche Doc + OCR. */
 type ButtonId = "analyse" | "fiche" | "ocr";
 
 type Tone = { bg: string; color: string; border: string };
 
 const META: Record<ButtonId, { label: string; loading: string; icon: LucideIcon; tone: Tone }> = {
   analyse: { label: "Analyse IA", loading: "Analyse IA en cours…", icon: Sparkles, tone: { bg: "#F75C8D", color: "#FFFFFF", border: "#F75C8D" } },
-  fiche: { label: "Fiche IA", loading: "", icon: FileSearch, tone: { bg: "#FFFFFF", color: "#1F2937", border: "#E8DED1" } },
+  fiche: { label: "Fiche Doc", loading: "", icon: FileSearch, tone: { bg: "#FFFFFF", color: "#1F2937", border: "#E8DED1" } },
   ocr: { label: "Relancer OCR", loading: "OCR en cours…", icon: ScanLine, tone: { bg: "#FFF4E5", color: "#F59E0B", border: "#FFE0B2" } },
 };
 
@@ -22,7 +22,7 @@ const DEFAULT_ORDER: ButtonId[] = ["analyse", "fiche", "ocr"];
 
 type Props = {
   documentId: number;
-  /** Ouvre la Fiche IA en popup (le bouton « Fiche IA » ne navigue pas). */
+  /** Ouvre la Fiche Doc en popup (le bouton « Fiche Doc » ne navigue pas). */
   onOpenSheet?: () => void;
   /** Appelé après une action réussie (rafraîchir grille / panneau). */
   onChanged?: () => void;
@@ -36,7 +36,7 @@ type Props = {
 
 /**
  * Bloc « Actions IA » : bouton principal **Analyse IA** (analyse profonde
- * OpenAI cloud + advanced + application auto), plus Fiche IA et Relancer OCR.
+ * OpenAI cloud + advanced + application auto), plus Fiche Doc et Relancer OCR.
  * L'analyse ouvre la popup progression/résultat. Journalisation GED.
  */
 export function DocumentAiActions({ documentId, onOpenSheet, onChanged, show = DEFAULT_ORDER, user }: Props) {
@@ -84,7 +84,7 @@ export function DocumentAiActions({ documentId, onOpenSheet, onChanged, show = D
     void execute(id);
   }
 
-  // La Fiche IA n'est affichée que si un handler de popup est fourni.
+  // La Fiche Doc n'est affichée que si un handler de popup est fourni.
   const buttons = show.filter((id) => id !== "fiche" || Boolean(onOpenSheet));
   const primary = buttons.includes("analyse");
   const rest = buttons.filter((id) => id !== "analyse");

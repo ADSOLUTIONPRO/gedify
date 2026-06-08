@@ -287,7 +287,7 @@ export function IaAnalysisListClient({ analyses }: Props) {
                   className="shrink-0 inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold text-white transition hover:opacity-90"
                   style={{ background: "var(--blue-600)" }}
                 >
-                  Fiche IA
+                  Fiche Doc
                   <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
                 </Link>
               </li>
