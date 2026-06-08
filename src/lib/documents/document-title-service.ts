@@ -24,11 +24,14 @@ function pickDocumentDate(analysis: AIAnalysis): string | null {
   return (emission ?? dates[0]).iso ?? null;
 }
 
-/** Construit le titre à partir d'une analyse + nom de fichier (dernier recours). */
-export function buildTitleFromAnalysis(analysis: AIAnalysis, fileName?: string | null): BuiltTitle {
+/** Construit le titre à partir d'une analyse + nom de fichier (dernier recours).
+ *  `templatePattern` = motif appris d'un document similaire validé (prioritaire
+ *  sur la convention générique : il porte la structure réellement validée). */
+export function buildTitleFromAnalysis(analysis: AIAnalysis, fileName?: string | null, templatePattern?: string | null): BuiltTitle {
   const typeName = analysis.suggestedDocumentTypeName ?? null;
   const kind = analysis.detectedDocumentKind ?? null;
-  const pattern = findTitlePattern(typeName, kind);
+  // 1) Motif appris d'un document similaire validé (réutilise la STRUCTURE).
+  const pattern = (templatePattern && templatePattern.trim()) || findTitlePattern(typeName, kind);
 
   if (pattern) {
     const title = renderDocumentTitle(pattern, {

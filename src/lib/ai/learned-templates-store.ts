@@ -157,6 +157,8 @@ export type LearnInput = {
   folder?: string | null;
   budgetMapping?: TemplateBudgetMapping | null;
   fingerprint: DocumentFingerprint;
+  /** Motif de titre appris depuis le titre validé (ex. « Arrêt maladie {{date}} »). */
+  titlePattern?: string | null;
 };
 
 /** Cherche un modèle existant à renforcer (même type/correspondant + texte proche). */
@@ -200,6 +202,7 @@ export async function learnFromValidation(input: LearnInput): Promise<LearnedTem
       issuer: input.fingerprint.text.issuer ?? existing.textFingerprint.issuer,
     };
     existing.metadataFingerprint = input.fingerprint.metadata;
+    if (input.titlePattern) existing.titlePattern = input.titlePattern; // dernière structure validée
     existing.validatedCount += 1;
     existing.lastValidatedAt = now;
     existing.updatedAt = now;
@@ -226,6 +229,7 @@ export async function learnFromValidation(input: LearnInput): Promise<LearnedTem
     lastValidatedAt: now,
     confidenceThreshold: 0.85,
     active: true,
+    titlePattern: input.titlePattern ?? null,
     createdAt: now,
     updatedAt: now,
   };

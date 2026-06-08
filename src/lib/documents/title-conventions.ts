@@ -96,6 +96,40 @@ export function renderDocumentTitle(pattern: string, fields: TitleFields): strin
   return out;
 }
 
+/**
+ * Déduit un MOTIF de titre à partir d'un titre validé + ses champs variables :
+ * « Arrêt maladie 2025-11-13 » + date 2025-11-13 → « Arrêt maladie {{date}} ».
+ * On apprend la STRUCTURE, jamais la valeur. Renvoie null si rien à généraliser.
+ */
+export function inferTitlePattern(title: string | null | undefined, fields: TitleFields): string | null {
+  let s = (title ?? "").trim();
+  if (s.length < 3) return null;
+  const replaceFirst = (hay: string, needle: string, token: string): string => {
+    if (!needle || needle.length < 2) return hay;
+    const i = hay.toLowerCase().indexOf(needle.toLowerCase());
+    return i === -1 ? hay : hay.slice(0, i) + token + hay.slice(i + needle.length);
+  };
+  // Date : on tente plusieurs représentations issues de l'ISO.
+  const iso = fields.date ?? null;
+  if (iso) {
+    const { date, mois, annee } = isoParts(iso);
+    const d = new Date(iso.length === 10 ? `${iso}T00:00:00` : iso);
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const candidates = [date, `${dd}/${mm}/${annee}`, `${dd}-${mm}-${annee}`, `${dd}.${mm}.${annee}`, `${d.getDate()} ${mois} ${annee}`];
+    for (const c of candidates) {
+      const before = s;
+      s = replaceFirst(s, c, "{{date}}");
+      if (s !== before) break;
+    }
+    if (!s.includes("{{date}}") && annee) s = replaceFirst(s, annee, "{{annee}}");
+  }
+  if (fields.reference) s = replaceFirst(s, fields.reference, "{{reference}}");
+  if (fields.emetteur) s = replaceFirst(s, fields.emetteur, "{{emetteur}}");
+  // Un motif utile contient au moins une variable, sinon le titre est figé.
+  return /\{\{\s*\w+\s*\}\}/.test(s) ? s.replace(/\s{2,}/g, " ").trim() : null;
+}
+
 /** Nettoie un nom de fichier en titre lisible (dernier recours). */
 export function titleFromFileName(fileName: string | null | undefined): string {
   if (!fileName) return "";

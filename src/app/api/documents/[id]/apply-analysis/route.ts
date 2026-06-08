@@ -10,6 +10,7 @@ import { learnFromValidation } from "@/lib/ai/learned-templates-store";
 import { recordLearningEvents } from "@/lib/ai/learning-history-store";
 import { getDocument, updateDocument } from "@/lib/paperless";
 import { setTitleOverride } from "@/lib/documents/document-title-store";
+import { inferTitlePattern } from "@/lib/documents/title-conventions";
 import { linkProjectDocuments } from "@/lib/projects/project-store";
 import { listFinancialItems } from "@/lib/budget/financial-item-store";
 import { getPrincipalType } from "@/lib/budget/finance-classification";
@@ -129,15 +130,23 @@ export async function POST(request: NextRequest, { params }: Ctx) {
         const fis = await listFinancialItems({ documentId }).catch(() => []);
         const fi = fis[0];
         if (fi) budgetMapping = { type: getPrincipalType(fi), category: fi.categoryName, status: fi.status, amountSource: "total", dateSource: "document" };
+        // Apprend la STRUCTURE du titre validé (« Arrêt maladie 2025-11-13 » →
+        // « Arrêt maladie {{date}} ») → les docs similaires suivants la réutilisent.
+        const emetteur = resolved.correspondent?.name ?? overrides.correspondentName ?? null;
+        const titleDate = overrides.created ?? latest?.detectedDates?.[0]?.iso ?? null;
+        const titlePattern = overrides.title?.trim()
+          ? inferTitlePattern(overrides.title.trim(), { date: titleDate, reference: latest?.detectedReferences?.[0]?.value ?? null, emetteur })
+          : null;
         const template = await learnFromValidation({
           documentId,
           documentType: resolved.documentType?.name ?? overrides.documentTypeName ?? null,
-          primaryCorrespondent: resolved.correspondent?.name ?? overrides.correspondentName ?? null,
+          primaryCorrespondent: emetteur,
           secondaryCorrespondents: [],
           tags: resolved.tags.map((t) => t.name),
           folder: resolved.folder?.name ?? overrides.folderName ?? null,
           budgetMapping,
           fingerprint: computeDocumentFingerprint(doc, doc.content ?? ""),
+          titlePattern,
         });
         // Historique d'apprentissage par champ : valeur IA proposée vs valeur
         // validée → savoir si l'IA s'était trompée (§14/§20).

@@ -20,6 +20,7 @@ import { getTitleOverride, setTitleOverride } from "@/lib/documents/document-tit
 import { buildTitleFromAnalysis } from "@/lib/documents/document-title-service";
 import { resolveClassification } from "@/lib/ai/resolve-classification";
 import { findTemplateMatch, templateClassificationOverride } from "@/lib/ai/learned-template-apply";
+import { getLearnedTemplate } from "@/lib/ai/learned-templates-store";
 import type { TemplateMatch } from "@/lib/ai/learned-templates-types";
 import { createReminder } from "@/lib/actions/reminder-store";
 import { appendGedLog } from "@/lib/ged/ged-store";
@@ -117,7 +118,11 @@ async function finalizeAnalysis(
     const existing = await getTitleOverride(documentId);
     if (!existing?.editedByUser) {
       const fileName = document.original_file_name ?? document.original_filename ?? document.filename ?? null;
-      const built = buildTitleFromAnalysis(analysis, fileName);
+      // Réutilise le motif de titre du document similaire validé (modèle appris).
+      const tplPattern = analysis.matchedTemplateId
+        ? (await getLearnedTemplate(analysis.matchedTemplateId).catch(() => null))?.titlePattern ?? null
+        : null;
+      const built = buildTitleFromAnalysis(analysis, fileName, tplPattern);
       if (built.title && built.title.length >= 3 && built.confidence >= 0.6) {
         const src = built.source === "convention" ? "rule" : built.source; // convention déterministe = "rule"
         await setTitleOverride(documentId, built.title, src, built.confidence, false);

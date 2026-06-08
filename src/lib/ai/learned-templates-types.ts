@@ -74,6 +74,8 @@ export type LearnedTemplate = {
   updatedBy?: string | null;
   /** Snapshot du prompt précédent → restauration sur 1 niveau. */
   previousPrompt?: { promptSystem: string | null; promptInstructions: string | null; at: string } | null;
+  /** Motif de titre appris (ex. « Arrêt maladie {{date}} ») — structure, pas valeur. */
+  titlePattern?: string | null;
 };
 
 export type LearnedTemplateInput = Partial<Omit<LearnedTemplate, "id" | "createdAt" | "updatedAt">>;
