@@ -173,7 +173,59 @@ function MonthCalendar({ events }: { events: CalendarEvent[] }) {
   );
 }
 
-export default async function CalendrierPage() {
+const TONE_COLOR: Record<CalendarEvent["tone"], string> = {
+  blue: "var(--gedify-info)", violet: "var(--gedify-purple)", emerald: "var(--gedify-green)", amber: "var(--gedify-orange)", rose: "#E11D48",
+};
+
+/** Regroupe un événement par période relative (liste chronologique). */
+function periodOf(dateStr: string, today: Date): "past" | "today" | "tomorrow" | "week" | "later" {
+  const d = new Date(dateStr);
+  const d0 = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const days = Math.round((d0 - t0) / 86_400_000);
+  if (days < 0) return "past";
+  if (days === 0) return "today";
+  if (days === 1) return "tomorrow";
+  if (days <= 7) return "week";
+  return "later";
+}
+
+const PERIOD_LABEL: Record<string, string> = { past: "En retard", today: "Aujourd'hui", tomorrow: "Demain", week: "Cette semaine", later: "Plus tard" };
+
+function EventList({ events, today }: { events: CalendarEvent[]; today: Date }) {
+  const sorted = [...events].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  const groups = (["past", "today", "tomorrow", "week", "later"] as const)
+    .map((k) => ({ key: k, label: PERIOD_LABEL[k], items: sorted.filter((e) => periodOf(e.date, today) === k) }))
+    .filter((g) => g.items.length > 0);
+  if (groups.length === 0) {
+    return <p className="py-6 text-center text-sm" style={{ color: "var(--text-muted)" }}>Aucun événement à afficher.</p>;
+  }
+  return (
+    <div className="space-y-4">
+      {groups.map((g) => (
+        <div key={g.key}>
+          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide" style={{ color: g.key === "past" ? "#E11D48" : "var(--text-hint)" }}>{g.label}</p>
+          <ul className="space-y-1">
+            {g.items.map((e, i) => (
+              <li key={`${e.href}-${i}`}>
+                <Link href={e.href} className="flex items-center gap-2.5 rounded-xl border px-3 py-2 transition hover:bg-[var(--bg-card-soft)]" style={{ borderColor: "var(--border-soft)" }}>
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: TONE_COLOR[e.tone] }} aria-hidden="true" />
+                  <span className="w-20 shrink-0 text-[11.5px] font-semibold" style={{ color: "var(--text-muted)" }}>
+                    {new Date(e.date).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-[13px] font-semibold" style={{ color: "var(--text-main)" }}>{e.label}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default async function CalendrierPage({ searchParams }: { searchParams?: Promise<{ view?: string }> }) {
+  const view = (await searchParams)?.view ?? "month";
   const [actions, dueItemsData, user] = await Promise.all([listActions(), getAllDueItems(), getCurrentUser()]);
   const calendarEvents = await listEvents(user ? String(user.id) : "local").catch(() => []);
 
@@ -265,20 +317,19 @@ export default async function CalendrierPage() {
 
       <SegmentedTabs
         tabs={[
-          { href: "/calendrier?view=today", label: "Aujourd'hui" },
-          { href: "/calendrier?view=week", label: "7 jours" },
           { href: "/calendrier", label: "Mois" },
+          { href: "/calendrier?view=liste", label: "Liste" },
         ]}
-        activeHref="/calendrier"
+        activeHref={view === "liste" ? "/calendrier?view=liste" : "/calendrier"}
       />
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(300px,1fr)]">
         <SectionCard
           icon={CalendarRange}
-          title="Vue du mois"
+          title={view === "liste" ? "Vue Liste" : "Vue du mois"}
           description={`${events.length} événement(s) au total`}
         >
-          <MonthCalendar events={events} />
+          {view === "liste" ? <EventList events={events} today={today} /> : <MonthCalendar events={events} />}
         </SectionCard>
 
         <aside className="space-y-5">
