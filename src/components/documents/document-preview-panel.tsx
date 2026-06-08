@@ -384,6 +384,7 @@ function QuickPanel({ doc, user }: { doc: DocumentVM; user: string | null }) {
           <DocumentAiActions
             documentId={doc.id}
             user={user}
+            ocrStatus={doc.statuses.ocr}
             onOpenSheet={() => setFiche(true)}
             onChanged={() => router.refresh()}
           />
