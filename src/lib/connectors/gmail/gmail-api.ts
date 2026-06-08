@@ -163,6 +163,26 @@ export async function listGmailLabels(
   return data.labels ?? [];
 }
 
+/** Ajoute/retire des libellés sur un fil (archiver = retirer INBOX, lu = retirer UNREAD). */
+export async function modifyGmailThread(
+  accountId: string,
+  threadId: string,
+  mods: { addLabelIds?: string[]; removeLabelIds?: string[] },
+): Promise<void> {
+  const accessToken = await getAccessTokenForAccount(accountId);
+  await gmailFetch(accessToken, `/threads/${threadId}/modify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(mods),
+  });
+}
+
+/** Déplace un fil vers la corbeille Gmail (réversible). */
+export async function trashGmailThread(accountId: string, threadId: string): Promise<void> {
+  const accessToken = await getAccessTokenForAccount(accountId);
+  await gmailFetch(accessToken, `/threads/${threadId}/trash`, { method: "POST" });
+}
+
 export type GmailAttachmentRef = {
   filename: string;
   mimeType: string;

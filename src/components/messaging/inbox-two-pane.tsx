@@ -151,6 +151,30 @@ export function InboxTwoPane({
     toastRef.current = setTimeout(() => setToast(null), 4000);
   }
 
+  // Action sur un fil (archiver / corbeille / lu / non lu). Archiver et corbeille
+  // retirent le fil de la liste de façon optimiste et libèrent le volet de lecture.
+  async function threadAction(id: string, action: "archive" | "trash" | "markRead" | "markUnread", toastMsg?: string) {
+    const removeFromList = action === "archive" || action === "trash";
+    if (removeFromList) {
+      setThreads((prev) => prev.filter((t) => t.id !== id));
+      setSelected((p) => { const n = new Set(p); n.delete(id); return n; });
+      if (selectedId === id) setSelectedId(null);
+    }
+    try {
+      const res = await fetch(`/api/messaging/gmail/threads/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ action }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (toastMsg) showToast(toastMsg);
+    } catch {
+      showToast("Action impossible. Réessayez.");
+      if (removeFromList) void refresh();
+    }
+  }
+
   // ── Multi-sélection ──
   const anySelected = selected.size > 0;
   const allSelected = visible.length > 0 && visible.every((t) => selected.has(t.id));
@@ -389,7 +413,14 @@ export function InboxTwoPane({
 
       {/* ════════ Colonne 3 — Lecture ════════ */}
       <div className="min-h-0">
-        <MailReadingPane threadId={effectiveSelected} folderLabel={folderLabel} onClassify={(id) => setClassifyIds([id])} />
+        <MailReadingPane
+          threadId={effectiveSelected}
+          folderLabel={folderLabel}
+          onClassify={(id) => setClassifyIds([id])}
+          onArchive={(id) => void threadAction(id, "archive", "Conversation archivée")}
+          onTrash={(id) => void threadAction(id, "trash", "Conversation déplacée dans la corbeille")}
+          onMarkUnread={(id) => void threadAction(id, "markUnread", "Marqué comme non lu")}
+        />
       </div>
 
       {classifyIds.length > 0 && (

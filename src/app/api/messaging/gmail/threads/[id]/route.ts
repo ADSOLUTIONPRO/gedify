@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { jsonError } from "@/lib/api-utils";
-import { getGmailThread } from "@/lib/connectors/gmail/gmail-api";
+import { requireAuth } from "@/lib/auth/require-auth";
+import { getGmailThread, modifyGmailThread, trashGmailThread } from "@/lib/connectors/gmail/gmail-api";
 import { normaliseGmailMessage } from "@/lib/messaging/gmail-normalize";
 import { getActiveGmailAccount } from "@/lib/messaging/active-gmail-account";
 import { listEmailLinks } from "@/lib/messaging/email-ged-link-store";
@@ -53,5 +54,46 @@ export async function GET(
     });
   } catch (error) {
     return jsonError("Lecture du thread Gmail impossible", error);
+  }
+}
+
+type ThreadAction = "archive" | "trash" | "markRead" | "markUnread";
+
+/** POST /api/messaging/gmail/threads/:id — action sur un fil (archiver, corbeille, lu/non lu). */
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const deny = await requireAuth(request);
+  if (deny) return deny;
+  try {
+    const account = await getActiveGmailAccount();
+    if (!account) {
+      return NextResponse.json(
+        { error: "no_account", message: "Aucun compte Gmail connecté." },
+        { status: 412 },
+      );
+    }
+    const { id } = await params;
+    const { action } = (await request.json().catch(() => ({}))) as { action?: ThreadAction };
+    switch (action) {
+      case "archive":
+        await modifyGmailThread(account.accountId, id, { removeLabelIds: ["INBOX"] });
+        break;
+      case "trash":
+        await trashGmailThread(account.accountId, id);
+        break;
+      case "markRead":
+        await modifyGmailThread(account.accountId, id, { removeLabelIds: ["UNREAD"] });
+        break;
+      case "markUnread":
+        await modifyGmailThread(account.accountId, id, { addLabelIds: ["UNREAD"] });
+        break;
+      default:
+        return NextResponse.json({ error: "invalid_action" }, { status: 400 });
+    }
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    return jsonError("Action sur le fil Gmail impossible", error);
   }
 }

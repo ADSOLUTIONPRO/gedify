@@ -7,9 +7,11 @@ import {
   CalendarPlus,
   CheckCircle2,
   CornerUpLeft,
+  FolderPlus,
   Forward,
   Loader2,
   Mail,
+  MailOpen,
   MoreHorizontal,
   PenSquare,
   ReplyAll,
@@ -40,13 +42,20 @@ type Props = {
   threadId: string | null;
   folderLabel: string;
   onClassify: (threadId: string) => void;
+  onArchive?: (threadId: string) => void;
+  onTrash?: (threadId: string) => void;
+  onMarkUnread?: (threadId: string) => void;
 };
 
-export function MailReadingPane({ threadId, onClassify }: Props) {
+export function MailReadingPane({ threadId, onClassify, onArchive, onTrash, onMarkUnread }: Props) {
   const [data, setData] = useState<ThreadDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [calOpen, setCalOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { setMenuOpen(false); }, [threadId]);
 
   useEffect(() => {
     if (!threadId) {
@@ -123,9 +132,20 @@ export function MailReadingPane({ threadId, onClassify }: Props) {
           <IconBtn icon={ReplyAll} label="Répondre à tous" onClick={() => reply(true)} />
           <IconBtn icon={Forward} label="Transférer" onClick={forward} />
           <IconBtn icon={CalendarPlus} label="Créer un RDV / une tâche" onClick={() => setCalOpen(true)} />
-          <IconBtn icon={Archive} label="Archiver" onClick={() => threadId && onClassify(threadId)} />
-          <IconBtn icon={Trash2} label="Supprimer" onClick={() => threadId && onClassify(threadId)} />
-          <IconBtn icon={MoreHorizontal} label="Plus" onClick={() => threadId && onClassify(threadId)} />
+          <IconBtn icon={Archive} label="Archiver" onClick={() => threadId && onArchive?.(threadId)} />
+          <IconBtn icon={Trash2} label="Supprimer" onClick={() => threadId && onTrash?.(threadId)} />
+          <div className="relative">
+            <IconBtn icon={MoreHorizontal} label="Plus" onClick={() => setMenuOpen((v) => !v)} />
+            {menuOpen ? (
+              <>
+                <button type="button" aria-hidden="true" tabIndex={-1} className="fixed inset-0 z-40 cursor-default" onClick={() => setMenuOpen(false)} />
+                <div className="absolute right-0 top-11 z-50 w-60 overflow-hidden rounded-xl border bg-white py-1 shadow-xl" style={{ borderColor: LINE }} role="menu">
+                  <MenuItem icon={FolderPlus} label="Classer dans un dossier…" onClick={() => { setMenuOpen(false); if (threadId) onClassify(threadId); }} />
+                  <MenuItem icon={MailOpen} label="Marquer comme non lu" onClick={() => { setMenuOpen(false); if (threadId) onMarkUnread?.(threadId); }} />
+                </div>
+              </>
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -191,6 +211,20 @@ function IconBtn({ icon: Icon, label, onClick }: { icon: React.ElementType; labe
   return (
     <button type="button" onClick={onClick} title={label} aria-label={label} className="flex h-9 w-9 items-center justify-center rounded-[9px] transition hover:bg-[var(--accent-soft)]" style={{ color: RED }}>
       <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden="true" />
+    </button>
+  );
+}
+
+function MenuItem({ icon: Icon, label, onClick }: { icon: React.ElementType; label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      role="menuitem"
+      className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13.5px] font-semibold transition hover:bg-[var(--accent-soft)]"
+      style={{ color: "var(--text-main)" }}
+    >
+      <Icon className="h-4 w-4 shrink-0" strokeWidth={1.85} style={{ color: RED }} aria-hidden="true" /> {label}
     </button>
   );
 }
