@@ -10,9 +10,12 @@ import { FolderExplorer, buildFolderNodes, type RawFolder } from "@/components/o
  * Récupère les dossiers, construit l'arbre, et reflète le dossier courant
  * (`?folder=`). Se rafraîchit après création/déplacement/suppression.
  */
+type PinnedItem = { entityType: string; entityId: string };
+
 export function SidebarFolderTree({ onNavigate }: { onNavigate?: () => void }) {
   const folderId = useSearchParams().get("folder");
   const [folders, setFolders] = useState<RawFolder[] | null>(null);
+  const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
 
   const refetch = useCallback(() => {
     fetch("/api/projects", { credentials: "include", cache: "no-store" })
@@ -22,6 +25,14 @@ export function SidebarFolderTree({ onNavigate }: { onNavigate?: () => void }) {
   }, []);
 
   useEffect(() => { refetch(); }, [refetch]);
+
+  // Épingles de l'utilisateur (pour afficher l'état dans l'arbre).
+  useEffect(() => {
+    fetch("/api/pinned-items", { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : { items: [] }))
+      .then((d: { items?: PinnedItem[] }) => setPinnedIds(new Set((d.items ?? []).filter((p) => p.entityType === "folder").map((p) => p.entityId))))
+      .catch(() => {});
+  }, []);
 
   if (folders === null) {
     return (
@@ -36,6 +47,7 @@ export function SidebarFolderTree({ onNavigate }: { onNavigate?: () => void }) {
       tree={buildFolderNodes(folders)}
       currentId={folderId}
       variant="sidebar"
+      pinnedIds={pinnedIds}
       onNavigate={onNavigate}
       onChanged={refetch}
     />

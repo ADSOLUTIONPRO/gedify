@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Loader2, Pin, PinOff } from "lucide-react";
+import { toast } from "@/components/ui/toast";
 
 /**
  * Épingle/désépingle un dossier ou projet au tableau de bord (par utilisateur,
@@ -35,12 +36,15 @@ export function FolderPinButton({
           body: JSON.stringify({ entityType, entityId }),
         });
         if (!res.ok) throw new Error();
+        toast("Dossier épinglé sur l'accueil", "success");
       } else {
         const res = await fetch(`/api/pinned-items/${entityId}`, { method: "DELETE", credentials: "include" });
         if (!res.ok) throw new Error();
+        toast("Dossier retiré de l'accueil", "default");
       }
     } catch {
       setPinned(!next); // rollback
+      toast("Action impossible. Réessayez.", "error");
     } finally {
       setBusy(false);
     }

@@ -6,6 +6,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { AuthSetupBanner } from "@/components/ui/auth-setup-banner";
 import { SessionExpiredBanner } from "@/components/ui/session-expired-banner";
 import { AssistantProvider } from "@/components/ai-assistant/assistant-provider";
+import { Toaster } from "@/components/ui/toaster";
 import { readSession } from "@/lib/auth/session";
 
 export const metadata: Metadata = {
@@ -82,6 +83,7 @@ export default async function RootLayout({
           <AuthSetupBanner />
           <SessionExpiredBanner />
           <AppShell>{children}</AppShell>
+          <Toaster />
         </AssistantProvider>
       </body>
     </html>

@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ChevronDown, ChevronRight, FolderPlus, FolderTree as FolderTreeIcon, Loader2, MoreHorizontal,
-  Move, Pencil, Plus, Trash2, X,
+  Move, Pencil, Pin, PinOff, Plus, Trash2, X,
 } from "lucide-react";
+import { toast } from "@/components/ui/toast";
 
 export type FolderNode = {
   id: string;
@@ -113,6 +114,7 @@ export function FolderExplorer({
   tree,
   currentId,
   variant = "panel",
+  pinnedIds,
   onNavigate,
   onChanged,
 }: {
@@ -120,6 +122,8 @@ export function FolderExplorer({
   currentId: string | null;
   /** "panel" = colonne autonome ; "sidebar" = intégré à la barre d'espace. */
   variant?: "panel" | "sidebar";
+  /** Ids des dossiers épinglés au tableau de bord (par utilisateur). */
+  pinnedIds?: Set<string>;
   onNavigate?: () => void;
   onChanged?: () => void;
 }) {
@@ -127,6 +131,26 @@ export function FolderExplorer({
   const { all, byId } = useMemo(() => flatten(tree), [tree]);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set([...tree.map((n) => n.id), ...ancestorIds(currentId, byId)]));
   const [busy, setBusy] = useState(false);
+  // Épinglage (par utilisateur) géré en local pour un retour visuel immédiat.
+  const [pinned, setPinned] = useState<Set<string>>(() => new Set(pinnedIds ?? []));
+  // Synchronise quand les épingles arrivent (fetch asynchrone côté sidebar).
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { setPinned(new Set(pinnedIds ?? [])); }, [pinnedIds]);
+
+  async function togglePin(id: string) {
+    const isPin = !pinned.has(id);
+    setPinned((prev) => { const n = new Set(prev); if (isPin) n.add(id); else n.delete(id); return n; }); // optimiste
+    try {
+      const res = isPin
+        ? await fetch("/api/pinned-items", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ entityType: "folder", entityId: id }) })
+        : await fetch(`/api/pinned-items/${id}`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error();
+      toast(isPin ? "Dossier épinglé sur l'accueil" : "Dossier retiré de l'accueil", isPin ? "success" : "default");
+    } catch {
+      setPinned((prev) => { const n = new Set(prev); if (isPin) n.delete(id); else n.add(id); return n; }); // rollback
+      toast("Action impossible. Réessayez.", "error");
+    }
+  }
 
   const [createUnder, setCreateUnder] = useState<{ parentId: string | null; parentName: string } | null>(null);
   const [renaming, setRenaming] = useState<FolderNode | null>(null);
@@ -183,6 +207,17 @@ export function FolderExplorer({
               <span className="truncate text-[12.5px] font-semibold" style={{ color: isActive ? "#C2410C" : "var(--text-main)" }}>{node.name}</span>
             )}
             {node.deepDocs > 0 ? <span className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold" style={{ background: "#F1F5F9", color: "#64748B" }}>{node.deepDocs}</span> : null}
+          </button>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); void togglePin(node.id); }}
+            aria-label={pinned.has(node.id) ? "Retirer de l'accueil" : "Épingler sur l'accueil"}
+            title={pinned.has(node.id) ? "Retirer de l'accueil" : "Épingler sur l'accueil"}
+            aria-pressed={pinned.has(node.id)}
+            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition hover:bg-slate-100 ${pinned.has(node.id) ? "" : "opacity-0 group-hover:opacity-100"}`}
+            style={{ color: pinned.has(node.id) ? "var(--accent)" : "#94A3B8" }}
+          >
+            {pinned.has(node.id) ? <PinOff className="h-3.5 w-3.5" strokeWidth={1.85} /> : <Pin className="h-3.5 w-3.5" strokeWidth={1.85} />}
           </button>
           <RowMenu
             onAddSub={() => setCreateUnder({ parentId: node.id, parentName: node.path })}
