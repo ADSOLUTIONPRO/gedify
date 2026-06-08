@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarClock, CheckSquare, Loader2, MapPin, Trash2, X } from "lucide-react";
+
+type CalendarOpt = { id: string; name: string; provider: "local" | "google"; color: string; readOnly: boolean; primary?: boolean };
 
 /* ────────────────────────────────────────────────────────────────────────
    Création d'un RENDEZ-VOUS ou d'une TÂCHE, depuis n'importe quelle source
@@ -79,6 +81,21 @@ export function CreateCalendarItemModal({
   // Tâche
   const [dueDate, setDueDate] = useState(toDateInput(prefill.dueISO ?? prefill.startISO));
   const [priority, setPriority] = useState<"low" | "normal" | "high" | "urgent">("normal");
+  // Agenda cible (local GEDify ou agenda Google connecté). Mode création uniquement.
+  const [calendars, setCalendars] = useState<CalendarOpt[]>([]);
+  const [calendarId, setCalendarId] = useState("local");
+
+  useEffect(() => {
+    if (isEdit) return;
+    let cancelled = false;
+    fetch("/api/calendars", { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : { calendars: [] }))
+      .then((d: { calendars?: CalendarOpt[] }) => {
+        if (!cancelled && Array.isArray(d.calendars)) setCalendars(d.calendars.filter((c) => !c.readOnly));
+      })
+      .catch(() => { /* agenda local seul */ });
+    return () => { cancelled = true; };
+  }, [isEdit]);
 
   const documentIds = source.documentId ? [source.documentId] : [];
 
@@ -107,6 +124,7 @@ export function CreateCalendarItemModal({
               method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
               body: JSON.stringify({
                 ...payload,
+                calendarId,
                 sourceType: source.sourceType ?? "manual",
                 sourceId: source.sourceId ?? null,
                 sourceLabel: source.sourceLabel ?? null,
@@ -183,6 +201,17 @@ export function CreateCalendarItemModal({
 
           {tab === "event" ? (
             <>
+              {!isEdit && calendars.length > 1 ? (
+                <Field label="Agenda">
+                  <select value={calendarId} onChange={(e) => setCalendarId(e.target.value)} className={inputCls}>
+                    {calendars.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}{c.provider === "google" ? " · Google" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              ) : null}
               <label className="flex items-center gap-2 text-[12.5px] font-semibold" style={{ color: "var(--text-main)" }}>
                 <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} className="h-4 w-4 accent-[var(--accent)]" /> Toute la journée
               </label>

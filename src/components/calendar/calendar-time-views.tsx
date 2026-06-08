@@ -68,6 +68,26 @@ export function CalendarTimeViews({ view, allDayItems, todayISO, initialDateISO 
 
   const onCreated = () => { setCreateAt(null); setEditing(null); void load(); router.refresh(); };
 
+  // Glisser-déposer : replanifie un événement (conserve la durée). MAJ optimiste
+  // puis PATCH ; en cas d'échec on recharge pour rétablir l'état serveur.
+  const moveEvent = useCallback(async (ev: Evt, newStartISO: string) => {
+    const durationMs = ev.end ? new Date(ev.end).getTime() - new Date(ev.start).getTime() : 3_600_000;
+    const newEndISO = new Date(new Date(newStartISO).getTime() + durationMs).toISOString();
+    if (newStartISO === ev.start) return;
+    setEvents((prev) => prev.map((e) => (e.id === ev.id ? { ...e, start: newStartISO, end: newEndISO } : e)));
+    try {
+      const res = await fetch(`/api/calendar/events/${ev.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ start: newStartISO, end: newEndISO }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch {
+      void load();
+    }
+  }, [load]);
+
   return (
     <div>
       {/* Navigation */}
@@ -88,6 +108,7 @@ export function CalendarTimeViews({ view, allDayItems, todayISO, initialDateISO 
           todayISO={todayISO}
           onSlot={(iso) => setCreateAt(iso)}
           onEvent={(ev) => setEditing(ev)}
+          onMove={(ev, iso) => void moveEvent(ev, iso)}
         />
       )}
 
@@ -97,12 +118,30 @@ export function CalendarTimeViews({ view, allDayItems, todayISO, initialDateISO 
   );
 }
 
-function TimeGrid({ days, events, allDayItems, todayISO, onSlot, onEvent }: {
+function TimeGrid({ days, events, allDayItems, todayISO, onSlot, onEvent, onMove }: {
   days: Date[]; events: Evt[]; allDayItems: AllDayItem[]; todayISO: string;
-  onSlot: (iso: string) => void; onEvent: (ev: Evt) => void;
+  onSlot: (iso: string) => void; onEvent: (ev: Evt) => void; onMove: (ev: Evt, newStartISO: string) => void;
 }) {
   const hours = Array.from({ length: 24 }, (_, i) => i);
   const todayY = ymd(new Date(todayISO));
+
+  // Dépose un événement glissé sur la colonne du jour `day` : calcule la nouvelle
+  // heure de début (pas de 15 min) à partir de la position du curseur.
+  function handleDrop(de: React.DragEvent<HTMLDivElement>, day: Date) {
+    de.preventDefault();
+    let payload: { id: string; grab: number };
+    try { payload = JSON.parse(de.dataTransfer.getData("text/plain")); } catch { return; }
+    const ev = events.find((x) => x.id === payload.id);
+    if (!ev) return;
+    const colTop = de.currentTarget.getBoundingClientRect().top;
+    const y = de.clientY - colTop - (payload.grab ?? 0);
+    const rawMin = (y / HOUR_H) * 60;
+    const snapped = Math.max(0, Math.min(24 * 60 - 15, Math.round(rawMin / 15) * 15));
+    const nd = new Date(day);
+    nd.setHours(0, 0, 0, 0);
+    nd.setMinutes(snapped);
+    onMove(ev, nd.toISOString());
+  }
   return (
     <div className="overflow-hidden rounded-2xl border" style={{ borderColor: "var(--border)" }}>
       {/* En-tête jours */}
@@ -149,7 +188,13 @@ function TimeGrid({ days, events, allDayItems, todayISO, onSlot, onEvent }: {
           const dy = ymd(d);
           const timed = events.filter((e) => !e.allDay && e.start.slice(0, 10) === dy);
           return (
-            <div key={dy} className="relative border-l" style={{ borderColor: "var(--border-soft)" }}>
+            <div
+              key={dy}
+              className="relative border-l"
+              style={{ borderColor: "var(--border-soft)" }}
+              onDragOver={(de) => { de.preventDefault(); de.dataTransfer.dropEffect = "move"; }}
+              onDrop={(de) => handleDrop(de, d)}
+            >
               {hours.map((h) => (
                 <button key={h} type="button" onClick={() => { const dt = new Date(d); dt.setHours(h, 0, 0, 0); onSlot(dt.toISOString()); }} className="block w-full border-b transition hover:bg-[var(--accent-soft)]" style={{ height: HOUR_H, borderColor: "var(--border-soft)" }} aria-label={`Créer à ${h}:00`} />
               ))}
@@ -158,7 +203,20 @@ function TimeGrid({ days, events, allDayItems, todayISO, onSlot, onEvent }: {
                 const top = (s.getHours() + s.getMinutes() / 60) * HOUR_H;
                 const height = Math.max(18, ((en.getTime() - s.getTime()) / 3600000) * HOUR_H);
                 return (
-                  <button key={e.id} type="button" onClick={() => onEvent(e)} className="absolute left-1 right-1 overflow-hidden rounded-lg px-1.5 py-0.5 text-left text-[11px] font-semibold text-white shadow-sm" style={{ top, height, background: e.color ?? "var(--gedify-purple)" }}>
+                  <button
+                    key={e.id}
+                    type="button"
+                    draggable
+                    onDragStart={(de) => {
+                      const grab = de.clientY - de.currentTarget.getBoundingClientRect().top;
+                      de.dataTransfer.setData("text/plain", JSON.stringify({ id: e.id, grab }));
+                      de.dataTransfer.effectAllowed = "move";
+                    }}
+                    onClick={() => onEvent(e)}
+                    className="absolute left-1 right-1 cursor-grab overflow-hidden rounded-lg px-1.5 py-0.5 text-left text-[11px] font-semibold text-white shadow-sm active:cursor-grabbing"
+                    style={{ top, height, background: e.color ?? "var(--gedify-purple)" }}
+                    title="Glisser pour replanifier"
+                  >
                     <span className="block truncate">{e.title}</span>
                     <span className="block truncate text-[10px] opacity-90">{s.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
                   </button>
