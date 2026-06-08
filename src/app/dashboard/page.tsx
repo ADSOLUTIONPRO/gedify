@@ -3,6 +3,7 @@ import { CheckCircle2, FileText, FolderKanban, Inbox, Search, Sparkles, Upload }
 import { DocumentPreview } from "@/components/ui/document-preview";
 import { Button } from "@/components/ui/button";
 import { CompactCard } from "@/components/ui/compact-card";
+import { PinnedFoldersWidget } from "@/components/dashboard/pinned-folders-widget";
 import { CompactEmptyState } from "@/components/ui/compact-empty-state";
 import { CompactPageHeader } from "@/components/ui/compact-page-header";
 import { ErrorState } from "@/components/ui/error-state";
@@ -141,6 +142,14 @@ export default async function DashboardPage() {
           </div>
 
           <aside className="space-y-5">
+            <CompactCard
+              title="Dossiers / Projets épinglés"
+              description="Vos dossiers épinglés depuis Organiser."
+              actions={<Link href="/organiser/dossiers" className="text-xs font-bold text-blue-700 hover:underline">Organiser</Link>}
+            >
+              <PinnedFoldersWidget />
+            </CompactCard>
+
             <CompactCard
               title="Mise en place"
               description="Étapes restantes, sans bruit technique."

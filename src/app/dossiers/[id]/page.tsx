@@ -19,6 +19,9 @@ import { StatCard } from "@/components/ui/stat-card";
 import { ProjectArchiveButton } from "@/components/projects/project-archive-button";
 import { FolderImportButton } from "@/components/projects/folder-import-button";
 import { FolderDropZone } from "@/components/projects/folder-drop-zone";
+import { FolderPinButton } from "@/components/dashboard/folder-pin-button";
+import { isPinned as isFolderPinned } from "@/lib/dashboard/pinned-store";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { ProjectDocumentPicker } from "@/components/projects/project-document-picker";
 import { ProjectLinkedDocuments } from "@/components/projects/project-linked-documents";
 import { ProjectPriorityBadge } from "@/components/projects/project-priority-badge";
@@ -98,6 +101,8 @@ export default async function DossierDetailPage({ params }: DossierDetailPagePro
       walk = walk.parentId ? byId.get(walk.parentId) : undefined;
     }
     const subFolders = childrenOf(project.id, allFolders);
+    const currentUser = await getCurrentUser();
+    const folderPinned = await isFolderPinned(currentUser ? String(currentUser.id) : "local", "folder", project.id);
 
     const correspondents = correspondentsData.results ?? [];
     const tags = tagsData.results ?? [];
@@ -137,6 +142,7 @@ export default async function DossierDetailPage({ params }: DossierDetailPagePro
                 Sous-dossier
               </Link>
               <FolderImportButton folderId={project.id} folderName={project.name} />
+              <FolderPinButton entityId={project.id} initialPinned={folderPinned} />
               <a
                 href="#ajouter-documents"
                 className="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 px-4 text-sm font-semibold text-slate-700 shadow-sm backdrop-blur transition hover:bg-white"

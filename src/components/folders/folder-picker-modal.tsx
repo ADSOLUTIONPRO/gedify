@@ -93,7 +93,7 @@ export function FolderPickerModal({
         parentId: f.parentId ?? null,
         color: f.color || "#94a3b8",
         category: f.category ?? null,
-        archived: f.status === "archived",
+        archived: f.status === "Archivé",
         docCount: Array.isArray(f.linkedDocumentIds) ? f.linkedDocumentIds.length : 0,
         updatedAt: f.updatedAt ?? "",
       }));
