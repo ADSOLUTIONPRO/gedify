@@ -7,6 +7,7 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { STATUS_META, formatAmount, type DocumentVM } from "@/components/documents/types";
 import { DocumentStatusBadges } from "@/components/documents/document-status-badges";
 import { type DocActionHandlers } from "@/components/documents/document-action-menu";
+import { DocumentFavoriteStar } from "@/components/documents/document-favorite-star";
 import { GedifyErrorHint } from "@/components/ui/gedify-error-hint";
 
 type DocumentSpaceCardProps = {
@@ -76,6 +77,10 @@ export function DocumentSpaceCard({ doc, checked, active, onToggle, onActivate, 
           className="h-4 w-4 rounded border-slate-300 bg-white/90 accent-[var(--accent)]"
         />
       </label>
+
+      <div className="absolute right-2 top-2 z-20" onClick={(e) => e.stopPropagation()}>
+        <DocumentFavoriteStar documentId={doc.id} />
+      </div>
 
       <div className="group/thumb relative flex h-32 items-center justify-center overflow-hidden bg-[#F4F0E8]">
         {/* eslint-disable-next-line @next/next/no-img-element */}

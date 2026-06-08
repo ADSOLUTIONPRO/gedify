@@ -11,6 +11,7 @@ import { DocumentFilters, type DocumentFilterValues } from "@/components/documen
 import { DocumentList } from "@/components/documents/document-list";
 import { DocumentPreviewPanel } from "@/components/documents/document-preview-panel";
 import { DocumentSpaceCard } from "@/components/documents/document-space-card";
+import { FavoritesProvider } from "@/components/documents/favorites-provider";
 import type { DocActionHandlers } from "@/components/documents/document-action-menu";
 import { DocumentLightbox } from "@/components/documents/document-lightbox";
 import { DocumentAiSheet } from "@/components/documents/document-ai-sheet";
@@ -370,7 +371,7 @@ export function DocumentSpace({
   );
 
   return (
-    <>
+    <FavoritesProvider>
       <div className="flex gap-6">
         {/* Colonne gauche : filtres + actions + liste (le panneau détail démarre tout en haut) */}
         <div className="min-w-0 flex-1 space-y-4">
@@ -600,6 +601,6 @@ export function DocumentSpace({
 
       {/* Progression commune (miniature / OCR / IA groupés) */}
       <GedifyProgressModal data={progress.data} onClose={progress.close} onRetry={progress.retry} />
-    </>
+    </FavoritesProvider>
   );
 }
