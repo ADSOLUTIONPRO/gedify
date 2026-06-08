@@ -229,6 +229,7 @@ export const administrationDropdownNavigation: NavigationSection[] = [
  */
 export const ADMINISTRATION_ACTIVE_PREFIXES: readonly string[] = [
   "/administration",
+  "/ia",
   "/activite",
   "/journaux",
   "/workflows",

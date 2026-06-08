@@ -86,7 +86,6 @@ export type SpaceMenu = {
 
 export const RAIL_PRIMARY = [
   "documents",
-  "ia",
   "finances",
   "messagerie",
   "contacts",
@@ -162,19 +161,6 @@ export const SPACE_MENUS: Record<string, SpaceMenu> = {
     ],
   },
 
-  ia: {
-    id: "ia",
-    title: "Analyse IA",
-    description: "Classement & extraction assistés",
-    action: { label: "Lancer une analyse", href: "/ia", icon: Sparkles },
-    items: [
-      { label: "Tableau de bord", href: "/ia", icon: Gauge },
-      { label: "Analyses", href: "/ia/documents", icon: FileText },
-      { label: "Historique", href: "/ia/historique", icon: History },
-      { label: "Erreurs", href: "/ia/erreurs", icon: AlertTriangle },
-    ],
-  },
-
   calendrier: {
     id: "calendrier",
     title: "Calendrier",
@@ -226,6 +212,7 @@ export const SPACE_MENUS: Record<string, SpaceMenu> = {
       { id: "gouvernance", title: "Gouvernance & sécurité" },
       { id: "configuration", title: "Configuration système" },
       { id: "infrastructure", title: "Infrastructure & services" },
+      { id: "ia", title: "Analyse IA" },
       { id: "personnalisation", title: "Personnalisation avancée" },
       { id: "support", title: "Support & maintenance" },
     ],
@@ -250,6 +237,11 @@ export const SPACE_MENUS: Record<string, SpaceMenu> = {
       { label: "Doublons & intégrité", href: "/administration/doublons", icon: Copy, group: "infrastructure" },
       { label: "Files d'attente & tâches", href: "/administration/sante", icon: ListChecks, group: "infrastructure" },
       { label: "Performances", href: "/statut", icon: Gauge, group: "infrastructure" },
+      // Analyse IA (déplacée ici depuis le menu utilisateur)
+      { label: "Tableau de bord IA", href: "/ia", icon: Gauge, group: "ia" },
+      { label: "Analyses", href: "/ia/documents", icon: FileText, group: "ia" },
+      { label: "Historique IA", href: "/ia/historique", icon: History, group: "ia" },
+      { label: "Erreurs IA", href: "/ia/erreurs", icon: AlertTriangle, group: "ia" },
       // Personnalisation avancée
       { label: "Champs personnalisés globaux", href: "/organiser", icon: Sliders, group: "personnalisation" },
       { label: "Automatisations globales", href: "/workflows", icon: Workflow, group: "personnalisation" },
@@ -342,6 +334,8 @@ export function getActiveSpaceId(pathname: string): string {
   if (pathname === "/correspondants" || pathname.startsWith("/correspondants/")) return "contacts";
   // - Agenda & tâches = calendrier + actions + rappels (Mes tâches).
   if (/^\/(actions|rappels|calendrier)(\/|$)/.test(pathname)) return "agenda";
+  // - Analyse IA : déplacée dans Administration (plus dans le rail utilisateur).
+  if (/^\/ia(\/|$)/.test(pathname)) return "administration";
   // - Taxonomies sous /organiser/* (types/tags/vues) rattachées à Documents
   //   (l'espace Organiser garde Dossiers/Projets).
   if (/^\/organiser\/(types|tags|vues)(\/|$)/.test(pathname)) return "documents";
