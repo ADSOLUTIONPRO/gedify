@@ -184,3 +184,28 @@ export async function deleteEvent(userId: string, id: string): Promise<boolean> 
   await writeAll(all.filter((e) => e.id !== id));
   return true;
 }
+
+/**
+ * Upsert d'un événement EXTERNE (synchro) : retrouve par (userId, provider,
+ * externalId) → met à jour, sinon crée. Renvoie { created }. Évite les
+ * doublons lors de synchros répétées.
+ */
+export async function upsertByExternal(
+  userId: string,
+  provider: EventProvider,
+  externalId: string,
+  input: CalendarEventInput,
+): Promise<{ event: CalendarEvent; created: boolean }> {
+  const all = await readAll();
+  const idx = all.findIndex((e) => e.userId === userId && e.provider === provider && e.externalId === externalId);
+  if (idx >= 0) {
+    const next = normalize(userId, { ...all[idx], ...input, provider, externalId, title: input.title ?? all[idx].title, start: input.start ?? all[idx].start }, all[idx]);
+    all[idx] = next;
+    await writeAll(all);
+    return { event: next, created: false };
+  }
+  const event = normalize(userId, { ...input, provider, externalId });
+  all.push(event);
+  await writeAll(all);
+  return { event, created: true };
+}

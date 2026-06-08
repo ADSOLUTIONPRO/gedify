@@ -7,7 +7,6 @@ import {
   ChevronRight,
   Clock,
   Coins,
-  Filter,
   Folder,
   Mail,
   Users,
@@ -25,6 +24,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { CreateCalendarItemButton } from "@/components/calendar/create-calendar-item-button";
 import { AgendaEventsCard } from "@/components/calendar/agenda-events-card";
 import { CalendarTimeViews } from "@/components/calendar/calendar-time-views";
+import { GoogleSyncButton } from "@/components/calendar/google-sync-button";
 import { formatMoney } from "@/lib/format-money";
 
 export const dynamic = "force-dynamic";
@@ -297,14 +297,7 @@ export default async function CalendrierPage({ searchParams }: { searchParams?: 
         description="Consultez, confirmez ou gérez vos rendez-vous, échéances et rappels depuis vos documents."
         actions={
           <>
-            <button
-              type="button"
-              className="inline-flex h-10 items-center gap-2 rounded-xl border bg-white px-3 text-sm font-semibold transition hover:bg-slate-50"
-              style={{ borderColor: "var(--border)", color: "var(--text-main)" }}
-            >
-              <Filter className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-              Filtres
-            </button>
+            <GoogleSyncButton />
             <CreateCalendarItemButton />
           </>
         }

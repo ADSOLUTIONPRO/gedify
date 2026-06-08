@@ -106,6 +106,31 @@ export async function createCalendarEvent(
 }
 
 // ---------------------------------------------------------------------------
+// List events (lecture) — pour la synchro Google → GEDify
+// ---------------------------------------------------------------------------
+
+export async function listCalendarEvents(
+  accountId: string,
+  calendarId: string,
+  timeMin: string,
+  timeMax: string,
+): Promise<CalendarEvent[]> {
+  const accessToken = await getAccessTokenForAccount(accountId);
+  const params = new URLSearchParams({
+    timeMin,
+    timeMax,
+    singleEvents: "true",
+    orderBy: "startTime",
+    maxResults: "250",
+  });
+  const data = await calendarFetch<{ items?: CalendarEvent[] }>(
+    accessToken,
+    `/calendars/${encodeURIComponent(calendarId)}/events?${params.toString()}`,
+  );
+  return data.items ?? [];
+}
+
+// ---------------------------------------------------------------------------
 // Check for duplicates (same date + title proximity)
 // ---------------------------------------------------------------------------
 
