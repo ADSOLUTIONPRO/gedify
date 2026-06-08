@@ -4,9 +4,10 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { recordAudit } from "@/lib/audit/audit-store";
 import { readSession } from "@/lib/auth/session";
-import { getDocument, updateDocument } from "@/lib/paperless";
+import { getCorrespondents, getDocument, getDocumentTypes, updateDocument } from "@/lib/paperless";
 import { listProjectFolders } from "@/lib/projects/project-store";
 import { createDocumentNote } from "@/lib/documents/document-notes-store";
+import { recordLearningEvents, type LearningEventInput } from "@/lib/ai/learning-history-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -143,6 +144,28 @@ export async function POST(request: NextRequest) {
   }
 
   if (result.failed > 0) result.ok = result.updated > 0;
+
+  // Apprentissage : trace les remplacements en lot (source bulk_manual_edit,
+  // poids moindre qu'une validation individuelle). Best-effort.
+  try {
+    const changed = result.items.filter((it) => it.success && it.changes);
+    if (changed.length > 0) {
+      const [typesData, corrData] = await Promise.all([
+        getDocumentTypes({ page_size: 1000 }).catch(() => ({ results: [] })),
+        getCorrespondents({ page_size: 1000 }).catch(() => ({ results: [] })),
+      ]);
+      const typeName = new Map((typesData.results ?? []).map((t) => [t.id, t.name]));
+      const corrName = new Map((corrData.results ?? []).map((c) => [c.id, c.name]));
+      const events: LearningEventInput[] = [];
+      for (const it of changed) {
+        const dt = it.changes?.documentType;
+        if (dt) events.push({ documentId: it.documentId, field: "documentType", aiValue: dt.previousId != null ? typeName.get(dt.previousId) ?? null : null, validatedValue: dt.newId != null ? typeName.get(dt.newId) ?? null : null, source: "bulk_manual_edit", templateId: null, user: session?.username ?? null });
+        const co = it.changes?.correspondent;
+        if (co) events.push({ documentId: it.documentId, field: "correspondent", aiValue: co.previousId != null ? corrName.get(co.previousId) ?? null : null, validatedValue: co.newId != null ? corrName.get(co.newId) ?? null : null, source: "bulk_manual_edit", templateId: null, user: session?.username ?? null });
+      }
+      await recordLearningEvents(events).catch(() => {});
+    }
+  } catch { /* l'apprentissage ne doit jamais bloquer la modif en lot */ }
 
   // Journalisation de l'action groupée (Partie 6 — traçabilité). Best-effort.
   const ops: string[] = [];
