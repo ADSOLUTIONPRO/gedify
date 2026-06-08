@@ -22,6 +22,7 @@ import {
 import { AutocompleteInput, type AutocompleteSuggestion } from "@/components/ui/autocomplete-input";
 import { FolderPickerField } from "@/components/folders/folder-picker-field";
 import { FolderPickerModal, type FolderSelection } from "@/components/folders/folder-picker-modal";
+import { CreateCalendarItemModal } from "@/components/calendar/create-calendar-item-modal";
 import { AmountBreakdownEditor, type BreakdownSeed } from "@/components/documents/amount-breakdown-editor";
 import { DocumentSecondaryCorrespondents } from "@/components/documents/document-secondary-correspondents";
 import { formatAmount, type DocumentVM } from "@/components/documents/types";
@@ -181,6 +182,7 @@ export function DocumentAiSheet({ doc, onClose, onApplied }: { doc: DocumentVM; 
   const [procBusy, setProcBusy] = useState<string | null>(null);
   const [procMsg, setProcMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [folderModalOpen, setFolderModalOpen] = useState(false);
+  const [calItemOpen, setCalItemOpen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   // Animation de progression pendant l'analyse.
@@ -522,6 +524,7 @@ export function DocumentAiSheet({ doc, onClose, onApplied }: { doc: DocumentVM; 
               <ProcBtn busy={procBusy === "ocr"} onClick={() => void runProc("ocr", `/api/documents/${doc.id}/redo-ocr`, "OCR relancé — traitement en arrière-plan.")} icon={ScanText}>{procBusy === "ocr" ? "OCR en cours…" : ocrLabel}</ProcBtn>
               <ProcBtn busy={procBusy === "preview"} onClick={() => void runProc("preview", `/api/documents/${doc.id}/regenerate-preview`, "Miniature et aperçu régénérés.")} icon={ImageIcon}>Régénérer l&apos;aperçu</ProcBtn>
               <ProcBtn busy={procBusy === "folder"} onClick={() => setFolderModalOpen(true)} icon={FolderPlus}>Ajouter à un dossier</ProcBtn>
+              <ProcBtn onClick={() => setCalItemOpen(true)} icon={CalendarClock}>RDV / tâche</ProcBtn>
               {procMsg ? <span className="text-[11.5px] font-semibold" style={{ color: procMsg.ok ? "var(--gedify-green)" : "var(--danger)" }}>{procMsg.text}</span> : null}
             </div>
           ) : null}
@@ -562,6 +565,15 @@ export function DocumentAiSheet({ doc, onClose, onApplied }: { doc: DocumentVM; 
 
       {folderModalOpen ? (
         <FolderPickerModal currentValue={folderSel} allowCreate onSelect={(v) => void addToFolder(v)} onClose={() => setFolderModalOpen(false)} />
+      ) : null}
+
+      {calItemOpen ? (
+        <CreateCalendarItemModal
+          source={{ sourceType: "document", sourceId: String(doc.id), sourceLabel: doc.displayTitle, documentId: doc.id }}
+          prefill={{ title: sug.title, startISO: sug.dueISO || sug.dateISO || undefined, dueISO: sug.dueISO || undefined }}
+          defaultTab={sug.dueISO ? "task" : "event"}
+          onClose={() => setCalItemOpen(false)}
+        />
       ) : null}
     </div>
   );
