@@ -31,6 +31,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { getLatestAnalysisForDocument } from "@/lib/ai/ai-analysis-store";
 import { runDocumentAnalysis } from "@/lib/ai/run-document-analysis";
+import { getReviewNavigation } from "@/lib/ai/ai-navigation";
+import { IaReviewNavigator } from "@/components/ai/ia-review-navigator";
 import { getDocument, getPaperlessPublicUrl } from "@/lib/paperless";
 
 export const dynamic = "force-dynamic";
@@ -153,9 +155,10 @@ export default async function DocumentAnalysisPage({ params }: Props) {
   const paperlessUrl = getPaperlessPublicUrl();
   const fileName = document.original_file_name ?? document.original_filename ?? document.filename;
   const mimeType = document.mime_type ?? null;
+  const nav = await getReviewNavigation(documentId);
 
   return (
-    <main className="p-4 lg:p-8">
+    <main className="p-4 pb-24 sm:pb-8 lg:p-8">
       <PageHeader
         backLink={{ href: "/ia", label: "IA" }}
         eyebrow={`Analyse IA · Document #${documentId}`}
@@ -191,6 +194,17 @@ export default async function DocumentAnalysisPage({ params }: Props) {
             ) : null}
           </>
         }
+      />
+
+      <IaReviewNavigator
+        analysisId={analysis.id}
+        alreadyValidated={analysis.status === "applied" || analysis.status === "validated"}
+        validate={{
+          correspondentId: analysis.suggestedCorrespondentId,
+          documentTypeId: analysis.suggestedDocumentTypeId,
+          tagIds: analysis.suggestedTagIds,
+        }}
+        nav={nav}
       />
 
       <div className="mb-6 flex flex-wrap items-center gap-2">
