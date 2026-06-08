@@ -23,6 +23,7 @@ import { getAllDueItems } from "@/lib/budget/budget-calculations";
 import { listEvents } from "@/lib/calendar/calendar-event-store";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { CreateCalendarItemButton } from "@/components/calendar/create-calendar-item-button";
+import { AgendaEventsCard } from "@/components/calendar/agenda-events-card";
 import { formatMoney } from "@/lib/format-money";
 
 export const dynamic = "force-dynamic";
@@ -326,6 +327,10 @@ export default async function CalendrierPage({ searchParams }: { searchParams?: 
         </SectionCard>
 
         <aside className="space-y-5">
+          <RightRailCard title="Mes événements" icon={CalendarDays} iconTone="violet" bodyClassName="space-y-2">
+            <AgendaEventsCard />
+          </RightRailCard>
+
           <RightRailCard
             title="Sélection rapide"
             icon={Clock}

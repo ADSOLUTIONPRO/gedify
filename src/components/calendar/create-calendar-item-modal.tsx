@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarClock, CheckSquare, Loader2, MapPin, X } from "lucide-react";
+import { CalendarClock, CheckSquare, Loader2, MapPin, Trash2, X } from "lucide-react";
 
 /* ────────────────────────────────────────────────────────────────────────
    Création d'un RENDEZ-VOUS ou d'une TÂCHE, depuis n'importe quelle source
@@ -17,6 +17,17 @@ export type CalendarItemSource = {
   sourceId?: string | null;
   sourceLabel?: string | null;
   documentId?: number | null;
+};
+
+/** Événement du socle à modifier (mode édition). */
+export type EditableEvent = {
+  id: string;
+  title: string;
+  description?: string | null;
+  start: string;
+  end?: string | null;
+  allDay?: boolean;
+  location?: { displayName?: string | null } | null;
 };
 
 type Prefill = { title?: string; startISO?: string; dueISO?: string };
@@ -39,28 +50,32 @@ export function CreateCalendarItemModal({
   source = {},
   prefill = {},
   defaultTab = "event",
+  editEvent,
   onClose,
   onCreated,
 }: {
   source?: CalendarItemSource;
   prefill?: Prefill;
   defaultTab?: "event" | "task";
+  /** Si fourni → mode édition d'un événement existant (PATCH + suppression). */
+  editEvent?: EditableEvent;
   onClose: () => void;
   onCreated?: () => void;
 }) {
   const router = useRouter();
-  const [tab, setTab] = useState<"event" | "task">(defaultTab);
+  const isEdit = Boolean(editEvent);
+  const [tab, setTab] = useState<"event" | "task">(editEvent ? "event" : defaultTab);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Champs communs
-  const [title, setTitle] = useState(prefill.title ?? "");
-  const [description, setDescription] = useState("");
+  const [title, setTitle] = useState(editEvent?.title ?? prefill.title ?? "");
+  const [description, setDescription] = useState(editEvent?.description ?? "");
   // Rendez-vous
-  const [allDay, setAllDay] = useState(false);
-  const [start, setStart] = useState(toLocalInput(prefill.startISO));
-  const [end, setEnd] = useState("");
-  const [location, setLocation] = useState("");
+  const [allDay, setAllDay] = useState(editEvent?.allDay ?? false);
+  const [start, setStart] = useState(toLocalInput(editEvent?.start ?? prefill.startISO));
+  const [end, setEnd] = useState(toLocalInput(editEvent?.end ?? undefined));
+  const [location, setLocation] = useState(editEvent?.location?.displayName ?? "");
   // Tâche
   const [dueDate, setDueDate] = useState(toDateInput(prefill.dueISO ?? prefill.startISO));
   const [priority, setPriority] = useState<"low" | "normal" | "high" | "urgent">("normal");
@@ -75,22 +90,30 @@ export function CreateCalendarItemModal({
       if (tab === "event") {
         if (!start && !allDay) { setError("Renseignez une date de début."); setBusy(false); return; }
         const startISO = allDay ? new Date(`${(start || new Date().toISOString()).slice(0, 10)}T00:00:00`).toISOString() : new Date(start).toISOString();
-        const res = await fetch("/api/calendar/events", {
-          method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
-          body: JSON.stringify({
-            title: title.trim(),
-            description: description || null,
-            start: startISO,
-            end: end ? new Date(end).toISOString() : null,
-            allDay,
-            location: location ? { displayName: location } : null,
-            sourceType: source.sourceType ?? "manual",
-            sourceId: source.sourceId ?? null,
-            sourceLabel: source.sourceLabel ?? null,
-            createdAutomatically: false,
-            linkedDocumentIds: documentIds,
-          }),
-        });
+        const payload = {
+          title: title.trim(),
+          description: description || null,
+          start: startISO,
+          end: end ? new Date(end).toISOString() : null,
+          allDay,
+          location: location ? { displayName: location } : null,
+        };
+        const res = isEdit
+          ? await fetch(`/api/calendar/events/${editEvent!.id}`, {
+              method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include",
+              body: JSON.stringify(payload),
+            })
+          : await fetch("/api/calendar/events", {
+              method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+              body: JSON.stringify({
+                ...payload,
+                sourceType: source.sourceType ?? "manual",
+                sourceId: source.sourceId ?? null,
+                sourceLabel: source.sourceLabel ?? null,
+                createdAutomatically: false,
+                linkedDocumentIds: documentIds,
+              }),
+            });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
       } else {
         const res = await fetch("/api/actions", {
@@ -113,20 +136,39 @@ export function CreateCalendarItemModal({
     }
   }
 
+  async function remove() {
+    if (!editEvent) return;
+    if (!window.confirm("Supprimer cet événement ?")) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/calendar/events/${editEvent.id}`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      onCreated?.();
+      router.refresh();
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Suppression impossible.");
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-[95] flex items-end justify-center p-2 sm:items-center sm:p-5" role="dialog" aria-modal="true" aria-label="Créer un rendez-vous ou une tâche">
       <button type="button" aria-label="Fermer" onClick={onClose} className="absolute inset-0 bg-slate-950/55 backdrop-blur-sm" />
       <div className="relative z-10 flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl shadow-2xl" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
         <div className="flex items-center justify-between border-b px-5 py-3.5" style={{ borderColor: "var(--border-soft)" }}>
-          <h2 className="text-[15px] font-extrabold" style={{ color: "var(--text-main)" }}>Nouveau RDV / Nouvelle tâche</h2>
+          <h2 className="text-[15px] font-extrabold" style={{ color: "var(--text-main)" }}>{isEdit ? "Modifier l'événement" : "Nouveau RDV / Nouvelle tâche"}</h2>
           <button type="button" onClick={onClose} aria-label="Fermer" className="flex h-8 w-8 items-center justify-center rounded-full transition hover:bg-[var(--surface-muted)]" style={{ color: "var(--text-muted)" }}><X className="h-5 w-5" strokeWidth={2} /></button>
         </div>
 
-        {/* Onglets */}
-        <div className="flex gap-1 px-4 pt-3">
-          <TabBtn active={tab === "event"} onClick={() => setTab("event")} icon={CalendarClock}>Rendez-vous</TabBtn>
-          <TabBtn active={tab === "task"} onClick={() => setTab("task")} icon={CheckSquare}>Tâche</TabBtn>
-        </div>
+        {/* Onglets (masqués en édition d'un événement) */}
+        {!isEdit ? (
+          <div className="flex gap-1 px-4 pt-3">
+            <TabBtn active={tab === "event"} onClick={() => setTab("event")} icon={CalendarClock}>Rendez-vous</TabBtn>
+            <TabBtn active={tab === "task"} onClick={() => setTab("task")} icon={CheckSquare}>Tâche</TabBtn>
+          </div>
+        ) : null}
 
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4">
           {source.sourceLabel ? (
@@ -185,6 +227,11 @@ export function CreateCalendarItemModal({
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t px-5 py-3.5" style={{ borderColor: "var(--border-soft)" }}>
+          {isEdit ? (
+            <button type="button" onClick={() => void remove()} disabled={busy} className="mr-auto inline-flex h-10 items-center gap-1.5 rounded-xl border px-3.5 text-[13px] font-semibold transition hover:bg-rose-50 disabled:opacity-50" style={{ borderColor: "var(--border)", color: "#E11D48" }}>
+              <Trash2 className="h-4 w-4" strokeWidth={1.85} aria-hidden="true" /> Supprimer
+            </button>
+          ) : null}
           <button type="button" onClick={onClose} className="inline-flex h-10 items-center rounded-xl border px-4 text-[13.5px] font-semibold transition hover:bg-[var(--surface-muted)]" style={{ borderColor: "var(--border)", color: "var(--text-main)" }}>Annuler</button>
           <button type="button" onClick={() => void save()} disabled={busy} className="inline-flex h-10 items-center gap-2 rounded-xl px-4 text-[13.5px] font-bold text-white transition hover:opacity-90 disabled:opacity-50" style={{ background: "var(--accent)" }}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
