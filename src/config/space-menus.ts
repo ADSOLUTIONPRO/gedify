@@ -108,8 +108,8 @@ export const SPACE_MENUS: Record<string, SpaceMenu> = {
     ],
     items: [
       { label: "Tous les documents", href: "/documents", icon: FileText, group: "docs", subtitle: "Ensemble de la GED" },
-      { label: "Récents", href: "/documents?tri=recents", icon: Clock, group: "docs", subtitle: "Ajoutés il y a moins de 48 h" },
-      { label: "Favoris", href: "/documents?filtre=favoris", icon: Star, group: "docs", subtitle: "Documents marqués d'une étoile" },
+      { label: "Récents", href: "/documents?tab=recents", icon: Clock, group: "docs", subtitle: "Ajoutés il y a moins de 48 h" },
+      { label: "Favoris", href: "/documents?tab=favoris", icon: Star, group: "docs", subtitle: "Documents marqués d'une étoile" },
       { label: "À traiter", href: "/a-traiter", icon: Inbox, group: "docs", subtitle: "À valider ou à compléter" },
       { label: "Archives", href: "/documents?filtre=archives", icon: Archive, group: "docs", subtitle: "Documents archivés" },
       { label: "Corbeille", href: "/corbeille", icon: Trash2, group: "docs", subtitle: "Documents supprimés" },

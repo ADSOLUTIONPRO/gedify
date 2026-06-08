@@ -22,6 +22,8 @@ import {
   getTags,
 } from "@/lib/paperless";
 import type { PaperlessDocument } from "@/lib/paperless-types";
+import { getCurrentUser } from "@/lib/auth/current-user";
+import { listFavoriteIds } from "@/lib/documents/favorites-store";
 
 export const dynamic = "force-dynamic";
 
@@ -30,12 +32,14 @@ const PAGE_SIZES = [24, 48, 96, 200];
 const DEFAULT_PAGE_SIZE = 24;
 
 /** Onglets non encore branchés à un back-end (affichage propre, sans 404). */
-const UNSUPPORTED_TABS = new Set(["favoris", "partages"]);
+const UNSUPPORTED_TABS = new Set(["partages"]);
 
 function emptyMessage(tab: string): { title: string; description: string; showImport: boolean } {
   switch (tab) {
     case "favoris":
-      return { title: "Aucun favori", description: "La mise en favori des documents arrivera prochainement.", showImport: false };
+      return { title: "Aucun document favori", description: "Cliquez sur l'étoile d'un document pour le retrouver ici.", showImport: false };
+    case "recents":
+      return { title: "Aucun document récent", description: "Les documents importés au cours des dernières 48 heures apparaîtront ici.", showImport: false };
     case "partages":
       return { title: "Aucun partage", description: "Le partage de documents arrivera prochainement.", showImport: false };
     case "a-traiter":
@@ -74,12 +78,20 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pa
   const selectAllQuery = new URLSearchParams(selectAllObj).toString();
 
   try {
-    const unsupported = UNSUPPORTED_TABS.has(tab);
+    let unsupported = UNSUPPORTED_TABS.has(tab);
+    // Onglet « Favoris » : restreint aux favoris de l'utilisateur (par id).
+    const apiParams = buildDocumentApiParams(params, tab, pageSize);
+    if (tab === "favoris") {
+      const user = await getCurrentUser();
+      const favoriteIds = await listFavoriteIds(user ? String(user.id) : "local");
+      if (favoriteIds.length === 0) unsupported = true; // aucun favori → liste vide
+      else apiParams.id__in = favoriteIds.join(",");
+    }
     // 1) Documents (page courante) + taxonomies, en parallèle.
     const [documentsData, correspondentsData, typesData, tagsData] = await Promise.all([
       unsupported
         ? Promise.resolve({ count: 0, results: [] as PaperlessDocument[] })
-        : getDocuments(buildDocumentApiParams(params, tab, pageSize)),
+        : getDocuments(apiParams),
       getCorrespondents(),
       getDocumentTypes(),
       getTags(),

@@ -45,6 +45,11 @@ export function buildDocumentApiParams(
   if (tag) apiParams.tags__id__all = tag;
   if (createdFrom) apiParams.created__gte = createdFrom;
   if (addedFrom) apiParams.added__date__gte = addedFrom;
+  // « Récents » = ajoutés dans GEDify au cours des dernières 48 h (date d'ajout,
+  // jamais la date métier/OCR). Filtre serveur réel (date d'ajout ≥ J-2).
+  if (tab === "recents" && !addedFrom) {
+    apiParams.added__date__gte = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  }
   if (asn === "with") apiParams.archive_serial_number__isnull = "false";
   if (asn === "without") apiParams.archive_serial_number__isnull = "true";
   if (ordering) apiParams.ordering = ordering;
