@@ -3,8 +3,10 @@ import "server-only";
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { recordAudit } from "@/lib/audit/audit-store";
+import { readSession } from "@/lib/auth/session";
 import { getDocument, updateDocument } from "@/lib/paperless";
 import { listProjectFolders } from "@/lib/projects/project-store";
+import { createDocumentNote } from "@/lib/documents/document-notes-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,11 +32,20 @@ type BulkUpdateBody = {
   };
 };
 
+type FieldChange = { previousId: number | null; newId: number | null };
+type BulkItemResult = {
+  documentId: number;
+  success: boolean;
+  changes?: { documentType?: FieldChange; correspondent?: FieldChange };
+  message?: string;
+};
+
 type BulkUpdateResult = {
   ok: boolean;
   updated: number;
   failed: number;
   errors: { id: number; message: string }[];
+  items: BulkItemResult[];
 };
 
 export async function POST(request: NextRequest) {
@@ -52,8 +63,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "documentIds requis." }, { status: 400 });
   }
 
-  const result: BulkUpdateResult = { ok: true, updated: 0, failed: 0, errors: [] };
+  const result: BulkUpdateResult = { ok: true, updated: 0, failed: 0, errors: [], items: [] };
   const { patch } = body;
+  const session = await readSession();
 
   // Tags miroir des dossiers/projets (« Dossier - … ») : à PRÉSERVER toujours,
   // pour qu'un « vider » / « retirer » de tags ne casse jamais le classement GED.
@@ -63,16 +75,23 @@ export async function POST(request: NextRequest) {
       .filter((x): x is number => typeof x === "number"),
   );
 
+  const needsCurrent = Boolean(patch.tagOp) || patch.typeOp === "replace" || patch.correspondentOp === "replace";
+
   for (const id of body.documentIds) {
     try {
       const payload: Record<string, unknown> = {};
+      const changes: BulkItemResult["changes"] = {};
+      // Lecture de l'état courant (tags à préserver + diagnostics avant/après).
+      const current = needsCurrent ? await getDocument(String(id)) : null;
+      const prevType = typeof current?.document_type === "number" ? current.document_type : null;
+      const prevCorr = typeof current?.correspondent === "number" ? current.correspondent : null;
 
       // Correspondant
-      if (patch.correspondentOp === "replace") payload.correspondent = patch.correspondentId ?? null;
+      if (patch.correspondentOp === "replace") { payload.correspondent = patch.correspondentId ?? null; changes.correspondent = { previousId: prevCorr, newId: patch.correspondentId ?? null }; }
       else if (patch.correspondentOp === "clear") payload.correspondent = null;
 
-      // Type de document
-      if (patch.typeOp === "replace") payload.document_type = patch.typeId ?? null;
+      // Type de document — REMPLACE réellement l'ancienne valeur en base.
+      if (patch.typeOp === "replace") { payload.document_type = patch.typeId ?? null; changes.documentType = { previousId: prevType, newId: patch.typeId ?? null }; }
       else if (patch.typeOp === "clear") payload.document_type = null;
 
       // Date document
@@ -83,39 +102,43 @@ export async function POST(request: NextRequest) {
       if (patch.asnOp === "replace") payload.archive_serial_number = patch.asn ?? null;
       else if (patch.asnOp === "clear") payload.archive_serial_number = null;
 
-      // Notes
-      if (patch.notesOp === "replace" && patch.notes !== undefined) payload.notes = patch.notes;
-
-      // Tags — on lit toujours l'état courant pour PRÉSERVER les tags de dossier/projet.
-      if (patch.tagOp && patch.tagIds !== undefined) {
-        const current = await getDocument(String(id));
+      // Tags — préserve toujours les tags miroir de dossier/projet.
+      if (patch.tagOp && patch.tagIds !== undefined && current) {
         const currentTagIds: number[] = current.tags ?? [];
         const keepProjectTags = currentTagIds.filter((t) => projectTagIds.has(t));
         if (patch.tagOp === "clear") {
-          // « Vider » : ne retire QUE les tags hors dossier/projet.
           payload.tags = keepProjectTags;
         } else if (patch.tagOp === "replace") {
-          // « Remplacer » : tags choisis + tags de dossier/projet conservés.
           payload.tags = Array.from(new Set([...patch.tagIds, ...keepProjectTags]));
         } else if (patch.tagOp === "add") {
           payload.tags = Array.from(new Set([...currentTagIds, ...patch.tagIds]));
         } else {
-          // « Retirer » : enlève les tags choisis, sauf ceux de dossier/projet.
           const removeSet = new Set(patch.tagIds);
           payload.tags = currentTagIds.filter((t) => !removeSet.has(t) || projectTagIds.has(t));
         }
       }
 
+      let touched = false;
       if (Object.keys(payload).length > 0) {
         await updateDocument(String(id), payload as Parameters<typeof updateDocument>[1]);
-        result.updated++;
+        touched = true;
+        if (changes.documentType) console.log(`[bulk-update] doc=${id} document_type ${changes.documentType.previousId} -> ${changes.documentType.newId}`);
+        if (changes.correspondent) console.log(`[bulk-update] doc=${id} correspondent ${changes.correspondent.previousId} -> ${changes.correspondent.newId}`);
       }
+
+      // Notes : modèle dédié (commentaire), pas le champ document → vraie persistance.
+      if (patch.notesOp === "replace" && patch.notes?.trim()) {
+        await createDocumentNote(id, { content: patch.notes.trim(), author: session?.username ?? null }).catch(() => {});
+        touched = true;
+      }
+
+      if (touched) result.updated++;
+      result.items.push({ documentId: id, success: true, changes: Object.keys(changes).length ? changes : undefined });
     } catch (err) {
       result.failed++;
-      result.errors.push({
-        id,
-        message: err instanceof Error ? err.message : String(err),
-      });
+      const message = err instanceof Error ? err.message : String(err);
+      result.errors.push({ id, message });
+      result.items.push({ documentId: id, success: false, message });
     }
   }
 
