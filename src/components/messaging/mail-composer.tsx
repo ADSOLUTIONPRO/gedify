@@ -230,7 +230,7 @@ function ComposerWindow({ initial, minimized }: { initial: ComposerInitial; mini
       });
       if (!res.ok) {
         const e = await res.json().catch(() => ({}));
-        throw new Error(e.detail || e.error || "Envoi impossible.");
+        throw new Error(e.message || e.detail || e.error || "Envoi impossible.");
       }
       setSent(true);
       window.setTimeout(() => closeComposer(), 1200);

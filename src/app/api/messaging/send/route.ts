@@ -44,26 +44,41 @@ function sanitizeRawAttachments(input: unknown): EmailAttachment[] {
   return out;
 }
 
-/** Récupère les octets des documents Gedify et les prépare en pièces jointes. */
-async function buildDocumentAttachments(docIds: number[]): Promise<EmailAttachment[]> {
-  const out: EmailAttachment[] = [];
+type BuiltAttachment = EmailAttachment & { documentId: number; size: number };
+type AttachmentFailure = { documentId: number; error: string };
+
+/**
+ * Récupère les OCTETS RÉELS des documents Gedify (fichier original) et les
+ * prépare en pièces jointes. Remonte chaque échec (jamais de skip silencieux)
+ * et déduplique les noms identiques (facture.pdf → facture (1).pdf).
+ */
+async function buildDocumentAttachments(docIds: number[]): Promise<{ attachments: BuiltAttachment[]; failures: AttachmentFailure[] }> {
+  const attachments: BuiltAttachment[] = [];
+  const failures: AttachmentFailure[] = [];
+  const usedNames = new Map<string, number>();
   for (const id of docIds) {
     try {
-      const res = await paperlessFetchRaw(`/api/documents/${id}/download/`, {
-        headers: { Accept: "application/pdf,application/octet-stream,*/*" },
-      });
-      if (!res.ok) continue;
+      const res = await paperlessFetchRaw(`/api/documents/${id}/download/`);
       const buf = Buffer.from(await res.arrayBuffer());
+      if (buf.length === 0) { failures.push({ documentId: id, error: "attachment_empty" }); continue; }
       const cd = res.headers.get("content-disposition") ?? "";
       const match = cd.match(/filename\*?=(?:UTF-8'')?["']?([^"';]+)/i);
-      const filename = match ? decodeURIComponent(match[1].trim()) : `document-${id}.pdf`;
+      let filename = match ? decodeURIComponent(match[1].trim()) : `document-${id}.pdf`;
+      // Anti-collision : un même nom n'écrase jamais une autre pièce jointe.
+      const lower = filename.toLowerCase();
+      const seen = usedNames.get(lower) ?? 0;
+      if (seen > 0) {
+        const dot = filename.lastIndexOf(".");
+        filename = dot > 0 ? `${filename.slice(0, dot)} (${seen})${filename.slice(dot)}` : `${filename} (${seen})`;
+      }
+      usedNames.set(lower, seen + 1);
       const mimeType = (res.headers.get("content-type") ?? "application/pdf").split(";")[0].trim() || "application/pdf";
-      out.push({ filename, mimeType, contentBase64: buf.toString("base64") });
-    } catch {
-      /* on saute la pièce jointe en échec plutôt que d'échouer tout l'envoi */
+      attachments.push({ filename, mimeType, contentBase64: buf.toString("base64"), documentId: id, size: buf.length });
+    } catch (e) {
+      failures.push({ documentId: id, error: e instanceof Error ? e.message : "attachment_read_failed" });
     }
   }
-  return out;
+  return { attachments, failures };
 }
 
 export async function POST(request: NextRequest) {
@@ -100,9 +115,28 @@ export async function POST(request: NextRequest) {
 
   try {
     const docIds = Array.isArray(body.attachmentDocIds) ? body.attachmentDocIds.filter((n) => Number.isFinite(n)) : [];
-    const gedAttachments = docIds.length ? await buildDocumentAttachments(docIds) : [];
+    const { attachments: gedAttachments, failures } = docIds.length
+      ? await buildDocumentAttachments(docIds)
+      : { attachments: [] as BuiltAttachment[], failures: [] as AttachmentFailure[] };
+
+    // Ne JAMAIS envoyer silencieusement un mail sans une pièce jointe demandée :
+    // si un document GED ne peut pas être récupéré, on bloque l'envoi.
+    if (failures.length > 0) {
+      console.error(`[mail:send] pièces jointes introuvables: ${failures.map((f) => `doc ${f.documentId} (${f.error})`).join(", ")}`);
+      return NextResponse.json(
+        {
+          error: "attachment_not_found",
+          errorType: "attachment_not_found",
+          message: `Envoi annulé : ${failures.length} document(s) n'ont pas pu être joints (fichier original introuvable). Retirez-les ou réessayez.`,
+          failedAttachments: failures,
+        },
+        { status: 422 },
+      );
+    }
+
     const localAttachments = sanitizeRawAttachments(body.attachments);
-    const attachments = [...gedAttachments, ...localAttachments];
+    const attachments: EmailAttachment[] = [...gedAttachments, ...localAttachments];
+    console.log(`[mail:send] ${attachments.length} pièce(s) jointe(s) (${docIds.length} doc GED), total ${gedAttachments.reduce((s, a) => s + a.size, 0)} octets`);
 
     // Identifiant de message + de fil pour tracer les liaisons GED (best-effort).
     let messageId: string | null = null;
@@ -168,7 +202,13 @@ export async function POST(request: NextRequest) {
       details: `${sender.type} · ${attachments.length} pièce(s) jointe(s)${docIds.length ? `, ${docIds.length} doc GED` : ""}`,
     });
 
-    return NextResponse.json({ ok: true, message: result, messageId });
+    return NextResponse.json({
+      ok: true,
+      message: result,
+      messageId,
+      attachmentCount: attachments.length,
+      attachments: gedAttachments.map((a) => ({ documentId: a.documentId, filename: a.filename, size: a.size, attached: true })),
+    });
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     if (/403|insufficient|scope/i.test(msg)) {
