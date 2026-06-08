@@ -50,6 +50,8 @@ export function DocumentAiActions({ documentId, onOpenSheet, onChanged, show = D
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogLoading, setDialogLoading] = useState(false);
   const [dialogResult, setDialogResult] = useState<AiActionResult | null>(null);
+  // Modale « OCR absent » (analyse possible sans OCR).
+  const [ocrModal, setOcrModal] = useState(false);
 
   useEffect(() => {
     if (user !== undefined) return;
@@ -62,14 +64,24 @@ export function DocumentAiActions({ documentId, onOpenSheet, onChanged, show = D
     fbTimer.current = setTimeout(() => setFeedback(null), 4000);
   }
 
-  async function execute(action: AiActionId) {
+  async function execute(action: AiActionId, opts: { allowWithoutOcr?: boolean } = {}) {
     if (busy) return;
     const isAnalysis = ANALYSIS_ACTIONS.includes(action);
     setBusy(action as ButtonId);
     setFeedback(null);
     if (isAnalysis) { setDialogResult(null); setDialogLoading(true); setDialogOpen(true); }
 
-    const res = await runAiAction(documentId, action);
+    const res = await runAiAction(documentId, action, opts);
+
+    // OCR absent et analyse non explicitement autorisée → proposer le choix
+    // (Lancer l'OCR / Analyser sans OCR) au lieu d'afficher une erreur.
+    if (isAnalysis && res.code === "no-ocr" && !opts.allowWithoutOcr) {
+      setDialogOpen(false); setDialogLoading(false); setDialogResult(null);
+      setBusy(null);
+      setOcrModal(true);
+      return;
+    }
+
     await logAiAction(documentId, action, res.ok, user ?? resolvedUser);
     setBusy(null);
 
@@ -77,6 +89,22 @@ export function DocumentAiActions({ documentId, onOpenSheet, onChanged, show = D
     else flash(res.ok, res.message);
 
     if (res.ok) { onChanged?.(); router.refresh(); }
+  }
+
+  /** « Oui, lancer l'analyse IA » : analyse directe (sans OCR). */
+  async function analyzeWithoutOcr() {
+    setOcrModal(false);
+    await execute("analyse", { allowWithoutOcr: true });
+  }
+  /** « Lancer l'OCR » : OCR puis analyse automatique (sans blocage si OCR pas prêt). */
+  async function ocrThenAnalyze() {
+    setOcrModal(false);
+    setBusy("ocr");
+    const ocr = await runAiAction(documentId, "ocr");
+    await logAiAction(documentId, "ocr", ocr.ok, user ?? resolvedUser);
+    setBusy(null);
+    if (ocr.ok) { onChanged?.(); router.refresh(); }
+    await execute("analyse", { allowWithoutOcr: true });
   }
 
   function onClick(id: ButtonId) {
@@ -142,6 +170,30 @@ export function DocumentAiActions({ documentId, onOpenSheet, onChanged, show = D
         onClose={() => setDialogOpen(false)}
         onOpenSheet={() => { setDialogOpen(false); onOpenSheet?.(); }}
       />
+
+      {/* Modale « OCR absent » : l'analyse n'est plus bloquée par l'absence d'OCR. */}
+      {ocrModal ? (
+        <div className="fixed inset-0 z-[95] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="OCR absent">
+          <button type="button" aria-label="Fermer" onClick={() => setOcrModal(false)} className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm" />
+          <div className="relative z-10 w-full max-w-md rounded-3xl p-5 shadow-2xl" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+            <h2 className="text-[16px] font-extrabold" style={{ color: "var(--text-main)" }}>OCR absent</h2>
+            <p className="mt-2 text-[13px] leading-relaxed" style={{ color: "var(--text-muted)" }}>
+              Ce document ne dispose pas encore de texte OCR exploitable. L&apos;analyse IA peut tout de même examiner directement le document, mais certains résultats peuvent être moins précis selon le format et la qualité des pages.
+            </p>
+            <div className="mt-4 flex flex-col gap-2">
+              <button type="button" onClick={() => void ocrThenAnalyze()} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl px-4 text-[13.5px] font-bold text-white transition hover:opacity-90" style={{ background: "var(--accent)" }}>
+                <ScanLine className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden="true" /> Lancer l&apos;OCR
+              </button>
+              <button type="button" onClick={() => void analyzeWithoutOcr()} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border px-4 text-[13.5px] font-bold transition hover:bg-[var(--bg-card-soft)]" style={{ borderColor: "var(--border)", color: "var(--text-main)" }}>
+                <Sparkles className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden="true" /> Oui, lancer l&apos;analyse IA
+              </button>
+              <button type="button" onClick={() => setOcrModal(false)} className="inline-flex h-10 items-center justify-center rounded-xl px-4 text-[13px] font-semibold transition hover:bg-[var(--bg-card-soft)]" style={{ color: "var(--text-muted)" }}>
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

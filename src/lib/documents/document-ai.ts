@@ -79,28 +79,30 @@ export type AiActionData = {
   applied?: AiApplied | null;
   diagnostics?: AiDiagnostics | null;
 };
-export type AiActionResult = { ok: boolean; message: string; data?: AiActionData };
+export type AiActionResult = { ok: boolean; message: string; data?: AiActionData; code?: string };
 
 /** Actions qui produisent un résultat d'analyse → popup. */
 export const ANALYSIS_ACTIONS: AiActionId[] = ["analyse", "rapide", "avancee", "locale", "reanalyser"];
 
-/** Exécute une action IA et renvoie un résultat exploitable pour l'UI. */
-export async function runAiAction(documentId: number, action: AiActionId): Promise<AiActionResult> {
+/** Exécute une action IA et renvoie un résultat exploitable pour l'UI.
+ *  `opts.allowWithoutOcr` autorise l'analyse même sans OCR (texte natif/vision). */
+export async function runAiAction(documentId: number, action: AiActionId, opts: { allowWithoutOcr?: boolean } = {}): Promise<AiActionResult> {
+  const noOcr = opts.allowWithoutOcr === true;
   try {
     let res: Response;
     switch (action) {
       case "analyse":
         // Bouton principal : analyse profonde OpenAI (cloud + advanced + apply auto).
-        res = await post(`/api/ai/analyze-document`, { documentId, mode: "cloud", advanced: true, autoApply: true, force: true });
+        res = await post(`/api/ai/analyze-document`, { documentId, mode: "cloud", advanced: true, autoApply: true, force: true, allowWithoutOcr: noOcr });
         break;
       case "rapide":
-        res = await post(`/api/ai/analyze-document`, { documentId, mode: "cloud", force: true });
+        res = await post(`/api/ai/analyze-document`, { documentId, mode: "cloud", force: true, allowWithoutOcr: noOcr });
         break;
       case "avancee":
-        res = await post(`/api/ai/analyze-document`, { documentId, mode: "cloud", advanced: true, force: true });
+        res = await post(`/api/ai/analyze-document`, { documentId, mode: "cloud", advanced: true, force: true, allowWithoutOcr: noOcr });
         break;
       case "locale":
-        res = await post(`/api/ai/analyze-document`, { documentId, mode: "ai", force: true });
+        res = await post(`/api/ai/analyze-document`, { documentId, mode: "ai", force: true, allowWithoutOcr: noOcr });
         break;
       case "completer":
         res = await post(`/api/ai/analyze-document`, { documentId, mode: "enrich" });
@@ -117,7 +119,7 @@ export async function runAiAction(documentId: number, action: AiActionId): Promi
     }
     const json = (await res.json().catch(() => ({}))) as { message?: string; error?: string } & AiActionData;
     const data: AiActionData = { analysis: json.analysis ?? null, applied: json.applied ?? null, diagnostics: json.diagnostics ?? null };
-    if (!res.ok) return { ok: false, message: json.message || json.error || `Erreur ${res.status}`, data };
+    if (!res.ok) return { ok: false, message: json.message || json.error || `Erreur ${res.status}`, data, code: json.error };
     return { ok: true, message: json.message || SUCCESS[action], data };
   } catch {
     return { ok: false, message: "Échec — réessayez." };

@@ -377,6 +377,11 @@ export type RunAnalysisOptions = {
   autoApply?: boolean;
   /** Ignore les modèles appris (force une analyse OpenAI profonde). */
   ignoreLearned?: boolean;
+  /**
+   * Autorise l'analyse SANS OCR exploitable (texte natif PDF / métadonnées /
+   * vision selon le fournisseur). L'OCR devient facultatif, pas bloquant.
+   */
+  allowWithoutOcr?: boolean;
 };
 
 export type RunAnalysisOutcome =
@@ -459,13 +464,18 @@ export async function runDocumentAnalysis(
 
   const document = await getDocument(documentId);
   const ocrContent = (document.content ?? "").trim();
-  if (ocrContent.length < 20) {
+  // OCR FACULTATIF : on ne bloque que si l'appelant n'a pas explicitement
+  // autorisé l'analyse sans OCR. Avec allowWithoutOcr, l'analyse procède sur le
+  // texte natif PDF / les métadonnées / le nom de fichier (vision en phase 2).
+  if (ocrContent.length < 20 && !options.allowWithoutOcr) {
     return {
       status: "no-ocr",
       message:
-        "Ce document n'a pas encore de contenu OCR exploitable. Attendez la fin de l'OCR Paperless puis recommencez.",
+        "Ce document n'a pas encore de contenu OCR exploitable. Attendez la fin de l'OCR puis recommencez, ou lancez l'analyse directe.",
     };
   }
+  const inputMode: "ocr_text" | "document_vision" = ocrContent.length >= 20 ? "ocr_text" : "document_vision";
+  if (inputMode === "document_vision") console.log(`[AI] analyse SANS OCR (mode=${inputMode}) doc=${documentId} — texte natif/métadonnées`);
 
   const analyzeContext = {
     documentId,

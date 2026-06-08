@@ -21,6 +21,8 @@ type Body = {
   advanced?: boolean;
   /** Applique automatiquement la classification (défaut true pour analyse explicite). */
   autoApply?: boolean;
+  /** Autorise l'analyse même sans OCR exploitable (texte natif/vision). */
+  allowWithoutOcr?: boolean;
 };
 
 export async function POST(request: NextRequest) {
@@ -50,6 +52,7 @@ export async function POST(request: NextRequest) {
         force: body.force,
         mode,
         advanced: body.advanced,
+        allowWithoutOcr: body.allowWithoutOcr === true,
         // Compléter (enrich) ne doit pas appliquer la classification ; les analyses
         // explicites (cloud/ai/fast) appliquent par défaut.
         autoApply: mode === "enrich" ? false : (body.autoApply ?? true),
