@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ChevronDown,
   ChevronUp,
@@ -166,10 +166,33 @@ export function DashboardGrid({ data, userName }: { data: DashboardData; userNam
   const dragKey = useRef<GridWidgetKey | null>(null);
   const dragOverKey = useRef<GridWidgetKey | null>(null);
 
+  // Source de vérité = base (par utilisateur) ; localStorage = cache. Au montage,
+  // on charge la disposition serveur si elle existe et on l'applique.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/dashboard/layout", { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : { layout: null }))
+      .then((d: { layout?: { visibility?: Record<string, boolean>; order?: GridWidgetKey[] } | null }) => {
+        if (cancelled || !d.layout) return;
+        if (d.layout.visibility) setVisible((prev) => ({ ...prev, ...d.layout!.visibility }));
+        if (Array.isArray(d.layout.order) && d.layout.order.length) { setOrder(d.layout.order); savedOrder.current = d.layout.order; }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  function persistDb(vis: Visibility, ord: GridWidgetKey[]) {
+    void fetch("/api/dashboard/layout", {
+      method: "PUT", headers: { "Content-Type": "application/json" }, credentials: "include",
+      body: JSON.stringify({ visibility: vis, order: ord }),
+    }).catch(() => {});
+  }
+
   function toggleWidget(key: WidgetKey) {
     setVisible((prev) => {
       const next = { ...prev, [key]: !prev[key] };
       saveVisibility(next);
+      persistDb(next, order);
       return next;
     });
   }
@@ -224,6 +247,7 @@ export function DashboardGrid({ data, userName }: { data: DashboardData; userNam
     saveOrder(order);
     savedOrder.current = order;
     setReorgMode(false);
+    persistDb(visible, order);
   }
   function resetLayout() {
     setOrder(DEFAULT_GRID_ORDER);
