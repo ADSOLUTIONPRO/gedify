@@ -15,13 +15,12 @@ import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
 import { RightRailCard } from "@/components/ui/right-rail-card";
 import { SectionCard } from "@/components/ui/section-card";
-import { SegmentedTabs } from "@/components/ui/segmented-tabs";
+import { CalendarSidebar } from "@/components/calendar/calendar-sidebar";
 import { StatusPill } from "@/components/ui/status-pill";
 import { listActions } from "@/lib/actions/action-store";
 import { getAllDueItems } from "@/lib/budget/budget-calculations";
 import { listEvents } from "@/lib/calendar/calendar-event-store";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { CreateCalendarItemButton } from "@/components/calendar/create-calendar-item-button";
 import { AgendaEventsCard } from "@/components/calendar/agenda-events-card";
 import { CalendarTimeViews } from "@/components/calendar/calendar-time-views";
 import { GoogleSyncButton } from "@/components/calendar/google-sync-button";
@@ -226,8 +225,10 @@ function EventList({ events, today }: { events: CalendarEvent[]; today: Date }) 
   );
 }
 
-export default async function CalendrierPage({ searchParams }: { searchParams?: Promise<{ view?: string }> }) {
-  const view = (await searchParams)?.view ?? "month";
+export default async function CalendrierPage({ searchParams }: { searchParams?: Promise<{ view?: string; d?: string }> }) {
+  const sp = (await searchParams) ?? {};
+  const view = sp.view ?? "month";
+  const focusDate = sp.d;
   const [actions, dueItemsData, user] = await Promise.all([listActions(), getAllDueItems(), getCurrentUser()]);
   const calendarEvents = await listEvents(user ? String(user.id) : "local").catch(() => []);
 
@@ -295,41 +296,35 @@ export default async function CalendrierPage({ searchParams }: { searchParams?: 
         ]}
         title="Calendrier & Rendez-vous"
         description="Consultez, confirmez ou gérez vos rendez-vous, échéances et rappels depuis vos documents."
-        actions={
-          <>
-            <GoogleSyncButton />
-            <CreateCalendarItemButton />
-          </>
-        }
+        actions={<GoogleSyncButton />}
       />
 
-      <SegmentedTabs
-        tabs={[
-          { href: "/calendrier?view=jour", label: "Jour" },
-          { href: "/calendrier?view=semaine", label: "Semaine" },
-          { href: "/calendrier", label: "Mois" },
-          { href: "/calendrier?view=annee", label: "Année" },
-          { href: "/calendrier?view=liste", label: "Liste" },
-        ]}
-        activeHref={["jour", "semaine", "annee", "liste"].includes(view) ? `/calendrier?view=${view}` : "/calendrier"}
-      />
+      {/* Structure 3 colonnes façon Google Calendar : navigation, calendrier, rail. */}
+      <div className="flex flex-col gap-5 lg:flex-row">
+        {/* Colonne gauche : navigation + mini-calendrier + vues + accès rapides */}
+        <div className="shrink-0 lg:w-56">
+          <CalendarSidebar currentView={view} />
+        </div>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(300px,1fr)]">
-        <SectionCard
-          icon={CalendarRange}
-          title={view === "liste" ? "Vue Liste" : view === "jour" ? "Vue Jour" : view === "semaine" ? "Vue Semaine" : view === "annee" ? "Vue Année" : "Vue du mois"}
-          description={`${events.length} événement(s) au total`}
-        >
-          {view === "liste" ? (
-            <EventList events={events} today={today} />
-          ) : view === "jour" || view === "semaine" || view === "annee" ? (
-            <CalendarTimeViews view={view} allDayItems={events} todayISO={today.toISOString()} />
-          ) : (
-            <MonthCalendar events={events} />
-          )}
-        </SectionCard>
+        {/* Zone centrale : calendrier */}
+        <div className="min-w-0 flex-1">
+          <SectionCard
+            icon={CalendarRange}
+            title={view === "liste" ? "Vue Liste" : view === "jour" ? "Vue Jour" : view === "semaine" ? "Vue Semaine" : view === "annee" ? "Vue Année" : "Vue du mois"}
+            description={`${events.length} événement(s) au total`}
+          >
+            {view === "liste" ? (
+              <EventList events={events} today={today} />
+            ) : view === "jour" || view === "semaine" || view === "annee" ? (
+              <CalendarTimeViews view={view} allDayItems={events} todayISO={today.toISOString()} initialDateISO={focusDate} />
+            ) : (
+              <MonthCalendar events={events} />
+            )}
+          </SectionCard>
+        </div>
 
-        <aside className="space-y-5">
+        {/* Rail droit (plus étroit, ~320px) */}
+        <aside className="shrink-0 space-y-4 lg:w-[320px]">
           <RightRailCard title="Mes événements" icon={CalendarDays} iconTone="violet" bodyClassName="space-y-2">
             <AgendaEventsCard />
           </RightRailCard>

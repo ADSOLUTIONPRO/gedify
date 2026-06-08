@@ -24,9 +24,12 @@ function ymd(d: Date) { return `${d.getFullYear()}-${String(d.getMonth() + 1).pa
 function startOfWeek(d: Date) { const x = new Date(d); const day = (x.getDay() + 6) % 7; x.setDate(x.getDate() - day); x.setHours(0, 0, 0, 0); return x; }
 function addDays(d: Date, n: number) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
 
-export function CalendarTimeViews({ view, allDayItems, todayISO }: { view: "jour" | "semaine" | "annee"; allDayItems: AllDayItem[]; todayISO: string }) {
+export function CalendarTimeViews({ view, allDayItems, todayISO, initialDateISO }: { view: "jour" | "semaine" | "annee"; allDayItems: AllDayItem[]; todayISO: string; initialDateISO?: string }) {
   const router = useRouter();
-  const [refDate, setRefDate] = useState(() => new Date(todayISO));
+  const [refDate, setRefDate] = useState(() => {
+    const base = initialDateISO ? new Date(initialDateISO) : new Date(todayISO);
+    return Number.isNaN(base.getTime()) ? new Date(todayISO) : base;
+  });
   const [events, setEvents] = useState<Evt[]>([]);
   const [createAt, setCreateAt] = useState<string | null>(null);
   const [editing, setEditing] = useState<Evt | null>(null);
