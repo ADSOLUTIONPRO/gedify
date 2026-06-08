@@ -17,6 +17,10 @@ export type AdminSettingsProps = {
   initialFlags: { financeSpaceEnabled: boolean; autoBudgetClassificationEnabled: boolean; autoAiAnalysisEnabled: boolean; autoContactSyncEnabled: boolean };
   counts: { gmailAccounts: number; signatures: number; customFields: number | null; workflows: number | null; hiddenSenders: number | null };
   lastBackupAt: string | null;
+  office: { configured: boolean; url: string | null };
+  storageLocation: string;
+  backup: { retention: number; count: number };
+  lastActivityAt: string | null;
 };
 
 type Flags = AdminSettingsProps["initialFlags"];
@@ -41,7 +45,7 @@ const SECTIONS: { id: string; label: string; icon: React.ElementType; tone: Sect
 ];
 
 export function AdministrationSettings(props: AdminSettingsProps) {
-  const { account, engine, storageUsedPercent, initialFlags, counts, lastBackupAt } = props;
+  const { account, engine, storageUsedPercent, initialFlags, counts, lastBackupAt, office, storageLocation, backup, lastActivityAt } = props;
   const [flags, setFlags] = useState<Flags>(initialFlags);
   const [saved, setSaved] = useState<Flags>(initialFlags);
   const [saving, setSaving] = useState(false);
@@ -193,19 +197,24 @@ export function AdministrationSettings(props: AdminSettingsProps) {
 
           {/* 10. Office */}
           <Section id="office" icon={FileSignature} tone="purple" title="Office & intégrations">
-            <Status label="ONLYOFFICE" value="Selon configuration serveur" />
+            <Status label="ONLYOFFICE" value={office.configured ? "Connecté" : "À configurer"} tone={office.configured ? "green" : "orange"} />
+            <Status label="Serveur" value={office.url ?? "Non défini"} />
+            <Status label="Comptes mail connectés" value={`${counts.gmailAccounts}`} />
             <Manage row links={[{ href: "/redaction", label: "Office" }, { href: "/emails", label: "Connecteurs" }]} />
           </Section>
 
           {/* 11. Sauvegarde */}
           <Section id="backup" icon={Archive} tone="orange" title="Sauvegarde & migration">
-            <Status label="Dernière sauvegarde" value={lastBackupAt ? new Date(lastBackupAt).toLocaleString("fr-FR") : "—"} />
+            <Status label="Dernière sauvegarde" value={lastBackupAt ? new Date(lastBackupAt).toLocaleString("fr-FR") : "Aucune"} tone={lastBackupAt ? undefined : "orange"} />
+            <Status label="Sauvegardes conservées" value={`${backup.count}`} />
+            <Status label="Rétention" value={backup.retention === 0 ? "Illimitée" : `${backup.retention} sauvegardes`} />
             <Manage row links={[{ href: "/administration/sauvegarde", label: "Lancer une sauvegarde" }]} />
           </Section>
 
           {/* 12. Stockage & système */}
           <Section id="storage" icon={HardDrive} tone="blue" title="Stockage & système">
-            <Status label="Espace utilisé" value={storageUsedPercent != null ? `${storageUsedPercent}%` : "—"} />
+            <Status label="Emplacement" value={storageLocation} />
+            <Status label="Espace utilisé" value={storageUsedPercent != null ? `${storageUsedPercent}%` : "—"} tone={storageUsedPercent != null && storageUsedPercent >= 90 ? "orange" : undefined} />
             <Status label="Santé système" value={engine.connected ? "OK" : "À vérifier"} tone={engine.connected ? "green" : "orange"} />
             <Manage row links={[{ href: "/stockage", label: "Stockage" }, { href: "/statut", label: "Santé système" }]} />
           </Section>
@@ -213,12 +222,14 @@ export function AdministrationSettings(props: AdminSettingsProps) {
           {/* 13. Champs personnalisés */}
           <Section id="fields" icon={ListPlus} tone="pink" title="Champs personnalisés">
             <Status label="Champs créés" value={counts.customFields != null ? `${counts.customFields}` : "—"} />
-            <Manage row links={[{ href: "/champs-personnalises", label: "Gérer les champs" }]} />
+            <Status label="Workflows liés" value={counts.workflows != null ? `${counts.workflows}` : "—"} />
+            <Manage row links={[{ href: "/champs-personnalises", label: "Gérer les champs" }, { href: "/champs-personnalises", label: "Ajouter un champ" }]} />
           </Section>
 
           {/* 14. Journaux */}
           <Section id="logs" icon={ScrollText} tone="green" title="Journaux & activités">
-            <Status label="Journalisation" value="Activée" />
+            <Status label="Dernière activité" value={lastActivityAt ? new Date(lastActivityAt).toLocaleString("fr-FR") : "—"} />
+            <Status label="Journalisation" value="Activée" tone="green" />
             <Manage row links={[{ href: "/journaux", label: "Voir les journaux" }]} />
           </Section>
 
