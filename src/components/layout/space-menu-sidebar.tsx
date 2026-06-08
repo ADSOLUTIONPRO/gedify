@@ -142,6 +142,8 @@ export function SpaceMenuSidebar({ financeEnabled = true }: { financeEnabled?: b
   // La page Correspondants est un espace de travail « master-detail » pleine
   // largeur (liste + fiche) → pas de sidebar secondaire.
   if (pathname === "/correspondants" || pathname.startsWith("/correspondants?")) return null;
+  // La page unique Paramètres a sa propre sidebar d'ancres (scroll-spy).
+  if (pathname === "/administration/parametres") return null;
   // Module Finances désactivé : pas de sous-menu finances (l'accès est gardé par
   // /finances/layout.tsx qui affiche le message « espace désactivé »).
   if (!financeEnabled && (pathname.startsWith("/finances") || pathname.startsWith("/budget"))) return null;

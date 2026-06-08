@@ -195,7 +195,7 @@ export const SPACE_MENUS: Record<string, SpaceMenu> = {
     id: "administration",
     title: "Administration",
     description: "Utilisateurs, connecteurs & sécurité",
-    action: { label: "Paramètres", href: "/parametres", icon: Settings },
+    action: { label: "Paramètres", href: "/administration/parametres", icon: Settings },
     items: [
       { label: "Vue d'ensemble", href: "/administration", icon: Gauge },
       { label: "Utilisateurs", href: "/utilisateurs", icon: Users },
@@ -210,7 +210,7 @@ export const SPACE_MENUS: Record<string, SpaceMenu> = {
       { label: "Sauvegarde & migration", href: "/administration/sauvegarde", icon: Archive },
       { label: "Stockage", href: "/stockage", icon: Archive },
       { label: "Champs personnalisés", href: "/champs-personnalises", icon: Sliders },
-      { label: "Paramètres", href: "/parametres", icon: Settings },
+      { label: "Paramètres", href: "/administration/parametres", icon: Settings },
     ],
   },
 
