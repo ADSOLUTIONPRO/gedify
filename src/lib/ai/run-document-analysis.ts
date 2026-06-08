@@ -18,6 +18,7 @@ import { getCorrespondents, getDocument, getDocumentTypes, getTags, updateDocume
 import { linkProjectDocuments, listProjectFolders } from "@/lib/projects/project-store";
 import { getTitleOverride, setTitleOverride } from "@/lib/documents/document-title-store";
 import { buildTitleFromAnalysis } from "@/lib/documents/document-title-service";
+import { isOcrUsable } from "@/lib/ai/ocr-usability";
 import { resolveClassification } from "@/lib/ai/resolve-classification";
 import { findTemplateMatch, templateClassificationOverride } from "@/lib/ai/learned-template-apply";
 import { getLearnedTemplate } from "@/lib/ai/learned-templates-store";
@@ -477,17 +478,18 @@ export async function runDocumentAnalysis(
 
   const document = await getDocument(documentId);
   const ocrContent = (document.content ?? "").trim();
-  // OCR FACULTATIF : on ne bloque que si l'appelant n'a pas explicitement
-  // autorisé l'analyse sans OCR. Avec allowWithoutOcr, l'analyse procède sur le
-  // texte natif PDF / les métadonnées / le nom de fichier (vision en phase 2).
-  if (ocrContent.length < 20 && !options.allowWithoutOcr) {
+  // OCR FACULTATIF + EXPLOITABILITÉ (§16) : on bloque (→ confirmation UI) si
+  // l'OCR est absent, trop court, trop pauvre ou illisible, SAUF si l'appelant
+  // autorise l'analyse directe (allowWithoutOcr : texte natif/métadonnées/vision).
+  const ocrUsable = isOcrUsable(ocrContent);
+  if (!ocrUsable && !options.allowWithoutOcr) {
     return {
       status: "no-ocr",
       message:
-        "Ce document n'a pas encore de contenu OCR exploitable. Attendez la fin de l'OCR puis recommencez, ou lancez l'analyse directe.",
+        "Ce document n'a pas encore de contenu OCR exploitable. Lancez l'OCR puis recommencez, ou lancez l'analyse directe.",
     };
   }
-  const inputMode: "ocr_text" | "document_vision" = ocrContent.length >= 20 ? "ocr_text" : "document_vision";
+  const inputMode: "ocr_text" | "document_vision" = ocrUsable ? "ocr_text" : "document_vision";
   if (inputMode === "document_vision") console.log(`[AI] analyse SANS OCR (mode=${inputMode}) doc=${documentId} — texte natif/métadonnées`);
 
   const analyzeContext = {
