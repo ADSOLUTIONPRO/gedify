@@ -121,7 +121,16 @@ function SpaceMenuInner({ onNavigate }: { onNavigate?: () => void }) {
       {/* Liste du menu (groupée si `menu.groups`, sinon plate) */}
       <nav className={`${activeId === "organiser" || activeId === "agenda" ? "" : "flex-1"} overflow-y-auto px-2 pb-2`}>
         {menu.groups && menu.groups.length > 0 ? (
-          menu.groups.map((group, gi) => {
+          <>
+          {/* Items sans groupe → rendus en tête (ex. « Vue d'ensemble »). */}
+          {menu.items.some((it) => !it.group) ? (
+            <ul className="mb-2 space-y-0.5">
+              {menu.items.filter((it) => !it.group).map((item) => (
+                <MenuRow key={item.href} item={item} active={menu.items.indexOf(item) === active} onNavigate={onNavigate} />
+              ))}
+            </ul>
+          ) : null}
+          {menu.groups.map((group, gi) => {
             const groupItems = menu.items.filter((it) => it.group === group.id);
             if (groupItems.length === 0) return null;
             return (
@@ -137,7 +146,8 @@ function SpaceMenuInner({ onNavigate }: { onNavigate?: () => void }) {
                 </ul>
               </div>
             );
-          })
+          })}
+          </>
         ) : (
           <ul className="space-y-0.5">
             {menu.items.map((item, i) => (

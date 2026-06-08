@@ -6,7 +6,6 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
-import { AdminSidebar } from "@/components/admin/admin-sidebar";
 import { OrphanCleanupButton } from "@/components/admin/orphan-cleanup-button";
 import { PermisTagCleanupButton } from "@/components/admin/permis-tag-cleanup-button";
 import { ResetHistoryButton } from "@/components/admin/reset-history-button";
@@ -74,14 +73,9 @@ export default async function AdministrationPage() {
         description="Vue d'ensemble de votre environnement GEDify."
       />
 
-      <div className="flex flex-col gap-5 lg:flex-row">
-        {/* Sidebar de gouvernance */}
-        <div className="shrink-0 lg:w-[270px]">
-          <AdminSidebar />
-        </div>
-
-        {/* Dashboard */}
-        <div className="min-w-0 flex-1 space-y-4">
+      {/* La navigation Administration est l'unique sidebar d'espace (layout) :
+          le contenu occupe ici toute la largeur disponible. */}
+      <div className="space-y-4">
           {/* Stats */}
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Stat icon={Activity} tone={status.connected ? "green" : "rose"} label="Statut global" value={status.connected ? "En bonne santé" : "Dégradé"} />
@@ -191,7 +185,6 @@ export default async function AdministrationPage() {
             </Card>
           </div>
         </div>
-      </div>
     </PageShell>
   );
 }
