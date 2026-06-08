@@ -127,7 +127,7 @@ export function DocumentSpace({
   const [docToDelete, setDocToDelete] = useState<DocumentVM | null>(null);
   const [deletingSingle, setDeletingSingle] = useState(false);
   // Analyse IA groupée.
-  const [bulkDocs, setBulkDocs] = useState<{ id: number; title: string }[] | null>(null);
+  const [bulkDocs, setBulkDocs] = useState<{ id: number; title: string; ocr?: "done" | "low" | "pending" }[] | null>(null);
   // Action document unitaire (menu « … ») ciblant les panneaux groupés sur un seul doc.
   const [singleActionDoc, setSingleActionDoc] = useState<DocumentVM | null>(null);
 
@@ -170,7 +170,7 @@ export function DocumentSpace({
 
   function openBulkAnalyze() {
     const targets = selectedIds.size > 0 ? docs.filter((d) => selectedIds.has(d.id)) : docs;
-    setBulkDocs(targets.map((d) => ({ id: d.id, title: d.displayTitle })));
+    setBulkDocs(targets.map((d) => ({ id: d.id, title: d.displayTitle, ocr: d.statuses.ocr })));
   }
 
   function handleAiAction(doc: DocumentVM, action: AiActionId) {

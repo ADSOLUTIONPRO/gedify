@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { AlertTriangle, Check, Loader2, RefreshCw, Sparkles, X } from "lucide-react";
+import { AlertTriangle, Check, Loader2, RefreshCw, ScanText, Sparkles, X } from "lucide-react";
 
 type ItemStatus = "pending" | "running" | "done" | "review" | "error";
-type Item = { id: number; title: string; status: ItemStatus; message?: string };
+type OcrState = "done" | "low" | "pending";
+type Item = { id: number; title: string; status: ItemStatus; message?: string; ocr?: OcrState };
 
 type AnalyzeResponse = {
   analysis?: { needsReview?: boolean };
@@ -24,11 +25,11 @@ export function BulkAnalyzeDialog({
   onClose,
   onDone,
 }: {
-  docs: { id: number; title: string }[];
+  docs: { id: number; title: string; ocr?: OcrState }[];
   onClose: () => void;
   onDone?: () => void;
 }) {
-  const [items, setItems] = useState<Item[]>(() => docs.map((d) => ({ id: d.id, title: d.title, status: "pending" as ItemStatus })));
+  const [items, setItems] = useState<Item[]>(() => docs.map((d) => ({ id: d.id, title: d.title, status: "pending" as ItemStatus, ocr: d.ocr })));
   const [started, setStarted] = useState(false);
   const [running, setRunning] = useState(false);
   const cancelRef = useRef(false);
@@ -59,7 +60,9 @@ export function BulkAnalyzeDialog({
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ documentId: t.id, mode: "cloud", advanced: true, autoApply: true, force: true }),
+          // allowWithoutOcr : un document sans OCR exploitable n'échoue PAS le
+          // lot (§20) — il est analysé directement (texte natif/vision).
+          body: JSON.stringify({ documentId: t.id, mode: "cloud", advanced: true, autoApply: true, force: true, allowWithoutOcr: true }),
         });
         const data = (await res.json().catch(() => ({}))) as AnalyzeResponse;
         if (!res.ok) {
@@ -79,6 +82,23 @@ export function BulkAnalyzeDialog({
   function retryErrors() {
     setItems((prev) => prev.map((it) => (it.status === "error" ? { ...it, status: "pending", message: undefined } : it)));
     void run(true);
+  }
+
+  // Récap OCR avant lancement (§20) : exploitable / sans OCR / en cours.
+  const ocrRecap = useMemo(() => {
+    const ok = items.filter((i) => i.ocr === "done").length;
+    const pending = items.filter((i) => i.ocr === "pending").length;
+    const missing = items.length - ok - pending; // low / inconnu
+    return { ok, pending, missing, needOcr: missing + pending };
+  }, [items]);
+
+  /** Lance l'OCR pour les documents concernés (best-effort), puis analyse tout. */
+  async function ocrThenAnalyze() {
+    const concerned = items.filter((i) => i.ocr !== "done");
+    await Promise.allSettled(
+      concerned.map((i) => fetch(`/api/documents/${i.id}/redo-ocr`, { method: "POST", credentials: "include" })),
+    );
+    void run(false);
   }
 
   const pct = counts.total > 0 ? Math.round((counts.processed / counts.total) * 100) : 0;
@@ -110,6 +130,13 @@ export function BulkAnalyzeDialog({
             <span className="rounded-full px-2 py-0.5" style={{ background: "#FFF4E5", color: "#B45309" }}>{counts.review} à vérifier</span>
             <span className="rounded-full px-2 py-0.5" style={{ background: "#FEECEC", color: "#DC2626" }}>{counts.error} erreur(s)</span>
           </div>
+          {/* Récap OCR avant lancement (§20) : le lot n'est jamais bloqué par un doc sans OCR. */}
+          {!started ? (
+            <p className="mt-2 text-[11.5px]" style={{ color: "var(--text-muted)" }}>
+              {ocrRecap.ok} avec OCR exploitable · {ocrRecap.missing} sans OCR · {ocrRecap.pending} en cours.
+              {ocrRecap.needOcr > 0 ? " Les documents sans OCR seront analysés directement (texte natif / vision)." : ""}
+            </p>
+          ) : null}
         </div>
 
         <ul className="flex-1 divide-y overflow-y-auto" style={{ borderColor: "var(--border)" }}>
@@ -127,9 +154,14 @@ export function BulkAnalyzeDialog({
             <button type="button" onClick={() => { cancelRef.current = true; }} className="inline-flex h-9 items-center gap-1.5 rounded-full border px-4 text-[12.5px] font-bold" style={{ borderColor: "var(--border)", color: "var(--text-main)" }}>Annuler</button>
           ) : !started ? (
             <>
-              <button type="button" onClick={onClose} className="inline-flex h-9 items-center rounded-full border px-4 text-[12.5px] font-bold" style={{ borderColor: "var(--border)", color: "var(--text-main)" }}>Fermer</button>
+              <button type="button" onClick={onClose} className="mr-auto inline-flex h-9 items-center rounded-full border px-4 text-[12.5px] font-bold" style={{ borderColor: "var(--border)", color: "var(--text-main)" }}>Annuler</button>
+              {ocrRecap.needOcr > 0 ? (
+                <button type="button" onClick={() => void ocrThenAnalyze()} className="inline-flex h-9 items-center gap-1.5 rounded-full border px-4 text-[12.5px] font-bold" style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>
+                  <ScanText className="h-4 w-4" strokeWidth={2} /> OCR ({ocrRecap.needOcr}) puis analyser
+                </button>
+              ) : null}
               <button type="button" onClick={() => void run(false)} className="inline-flex h-9 items-center gap-1.5 rounded-full px-5 text-[12.5px] font-bold text-white" style={{ background: "var(--accent)" }}>
-                <Sparkles className="h-4 w-4" strokeWidth={2} /> Analyser {counts.total} document(s)
+                <Sparkles className="h-4 w-4" strokeWidth={2} /> {ocrRecap.needOcr > 0 ? `Analyser les ${counts.total}` : `Analyser ${counts.total} document(s)`}
               </button>
             </>
           ) : (
