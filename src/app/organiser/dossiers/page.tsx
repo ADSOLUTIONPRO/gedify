@@ -8,6 +8,9 @@ import { DocumentSpace } from "@/components/documents/document-space";
 import type { DocumentFilterValues } from "@/components/documents/document-filters";
 import { listProjectFolders } from "@/lib/projects/project-store";
 import { computeFolderPath, indexFoldersById } from "@/lib/projects/project-utils";
+import { FolderPinButton } from "@/components/dashboard/folder-pin-button";
+import { isPinned } from "@/lib/dashboard/pinned-store";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { buildDocumentApiParams, buildDocumentVMs, matchesEtat } from "@/lib/documents/document-list-loader";
 import { listAnalyses } from "@/lib/ai/ai-analysis-store";
 import { listFinancialItems } from "@/lib/budget/financial-item-store";
@@ -72,6 +75,10 @@ export default async function OrganiserDossiersPage({ searchParams }: { searchPa
     const resetHref = `/organiser/dossiers${selected ? `?folder=${selected.id}` : ""}`;
     const selectedPath = selected ? computeFolderPath(selected, byId) : "";
 
+    // État épinglé du dossier ouvert (par utilisateur) pour l'en-tête.
+    const currentUser = await getCurrentUser();
+    const folderPinned = selected ? await isPinned(currentUser ? String(currentUser.id) : "local", "folder", selected.id).catch(() => false) : false;
+
     return (
       <SpaceLayout spaceId="organiser">
         {selected ? (
@@ -97,6 +104,12 @@ export default async function OrganiserDossiersPage({ searchParams }: { searchPa
                     usp.set("view", v);
                     return `/organiser/dossiers?${usp.toString()}`;
                   }}
+                />
+                <FolderPinButton
+                  entityId={selected.id}
+                  initialPinned={folderPinned}
+                  iconOnly
+                  className="flex h-9 w-9 items-center justify-center rounded-xl border bg-white transition hover:bg-[var(--bg-card-soft)]"
                 />
                 <Link href={`/dossiers/${selected.id}`} className="inline-flex h-9 items-center gap-1.5 rounded-xl border px-3 text-[12.5px] font-bold transition hover:bg-[var(--bg-card-soft)]" style={{ borderColor: "var(--border-strong)", color: "var(--text-main)" }}>
                   Ouvrir le dossier <ArrowRight className="h-4 w-4" strokeWidth={2} />
