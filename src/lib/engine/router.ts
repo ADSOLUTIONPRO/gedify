@@ -514,6 +514,21 @@ async function listTaxonomy(resource: string, query: URLSearchParams): Promise<R
   const id__in = parseIds(query.get("id__in"));
   if (id__in.length) items = items.filter((i) => id__in.includes(Number(i.id)));
 
+  // Tri par défaut ALPHABÉTIQUE (fr, insensible à la casse/accents) plutôt que
+  // par ordre de création → listes, autocomplétions et pages globales A→Z.
+  // Un tri explicite (?ordering=) reste prioritaire.
+  const ordering = query.get("ordering");
+  if (!ordering) {
+    items = [...items].sort((a, b) =>
+      String(a.name ?? "").localeCompare(String(b.name ?? ""), "fr", { sensitivity: "base", numeric: true }),
+    );
+  } else if (ordering === "name" || ordering === "-name") {
+    items = [...items].sort((a, b) =>
+      String(a.name ?? "").localeCompare(String(b.name ?? ""), "fr", { sensitivity: "base", numeric: true }),
+    );
+    if (ordering === "-name") items.reverse();
+  }
+
   const withCount = await withCounts(resource, items);
   const page = Math.max(1, parseInt(query.get("page") ?? "1", 10) || 1);
   const pageSize = Math.min(100000, Math.max(1, parseInt(query.get("page_size") ?? "100", 10) || 100));
