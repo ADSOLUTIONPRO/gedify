@@ -23,6 +23,7 @@ import { AutocompleteInput, type AutocompleteSuggestion } from "@/components/ui/
 import { FolderPickerField } from "@/components/folders/folder-picker-field";
 import { FolderPickerModal, type FolderSelection } from "@/components/folders/folder-picker-modal";
 import { CreateCalendarItemModal } from "@/components/calendar/create-calendar-item-modal";
+import { DocumentFavoriteToggle } from "@/components/documents/document-favorite-toggle";
 import { AmountBreakdownEditor, type BreakdownSeed } from "@/components/documents/amount-breakdown-editor";
 import { DocumentSecondaryCorrespondents } from "@/components/documents/document-secondary-correspondents";
 import { formatAmount, type DocumentVM } from "@/components/documents/types";
@@ -330,6 +331,7 @@ export function DocumentAiSheet({ doc, onClose, onApplied }: { doc: DocumentVM; 
           </div>
           <div className="flex items-center gap-2">
             {pct != null && (phase === "view" || phase === "applying") ? <ConfidenceChip pct={pct} /> : null}
+            <DocumentFavoriteToggle documentId={doc.id} />
             <button type="button" onClick={onClose} aria-label="Fermer" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700">
               <X className="h-5 w-5" strokeWidth={1.75} />
             </button>
