@@ -4,6 +4,7 @@ import { DocumentPreview } from "@/components/ui/document-preview";
 import { Button } from "@/components/ui/button";
 import { CompactCard } from "@/components/ui/compact-card";
 import { PinnedFoldersWidget } from "@/components/dashboard/pinned-folders-widget";
+import { SavedViewsWidget } from "@/components/dashboard/saved-views-widget";
 import { CompactEmptyState } from "@/components/ui/compact-empty-state";
 import { CompactPageHeader } from "@/components/ui/compact-page-header";
 import { ErrorState } from "@/components/ui/error-state";
@@ -148,6 +149,14 @@ export default async function DashboardPage() {
               actions={<Link href="/organiser/dossiers" className="text-xs font-bold text-blue-700 hover:underline">Organiser</Link>}
             >
               <PinnedFoldersWidget />
+            </CompactCard>
+
+            <CompactCard
+              title="Vues enregistrées"
+              description="Vos filtres Documents sauvegardés."
+              actions={<Link href="/documents" className="text-xs font-bold text-blue-700 hover:underline">Documents</Link>}
+            >
+              <SavedViewsWidget />
             </CompactCard>
 
             <CompactCard

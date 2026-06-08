@@ -8,6 +8,7 @@ import { ViewToggle } from "@/components/ui/view-toggle";
 import { SpaceLayout } from "@/components/layout/space-layout";
 import { DocumentSpace } from "@/components/documents/document-space";
 import { PageSizeSelector } from "@/components/documents/page-size-selector";
+import { SaveViewButton } from "@/components/documents/save-view-button";
 import type { DocumentFilterValues } from "@/components/documents/document-filters";
 import { buildDocumentApiParams, buildDocumentVMs, matchesEtat } from "@/lib/documents/document-list-loader";
 import { listAnalyses } from "@/lib/ai/ai-analysis-store";
@@ -194,6 +195,7 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pa
         spaceId="documents"
         actions={
           <>
+            <SaveViewButton />
             <PageSizeSelector value={pageSize} currentQuery={currentQuery} />
             <ViewToggle
               options={[
