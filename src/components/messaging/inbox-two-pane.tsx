@@ -360,12 +360,34 @@ export function InboxTwoPane({
         {/* Liste */}
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
           {visible.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-24 text-center" style={{ color: MUTED }}>
-              <span className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl" style={{ background: RED2, color: RED }}>
-                <Search className="h-6 w-6" strokeWidth={1.5} />
+            <div className="flex flex-col items-center justify-center px-6 py-24 text-center" style={{ color: MUTED }}>
+              <span className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl" style={{ background: accountErrors.length > 0 ? "#FFF7ED" : RED2, color: accountErrors.length > 0 ? "#9A3412" : RED }}>
+                {accountErrors.length > 0 ? <AlertTriangle className="h-6 w-6" strokeWidth={1.75} /> : <Search className="h-6 w-6" strokeWidth={1.5} />}
               </span>
-              <p className="text-[16px] font-semibold" style={{ color: "var(--text-main)" }}>Aucun e-mail</p>
-              <p className="mt-1 text-[13px]">{keyword ? "Aucun résultat pour cette recherche." : "Cette boîte est vide."}</p>
+              {accountErrors.length > 0 ? (
+                <>
+                  <p className="text-[16px] font-semibold" style={{ color: "var(--text-main)" }}>La synchronisation de cette boîte a échoué</p>
+                  <p className="mt-1 text-[13px]">{accountErrors[0].reconnect ? "L'accès a expiré — reconnectez la boîte." : "Réessayez la synchronisation."}</p>
+                  <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                    <button type="button" onClick={() => void refresh()} className="inline-flex h-9 items-center gap-1.5 rounded-full border px-4 text-[13px] font-bold" style={{ borderColor: LINE, color: RED }}>Réessayer</button>
+                    <a href="/messagerie/parametres" className="inline-flex h-9 items-center gap-1.5 rounded-full border px-4 text-[13px] font-bold" style={{ borderColor: LINE, color: "var(--text-main)" }}>Reconnecter la boîte</a>
+                  </div>
+                </>
+              ) : keyword || (filters.length > 0) ? (
+                <>
+                  <p className="text-[16px] font-semibold" style={{ color: "var(--text-main)" }}>Aucun message ne correspond</p>
+                  <p className="mt-1 text-[13px]">Aucun résultat pour ces filtres.</p>
+                  {filters.length > 0 ? <button type="button" onClick={() => setFilters([])} className="mt-4 inline-flex h-9 items-center rounded-full border px-4 text-[13px] font-bold" style={{ borderColor: LINE, color: RED }}>Réinitialiser les filtres</button> : null}
+                </>
+              ) : (
+                <>
+                  <p className="text-[16px] font-semibold" style={{ color: "var(--text-main)" }}>Aucun message dans cette boîte</p>
+                  <p className="mt-1 text-[13px]">Cette boîte est connectée. Lancez une synchronisation ou choisissez une autre boîte ci-dessus.</p>
+                  <button type="button" onClick={() => void refresh()} className="mt-4 inline-flex h-9 items-center gap-1.5 rounded-full border px-4 text-[13px] font-bold" style={{ borderColor: LINE, color: RED }}>
+                    <RefreshCw className="h-4 w-4" strokeWidth={1.85} /> Actualiser
+                  </button>
+                </>
+              )}
             </div>
           ) : (
             <ul>

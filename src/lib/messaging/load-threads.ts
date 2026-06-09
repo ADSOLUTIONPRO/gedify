@@ -175,9 +175,10 @@ export async function loadThreads(
     }),
   );
 
-  if (!aggregate && accounts.length === 1 && perAccount[0]?.error && imapThreads.length === 0) {
-    return { connected: false, oauthConfigured: true, needsReconnect: perAccount[0].reconnect };
-  }
+  // NOTE : on ne renvoie PLUS `connected:false` quand un compte existe mais que
+  // sa synchro échoue (token expiré, jamais synchronisé…). Sinon l'inbox — et son
+  // sélecteur de boîtes — disparaîtrait, empêchant de revenir sur une autre boîte.
+  // L'erreur est remontée via `accountErrors` (bandeau) et la liste reste vide.
 
   const [linksByThread, hiddenEmails, attImportsByThread] = await Promise.all([
     indexLinksByThread(),
