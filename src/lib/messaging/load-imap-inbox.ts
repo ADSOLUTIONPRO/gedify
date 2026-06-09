@@ -31,7 +31,7 @@ export type ImapInboxResult = {
 /** Comptes IMAP (mot de passe) actifs + leurs messages indexés, triés récents d'abord. */
 export async function loadImapInbox(limit = 100): Promise<ImapInboxResult> {
   const accounts = (await listAccounts()).filter(
-    (a) => a.authType === "imap-password" && a.isActive,
+    (a) => (a.authType === "imap-password" || a.authType === "oauth-outlook") && a.isActive,
   );
   if (accounts.length === 0) return { accounts: [], items: [] };
 

@@ -32,8 +32,9 @@ export function AddMailAccountModal({ onClose }: { onClose: () => void }) {
 
         <div className="mt-4 space-y-2.5">
           <Choice href={`/api/connectors/gmail/start?returnTo=${encodeURIComponent(RETURN_TO)}`} title="Continuer avec Google" sub="Gmail et Google Workspace" badge="G" badgeColor="#EA4335" />
+          <Choice href={`/api/connectors/outlook/start?returnTo=${encodeURIComponent(RETURN_TO)}`} title="Continuer avec Microsoft" sub="Outlook.com, Hotmail, Live et Microsoft 365" badge="⊞" badgeColor="#0078D4" />
           <Choice href="/messagerie/parametres-emails/connecter-bmails?provider=icloud" title="Connecter un compte Apple / iCloud" sub="iCloud Mail, me.com et mac.com" icon={Mail} badgeColor="#0F172A" />
-          <Choice href="/messagerie/parametres-emails/connecter-bmails" title="Configurer un autre fournisseur" sub="Outlook, Yahoo, La Poste ou serveur IMAP/SMTP" icon={Settings2} badgeColor="#64748B" />
+          <Choice href="/messagerie/parametres-emails/connecter-bmails" title="Configurer un autre fournisseur" sub="Yahoo, La Poste ou serveur IMAP/SMTP" icon={Settings2} badgeColor="#64748B" />
         </div>
       </div>
     </div>

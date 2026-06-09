@@ -52,7 +52,9 @@ export async function getMailboxCounts(): Promise<{ total: number; boxes: Mailbo
     }),
   );
 
-  const imap = imapAll.filter((a) => a.authType === "imap-password" && a.isActive);
+  const imap = imapAll.filter(
+    (a) => (a.authType === "imap-password" || a.authType === "oauth-outlook") && a.isActive,
+  );
   const indexed = imap.length > 0 ? await searchEmailMessages("", 3000).catch(() => []) : [];
   const imapCounts: MailboxCount[] = imap.map((a) => ({
     id: a.id,

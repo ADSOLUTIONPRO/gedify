@@ -9,7 +9,8 @@ import { paperlessFetchRaw } from "@/lib/paperless";
 import { createEmailLink } from "@/lib/messaging/email-ged-link-store";
 import { resolveSendAccount } from "@/lib/messaging/sendable-accounts";
 import { getAccountWithSecret, getDecryptedPassword } from "@/lib/mail-connector/account-store";
-import { sendSmtpMessage } from "@/lib/mail-connector/smtp-send";
+import { sendSmtpMessage, sendSmtpMessageOAuth2 } from "@/lib/mail-connector/smtp-send";
+import { getValidOutlookAccessToken } from "@/lib/connectors/outlook/outlook-access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -157,16 +158,15 @@ export async function POST(request: NextRequest) {
       threadKey = message?.threadId ?? body.threadId ?? message?.id ?? null;
       if (body.draftId) await deleteGmailDraft(sender.id, body.draftId).catch(() => {});
     } else {
-      // IMAP → envoi via SMTP (nodemailer). Mot de passe = celui de l'IMAP.
+      // IMAP/SMTP. Compte Outlook OAuth → XOAUTH2 ; sinon mot de passe SMTP.
       const acct = await getAccountWithSecret(sender.id);
-      const password = await getDecryptedPassword(sender.id);
-      if (!acct || !password) {
+      if (!acct) {
         return NextResponse.json(
-          { error: "Mot de passe de la boîte manquant. Reconnectez le compte.", errorType: "no_password" },
+          { error: "Boîte d'envoi introuvable. Reconnectez le compte.", errorType: "no_password" },
           { status: 503 },
         );
       }
-      const sent = await sendSmtpMessage(acct, password, {
+      const smtpInput = {
         to: body.to,
         cc: body.cc,
         bcc: body.bcc,
@@ -174,7 +174,21 @@ export async function POST(request: NextRequest) {
         body: body.body ?? "",
         inReplyTo: body.inReplyTo,
         attachments: attachments.length ? attachments : undefined,
-      });
+      };
+      let sent;
+      if (acct.authType === "oauth-outlook") {
+        const { accessToken } = await getValidOutlookAccessToken(sender.id);
+        sent = await sendSmtpMessageOAuth2(acct, accessToken, smtpInput);
+      } else {
+        const password = await getDecryptedPassword(sender.id);
+        if (!password) {
+          return NextResponse.json(
+            { error: "Mot de passe de la boîte manquant. Reconnectez le compte.", errorType: "no_password" },
+            { status: 503 },
+          );
+        }
+        sent = await sendSmtpMessage(acct, password, smtpInput);
+      }
       result = sent;
       messageId = sent.id || null;
       threadKey = body.threadId ?? sent.id ?? null;

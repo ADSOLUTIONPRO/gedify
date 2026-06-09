@@ -32,7 +32,7 @@ export async function listSendableAccounts(): Promise<SendableAccount[]> {
   }));
 
   const i: SendableAccount[] = imap
-    .filter((a) => a.authType === "imap-password" && a.isActive)
+    .filter((a) => (a.authType === "imap-password" || a.authType === "oauth-outlook") && a.isActive)
     .map((a) => ({
       id: a.id,
       email: a.email,

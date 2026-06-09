@@ -114,7 +114,7 @@ function imapRecordToThread(m: ImapIndexRecord, accountEmail: string): Normalize
 }
 
 async function loadImapThreadRecords(selected: string, limit: number): Promise<NormalizedThread[]> {
-  const imapAccounts = (await listAccounts()).filter((a) => a.authType === "imap-password" && a.isActive);
+  const imapAccounts = (await listAccounts()).filter((a) => (a.authType === "imap-password" || a.authType === "oauth-outlook") && a.isActive);
   if (imapAccounts.length === 0) return [];
   const targets = selected === "all" ? imapAccounts : imapAccounts.filter((a) => a.id === selected);
   if (targets.length === 0) return [];
@@ -260,13 +260,13 @@ export async function loadLinkedThreads(limit = 100): Promise<LoadThreadsResult>
 
   const [gmailAccounts, allAccounts] = await Promise.all([listGmailAccounts(), listAccounts()]);
   const fallbackGmail = await getActiveGmailAccount();
-  const hasAnyAccount = gmailAccounts.length > 0 || allAccounts.some((a) => a.authType === "imap-password" && a.isActive);
+  const hasAnyAccount = gmailAccounts.length > 0 || allAccounts.some((a) => (a.authType === "imap-password" || a.authType === "oauth-outlook") && a.isActive);
   if (!hasAnyAccount) {
     return { connected: false, oauthConfigured: Boolean(getGmailOAuthConfig()) };
   }
 
   const gmailEmail = new Map(gmailAccounts.map((a) => [a.accountId, a.email] as const));
-  const imapAccounts = allAccounts.filter((a) => a.authType === "imap-password" && a.isActive);
+  const imapAccounts = allAccounts.filter((a) => (a.authType === "imap-password" || a.authType === "oauth-outlook") && a.isActive);
   const imapEmail = new Map(imapAccounts.map((a) => [a.id, a.email] as const));
 
   // Compte propriétaire de chaque thread (import PJ d'abord — accountId requis —,

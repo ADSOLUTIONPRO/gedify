@@ -46,3 +46,42 @@ export async function withImap<T>(
     }
   }
 }
+
+/** Config IMAP XOAUTH2 (OAuth2) : `auth.accessToken` au lieu d'un mot de passe.
+ *  Utilisé pour les comptes Microsoft/Outlook (authentification moderne). */
+export function buildImapXOAuth2Config(
+  account: Pick<MailAccount, "imapHost" | "imapPort" | "encryption" | "username">,
+  accessToken: string,
+) {
+  return {
+    host: account.imapHost,
+    port: account.imapPort,
+    secure: buildSecureOption(account.encryption),
+    auth: {
+      user: account.username,
+      accessToken,
+    },
+    logger: false as const,
+    tls: account.encryption === "starttls" ? { rejectUnauthorized: true } : undefined,
+    connectionTimeout: 20000,
+    greetingTimeout: 12000,
+  };
+}
+
+export async function withImapXOAuth2<T>(
+  account: Pick<MailAccount, "imapHost" | "imapPort" | "encryption" | "username">,
+  accessToken: string,
+  handler: (client: ImapFlow) => Promise<T>,
+): Promise<T> {
+  const client = new ImapFlow(buildImapXOAuth2Config(account, accessToken));
+  await client.connect();
+  try {
+    return await handler(client);
+  } finally {
+    try {
+      await client.logout();
+    } catch {
+      // ignore
+    }
+  }
+}

@@ -25,12 +25,12 @@ export const PROVIDERS: MailProvider[] = [
     defaultImapHost: "outlook.office365.com",
     defaultImapPort: 993,
     defaultEncryption: "tls",
-    authTypes: ["oauth-outlook", "imap-password"],
+    authTypes: ["oauth-outlook"],
     preferredAuthType: "oauth-outlook",
-    status: "preview",
+    status: "available",
     notes: [
-      "OAuth Microsoft à connecter (app registration Azure AD).",
-      "IMAP basic peut être désactivé sur certains tenants pro.",
+      "Connexion sécurisée OAuth2 / Modern Auth (Microsoft).",
+      "L'authentification par mot de passe (IMAP basic) est désactivée par Microsoft.",
     ],
   },
   {

@@ -8,7 +8,9 @@ import {
   evaluateGmailLabels,
   evaluateSender,
 } from "./mail-filter-engine";
-import { withImap } from "./imap-client";
+import type { ImapFlow } from "imapflow";
+import { withImap, withImapXOAuth2 } from "./imap-client";
+import { getValidOutlookAccessToken } from "@/lib/connectors/outlook/outlook-access";
 import { buildOutcome, findMatchingRule, type MailContext } from "./rule-engine";
 import { listRules } from "./rule-store";
 import {
@@ -97,19 +99,35 @@ async function previewImap(account: MailAccount, limit: number): Promise<MailSyn
     return preview;
   }
 
-  const password = await getDecryptedPassword(account.id);
-  if (!password) {
-    preview.errors.push({
-      folder: account.watchedFolder,
-      message: "Aucun mot de passe stocké (stockage sécurisé à connecter).",
-    });
-    return preview;
+  // Choix de la connexion IMAP : XOAUTH2 (Outlook OAuth) ou mot de passe.
+  let runWithClient: <T>(handler: (client: ImapFlow) => Promise<T>) => Promise<T>;
+  if (account.authType === "oauth-outlook") {
+    try {
+      const { accessToken } = await getValidOutlookAccessToken(account.id);
+      runWithClient = (handler) => withImapXOAuth2(account, accessToken, handler);
+    } catch (e) {
+      preview.errors.push({
+        folder: account.watchedFolder,
+        message: e instanceof Error ? e.message : "Token Microsoft indisponible — reconnectez le compte.",
+      });
+      return preview;
+    }
+  } else {
+    const password = await getDecryptedPassword(account.id);
+    if (!password) {
+      preview.errors.push({
+        folder: account.watchedFolder,
+        message: "Aucun mot de passe stocké (stockage sécurisé à connecter).",
+      });
+      return preview;
+    }
+    runWithClient = (handler) => withImap(account, password, handler);
   }
 
   const rules = await listRules();
 
   try {
-    await withImap(account, password, async (client) => {
+    await runWithClient(async (client) => {
       const lock = await client.getMailboxLock(account.watchedFolder);
       try {
         const criteria = account.ignoreAlreadyRead ? { seen: false } : { all: true };
