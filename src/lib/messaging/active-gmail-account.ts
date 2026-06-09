@@ -66,18 +66,21 @@ export async function resolveGmailAccount(
  * Corrige le bug « la 2e boîte remplace la 1re » : par défaut on agrège TOUS les
  * comptes Google au lieu de n'afficher que le plus récent.
  */
-export async function getInboxGmailAccounts(): Promise<{
+export async function getInboxGmailAccounts(override?: string | null): Promise<{
   aggregate: boolean;
   accounts: GmailAccountSummary[];
 }> {
   const accounts = await listGmailAccounts();
   if (accounts.length === 0) return { aggregate: false, accounts: [] };
 
-  let selected: string | undefined;
-  try {
-    selected = (await cookies()).get(ACTIVE_MAILBOX_COOKIE)?.value;
-  } catch {
-    /* hors contexte requête → ignore */
+  // Priorité : override (filtre URL `?accountId=`) > cookie « Boîte active ».
+  let selected: string | undefined = override && override.trim() ? override.trim() : undefined;
+  if (!selected) {
+    try {
+      selected = (await cookies()).get(ACTIVE_MAILBOX_COOKIE)?.value;
+    } catch {
+      /* hors contexte requête → ignore */
+    }
   }
 
   if (selected && selected !== "all") {

@@ -8,7 +8,9 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
-    const { aggregate, accounts } = await getInboxGmailAccounts();
+    const url = new URL(request.url);
+    // Filtre « Boîte mail » : "all"/absent → agrège ; id précis → ce compte.
+    const { aggregate, accounts } = await getInboxGmailAccounts(url.searchParams.get("accountId"));
     if (accounts.length === 0) {
       return NextResponse.json(
         { error: "no_account", message: "Aucun compte Gmail connecté." },
@@ -16,7 +18,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const url = new URL(request.url);
     const query = url.searchParams.get("q") ?? "in:inbox";
     const maxResults = Math.min(
       Number.parseInt(url.searchParams.get("limit") ?? "30", 10) || 30,

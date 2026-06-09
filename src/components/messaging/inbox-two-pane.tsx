@@ -25,6 +25,8 @@ type Props = {
   initialNextPageToken?: string | null;
   attachmentsByThread: Map<string, AttachSummary>;
   query?: string;
+  /** Filtre « Boîte mail » courant (id de compte ou null/"all") — propagé aux refetch. */
+  accountFilter?: string | null;
   accountEmail?: string | null;
   folderLabel: string;
 };
@@ -44,6 +46,7 @@ export function InboxTwoPane({
   initialNextPageToken,
   attachmentsByThread,
   query = "in:inbox",
+  accountFilter = null,
   accountEmail,
   folderLabel,
 }: Props) {
@@ -96,6 +99,7 @@ export function InboxTwoPane({
     setLoading(true);
     try {
       const params = new URLSearchParams({ q, limit: "50" });
+      if (accountFilter) params.set("accountId", accountFilter);
       const res = await fetch(`/api/messaging/gmail/threads?${params.toString()}`, { credentials: "include", cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as { threads?: Thread[]; nextPageToken?: string | null };
@@ -117,6 +121,7 @@ export function InboxTwoPane({
   useEffect(() => {
     if (!didMountRef.current) { didMountRef.current = true; return; }
     void fetchThreads(effectiveQuery);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effectiveQuery]);
 
   function addFilter(f: { key: string; label: string; gmail: string }) {
@@ -131,6 +136,7 @@ export function InboxTwoPane({
     setLoadingMore(true);
     try {
       const params = new URLSearchParams({ q: effectiveQuery, limit: "25", pageToken: nextPageToken });
+      if (accountFilter) params.set("accountId", accountFilter);
       const res = await fetch(`/api/messaging/gmail/threads?${params.toString()}`, { credentials: "include", cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as { threads?: Thread[]; nextPageToken?: string | null };

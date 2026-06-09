@@ -89,9 +89,9 @@ function byLastMessageDesc(a: NormalizedThread, b: NormalizedThread): number {
 export async function loadThreads(
   query = "in:inbox",
   limit = 40,
-  opts: { excludeProcessed?: boolean } = {},
+  opts: { excludeProcessed?: boolean; accountId?: string | null } = {},
 ): Promise<LoadThreadsResult> {
-  const { aggregate, accounts } = await getInboxGmailAccounts();
+  const { aggregate, accounts } = await getInboxGmailAccounts(opts.accountId ?? null);
   if (accounts.length === 0) {
     console.log(`[mail] accountId=none folder=${query} (aucun compte Gmail actif → état « connecter Google » ou repli IMAP)`);
     return { connected: false, oauthConfigured: Boolean(getGmailOAuthConfig()) };

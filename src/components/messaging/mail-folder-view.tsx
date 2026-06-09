@@ -19,6 +19,7 @@ export async function MailFolderView({
   limit = 50,
   source = "query",
   excludeProcessed = false,
+  accountId = null,
 }: {
   query: string;
   title: string;
@@ -28,10 +29,12 @@ export async function MailFolderView({
   source?: "query" | "processed";
   /** "query" : exclure les conversations déjà traitées (dossier « Courriels à traiter »). */
   excludeProcessed?: boolean;
+  /** Filtre « Boîte mail » (id de compte ou "all"/null pour toutes). */
+  accountId?: string | null;
 }) {
   const result = source === "processed"
     ? await loadLinkedThreads(limit)
-    : await loadThreads(query, limit, { excludeProcessed });
+    : await loadThreads(query, limit, { excludeProcessed, accountId });
 
   if (!result.connected) {
     // Pas de compte Gmail : si une boîte IMAP est connectée, on affiche au moins
@@ -58,13 +61,14 @@ export async function MailFolderView({
       {/* Bureau (≥ md) : 2 volets (liste + lecture) — fidèle à la maquette */}
       <div className="hidden h-full min-h-0 md:block">
         <InboxTwoPane
-          key={query}
+          key={`${query}:${accountId ?? "all"}`}
           initialThreads={result.threads}
           initialHiddenEmails={result.hiddenSenderEmails}
           linksByThread={result.linksByThread}
           initialNextPageToken={result.nextPageToken}
           attachmentsByThread={result.attachmentsByThread}
           query={query}
+          accountFilter={accountId ?? null}
           accountEmail={subtitle ?? result.accountEmail}
           folderLabel={title}
         />
