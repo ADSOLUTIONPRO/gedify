@@ -9,6 +9,8 @@ import type { DocumentFilterValues } from "@/components/documents/document-filte
 import { listProjectFolders } from "@/lib/projects/project-store";
 import { computeFolderPath, indexFoldersById } from "@/lib/projects/project-utils";
 import { FolderPinButton } from "@/components/dashboard/folder-pin-button";
+import { FolderImportButton } from "@/components/projects/folder-import-button";
+import { FolderDropZone } from "@/components/projects/folder-drop-zone";
 import { isPinned } from "@/lib/dashboard/pinned-store";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { buildDocumentApiParams, buildDocumentVMs, matchesEtat } from "@/lib/documents/document-list-loader";
@@ -111,29 +113,35 @@ export default async function OrganiserDossiersPage({ searchParams }: { searchPa
                   iconOnly
                   className="flex h-9 w-9 items-center justify-center rounded-xl border bg-white transition hover:bg-[var(--bg-card-soft)]"
                 />
+                {/* Import direct dans le dossier ouvert (bouton + glisser-déposer). */}
+                <FolderImportButton folderId={selected.id} folderName={selected.name} />
                 <Link href={`/dossiers/${selected.id}`} className="inline-flex h-9 items-center gap-1.5 rounded-xl border px-3 text-[12.5px] font-bold transition hover:bg-[var(--bg-card-soft)]" style={{ borderColor: "var(--border-strong)", color: "var(--text-main)" }}>
                   Ouvrir le dossier <ArrowRight className="h-4 w-4" strokeWidth={2} />
                 </Link>
               </div>
             </header>
 
-            <DocumentSpace
-              docs={visibleDocs}
-              totalCount={visibleDocs.length}
-              view={view}
-              filterValues={filterValues}
-              correspondents={correspondents.map((c) => ({ id: c.id, name: c.name }))}
-              types={types.map((t) => ({ id: t.id, name: t.name }))}
-              tags={tags.map((t) => ({ id: t.id, name: t.name }))}
-              hidden={hidden}
-              resetHref={resetHref}
-              footer={null}
-              emptyTitle={linkedIds.length === 0 ? "Dossier vide" : "Aucun document ne correspond"}
-              emptyDescription={linkedIds.length === 0 ? "Ajoutez des documents à ce dossier depuis l'espace Documents ou la fiche dossier." : "Ajustez les filtres."}
-              showImport={false}
-              paperlessUrl={paperlessUrl}
-              basePath="/organiser/dossiers"
-            />
+            {/* parent `relative` : la FolderDropZone couvre la zone de contenu. */}
+            <div className="relative">
+              <FolderDropZone folderId={selected.id} folderName={selected.name} />
+              <DocumentSpace
+                docs={visibleDocs}
+                totalCount={visibleDocs.length}
+                view={view}
+                filterValues={filterValues}
+                correspondents={correspondents.map((c) => ({ id: c.id, name: c.name }))}
+                types={types.map((t) => ({ id: t.id, name: t.name }))}
+                tags={tags.map((t) => ({ id: t.id, name: t.name }))}
+                hidden={hidden}
+                resetHref={resetHref}
+                footer={null}
+                emptyTitle={linkedIds.length === 0 ? "Dossier vide" : "Aucun document ne correspond"}
+                emptyDescription={linkedIds.length === 0 ? "Glissez des fichiers ici ou utilisez « Importer dans ce dossier » pour ajouter des documents." : "Ajustez les filtres."}
+                showImport={false}
+                paperlessUrl={paperlessUrl}
+                basePath="/organiser/dossiers"
+              />
+            </div>
           </>
         ) : (
           <div className="rounded-2xl border bg-white px-6 py-16 text-center" style={{ borderColor: "var(--border)" }}>
