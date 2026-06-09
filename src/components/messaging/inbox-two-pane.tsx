@@ -83,6 +83,10 @@ export function InboxTwoPane({
     return visible[0]?.id ?? null;
   }, [visible, selectedId]);
 
+  // Thread sélectionné + détection multi-comptes (badge source par ligne).
+  const selectedThread = useMemo(() => visible.find((t) => t.id === effectiveSelected) ?? null, [visible, effectiveSelected]);
+  const multiAccount = useMemo(() => new Set(threads.map((t) => t.accountEmail).filter(Boolean)).size > 1, [threads]);
+
   const effectiveQuery = useMemo(
     () => [query, ...filters.map((f) => f.gmail)].join(" ").trim() || query,
     [query, filters],
@@ -161,11 +165,12 @@ export function InboxTwoPane({
       if (selectedId === id) setSelectedId(null);
     }
     try {
+      const acc = threads.find((t) => t.id === id)?.accountId;
       const res = await fetch(`/api/messaging/gmail/threads/${id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, accountId: acc }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       if (toastMsg) showToast(toastMsg);
@@ -340,7 +345,7 @@ export function InboxTwoPane({
                 const tag = rowTag(t, imported, hasGed);
                 return (
                   <li
-                    key={t.id}
+                    key={`${t.accountId}:${t.id}`}
                     className="group flex items-stretch border-b"
                     style={{ borderColor: "var(--border-soft)", background: active ? "var(--accent-soft)" : sel ? "var(--bg-card-soft)" : undefined }}
                   >
@@ -370,11 +375,19 @@ export function InboxTwoPane({
                         <span className="mt-0.5 block truncate text-[13.5px]" style={{ color: "var(--text-muted)" }}>
                           {t.snippet ?? ""}
                         </span>
-                        {tag ? (
-                          <span className="mt-1.5 inline-flex rounded-full px-2 py-0.5 text-[11px] font-extrabold" style={{ background: RED2, color: "var(--accent)" }}>
-                            {tag}
-                          </span>
-                        ) : null}
+                        <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                          {multiAccount && t.accountEmail ? (
+                            <span className="inline-flex max-w-[180px] items-center gap-1 truncate rounded-full border px-2 py-0.5 text-[10.5px] font-bold" style={{ borderColor: LINE, color: "var(--text-muted)", background: "var(--bg-card-soft)" }} title={`Boîte : ${t.accountEmail}`}>
+                              <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: RED }} aria-hidden="true" />
+                              <span className="truncate">{t.accountEmail}</span>
+                            </span>
+                          ) : null}
+                          {tag ? (
+                            <span className="inline-flex rounded-full px-2 py-0.5 text-[11px] font-extrabold" style={{ background: RED2, color: "var(--accent)" }}>
+                              {tag}
+                            </span>
+                          ) : null}
+                        </span>
                       </span>
                       <span className="shrink-0 text-[12px]" style={{ color: MUTED }}>{formatTime(t.lastMessageAt)}</span>
                     </button>
@@ -415,6 +428,7 @@ export function InboxTwoPane({
       <div className="min-h-0">
         <MailReadingPane
           threadId={effectiveSelected}
+          accountId={selectedThread?.accountId ?? null}
           folderLabel={folderLabel}
           onClassify={(id) => setClassifyIds([id])}
           onArchive={(id) => void threadAction(id, "archive", "Conversation archivée")}

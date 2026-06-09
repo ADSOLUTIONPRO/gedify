@@ -2,7 +2,8 @@ import "server-only";
 
 import { getGmailThread, listGmailThreads } from "@/lib/connectors/gmail/gmail-api";
 import { getGmailOAuthConfig, isGmailReconnectError } from "@/lib/connectors/gmail/oauth";
-import { getActiveGmailAccount } from "@/lib/messaging/active-gmail-account";
+import { getActiveGmailAccount, getInboxGmailAccounts } from "@/lib/messaging/active-gmail-account";
+import type { GmailAccountSummary } from "@/lib/connectors/gmail/gmail-token-store";
 import { indexLinksByThread } from "@/lib/messaging/email-ged-link-store";
 import { indexLinksByThread as indexAttachmentImportsByThread } from "@/lib/messaging/mail-document-links-store";
 import { normaliseGmailThread } from "@/lib/messaging/gmail-normalize";
@@ -45,7 +46,44 @@ function buildAttachmentSummary(attImportsByThread: AttImports): Map<string, Thr
 }
 
 /**
+ * Récupère + normalise les threads d'UN compte Google (refs → metadata).
+ * Réutilisé par l'inbox SSR et la route API pour agréger plusieurs comptes.
+ */
+export async function fetchAccountThreads(
+  account: GmailAccountSummary,
+  query: string,
+  limit: number,
+  pageToken?: string,
+): Promise<{ threads: NormalizedThread[]; nextPageToken: string | null }> {
+  const res = await listGmailThreads(account.accountId, query, limit, pageToken);
+  const threads = (
+    await Promise.all(
+      res.threads.map(async (ref) => {
+        try {
+          const full = await getGmailThread(account.accountId, ref.id, "metadata");
+          return normaliseGmailThread(full, { accountId: account.accountId, accountEmail: account.email });
+        } catch {
+          return null;
+        }
+      }),
+    )
+  ).filter((t): t is NormalizedThread => t !== null);
+  return { threads, nextPageToken: res.nextPageToken ?? null };
+}
+
+/** Tri unifié par date du dernier message (plus récent d'abord). */
+function byLastMessageDesc(a: NormalizedThread, b: NormalizedThread): number {
+  const da = a.lastMessageAt ?? "";
+  const db = b.lastMessageAt ?? "";
+  return da < db ? 1 : da > db ? -1 : 0;
+}
+
+/**
  * Charge les threads Gmail pour une requête donnée, côté serveur uniquement.
+ *
+ * Multi-comptes : par défaut (« Toutes les boîtes ») agrège les threads de TOUS
+ * les comptes Google connectés (l'échec d'un compte n'impacte pas les autres),
+ * fusionnés et triés par date. Un compte précis sélectionné → ce compte seul.
  * Filtre automatiquement les expéditeurs masqués dans la surcouche GED.
  */
 export async function loadThreads(
@@ -53,24 +91,30 @@ export async function loadThreads(
   limit = 40,
   opts: { excludeProcessed?: boolean } = {},
 ): Promise<LoadThreadsResult> {
-  const account = await getActiveGmailAccount();
-  if (!account) {
+  const { aggregate, accounts } = await getInboxGmailAccounts();
+  if (accounts.length === 0) {
     console.log(`[mail] accountId=none folder=${query} (aucun compte Gmail actif → état « connecter Google » ou repli IMAP)`);
     return { connected: false, oauthConfigured: Boolean(getGmailOAuthConfig()) };
   }
 
-  // L'appel Gmail peut échouer si le token est expiré/révoqué (invalid_grant) :
-  // on dégrade vers un état « reconnexion » plutôt que de planter la page.
-  let refs: Awaited<ReturnType<typeof listGmailThreads>>["threads"];
-  let nextPageToken: string | undefined;
-  try {
-    const res = await listGmailThreads(account.accountId, query, limit);
-    refs = res.threads;
-    nextPageToken = res.nextPageToken;
-  } catch (error) {
-    const reconnect = isGmailReconnectError(error);
-    console.log(`[mail] accountId=${account.accountId.slice(0, 6)}… folder=${query} apiReturned=ERROR reconnect=${reconnect} (${error instanceof Error ? error.message.slice(0, 80) : "?"})`);
-    return { connected: false, oauthConfigured: true, needsReconnect: reconnect };
+  // Récupération par compte. Un token expiré/révoqué (invalid_grant) sur UN
+  // compte ne fait pas planter les autres ; en mono-compte on dégrade en
+  // « reconnexion » comme avant.
+  const perAccount = await Promise.all(
+    accounts.map(async (account) => {
+      try {
+        const { threads, nextPageToken } = await fetchAccountThreads(account, query, limit);
+        return { account, threads, nextPageToken, error: false, reconnect: false };
+      } catch (error) {
+        const reconnect = isGmailReconnectError(error);
+        console.log(`[mail] accountId=${account.accountId.slice(0, 6)}… folder=${query} apiReturned=ERROR reconnect=${reconnect} (${error instanceof Error ? error.message.slice(0, 80) : "?"})`);
+        return { account, threads: [] as NormalizedThread[], nextPageToken: null as string | null, error: true, reconnect };
+      }
+    }),
+  );
+
+  if (!aggregate && perAccount.length === 1 && perAccount[0].error) {
+    return { connected: false, oauthConfigured: true, needsReconnect: perAccount[0].reconnect };
   }
 
   const [linksByThread, hiddenEmails, attImportsByThread] = await Promise.all([
@@ -81,44 +125,39 @@ export async function loadThreads(
 
   const attachmentsByThread = buildAttachmentSummary(attImportsByThread);
 
-  const threads = (
-    await Promise.all(
-      refs.map(async (ref) => {
-        try {
-          const full = await getGmailThread(account.accountId, ref.id, "metadata");
-          return normaliseGmailThread(full, { accountId: account.accountId, accountEmail: account.email });
-        } catch {
-          return null;
-        }
-      })
-    )
-  )
-    .filter((t): t is NormalizedThread => t !== null)
+  const merged = perAccount
+    .flatMap((p) => p.threads)
     .filter((t) => {
-      // Filtrer les threads dont l'expéditeur principal est masqué
       const senderEmail = t.participants[0]?.email?.toLowerCase();
       return !senderEmail || !hiddenEmails.has(senderEmail);
-    });
+    })
+    .sort(byLastMessageDesc);
 
   // Exclure les conversations déjà « traitées » (liées GED / PJ importées) si demandé
   // → alimente le dossier logique « Courriels à traiter ».
   const processedIds = processedThreadIdSet(linksByThread, attachmentsByThread);
-  const finalThreads = opts.excludeProcessed ? threads.filter((t) => !processedIds.has(t.id)) : threads;
+  let finalThreads = opts.excludeProcessed ? merged.filter((t) => !processedIds.has(t.id)) : merged;
+  // En agrégé, on borne globalement après fusion (chaque compte a ramené jusqu'à `limit`).
+  if (aggregate) finalThreads = finalThreads.slice(0, limit);
 
-  // Diagnostic non sensible (jamais de contenu/token) : tracer la chaîne mail.
+  // Pagination par compte uniquement en mono-compte (curseurs non fusionnables).
+  const nextPageToken = !aggregate ? perAccount[0]?.nextPageToken ?? null : null;
+  const primary = accounts[0];
+  const accountEmail = aggregate && accounts.length > 1 ? `Toutes les boîtes (${accounts.length})` : primary.email;
+
   console.log(
-    `[mail] accountId=${account.accountId.slice(0, 6)}… folder=${query} apiReturned=${refs.length} processedExcluded=${opts.excludeProcessed ? threads.length - finalThreads.length : 0} displayedCount=${finalThreads.length} hiddenSenders=${hiddenEmails.size}`,
+    `[mail] accounts=${accounts.length} aggregate=${aggregate} folder=${query} apiReturned=${perAccount.reduce((n, p) => n + p.threads.length, 0)} displayedCount=${finalThreads.length} hiddenSenders=${hiddenEmails.size}`,
   );
 
   return {
     connected: true,
-    accountEmail: account.email,
-    connectedAt: account.connectedAt,
-    scopes: account.scopes,
+    accountEmail,
+    connectedAt: primary.connectedAt,
+    scopes: primary.scopes,
     threads: finalThreads,
     linksByThread,
     hiddenSenderEmails: [...hiddenEmails],
-    nextPageToken: nextPageToken ?? null,
+    nextPageToken,
     attachmentsByThread,
   };
 }

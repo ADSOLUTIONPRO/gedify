@@ -19,7 +19,7 @@ import { ThreadAttachmentsCard } from "@/components/messaging/thread-attachments
 import { ThreadMeetingCard } from "@/components/messaging/thread-meeting-card";
 import { analyzeEmail } from "@/lib/ai/analyze-email";
 import { getGmailThread } from "@/lib/connectors/gmail/gmail-api";
-import { getActiveGmailAccount } from "@/lib/messaging/active-gmail-account";
+import { resolveGmailAccount } from "@/lib/messaging/active-gmail-account";
 import { normaliseGmailMessage } from "@/lib/messaging/gmail-normalize";
 import { loadThreadGedContext } from "@/lib/messaging/thread-ged-context";
 import { NoGmailState } from "@/components/messaging/no-gmail-state";
@@ -40,9 +40,17 @@ function formatShort(iso: string | null): string {
   return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("fr-FR");
 }
 
-export default async function ThreadDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ThreadDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ accountId?: string }>;
+}) {
   const { id } = await params;
-  const account = await getActiveGmailAccount();
+  const { accountId } = await searchParams;
+  // Multi-comptes : le thread appartient au compte passé (repli compte actif).
+  const account = await resolveGmailAccount(accountId ?? null);
 
   if (!account) {
     return (

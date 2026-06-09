@@ -31,6 +31,7 @@ const MUTED = "var(--text-muted)";
 const HINT = "var(--text-hint)";
 
 type ThreadDetail = {
+  accountId?: string | null;
   accountEmail: string;
   messages: EmailMessageRecord[];
   links?: unknown[];
@@ -40,6 +41,8 @@ type Att = { attachmentId: string; messageId: string; filename: string; mimeType
 
 type Props = {
   threadId: string | null;
+  /** Compte Google propriétaire du thread (multi-comptes) — ciblage des appels. */
+  accountId?: string | null;
   folderLabel: string;
   onClassify: (threadId: string) => void;
   onArchive?: (threadId: string) => void;
@@ -47,7 +50,7 @@ type Props = {
   onMarkUnread?: (threadId: string) => void;
 };
 
-export function MailReadingPane({ threadId, onClassify, onArchive, onTrash, onMarkUnread }: Props) {
+export function MailReadingPane({ threadId, accountId, onClassify, onArchive, onTrash, onMarkUnread }: Props) {
   const [data, setData] = useState<ThreadDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +69,8 @@ export function MailReadingPane({ threadId, onClassify, onArchive, onTrash, onMa
     let cancelled = false;
     setLoading(true);
     setError(null);
-    fetch(`/api/messaging/gmail/threads/${threadId}`, { credentials: "include", cache: "no-store" })
+    const qs = accountId ? `?accountId=${encodeURIComponent(accountId)}` : "";
+    fetch(`/api/messaging/gmail/threads/${threadId}${qs}`, { credentials: "include", cache: "no-store" })
       .then(async (res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return (await res.json()) as ThreadDetail;
@@ -75,7 +79,7 @@ export function MailReadingPane({ threadId, onClassify, onArchive, onTrash, onMa
       .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : "Lecture impossible."); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [threadId]);
+  }, [threadId, accountId]);
 
   if (!threadId) {
     return (
@@ -181,7 +185,7 @@ export function MailReadingPane({ threadId, onClassify, onArchive, onTrash, onMa
         {/* Pièces jointes */}
         {attachments.length > 0 ? (
           <div className="max-w-[660px] space-y-2.5">
-            {attachments.map((a) => <AttachmentCard key={a.attachmentId} att={a} threadId={threadId!} />)}
+            {attachments.map((a) => <AttachmentCard key={a.attachmentId} att={a} threadId={threadId!} accountId={accountId ?? data.accountId ?? null} />)}
           </div>
         ) : null}
 
@@ -250,7 +254,7 @@ function ActionLink({ href, icon: Icon, children }: { href: string; icon: React.
   );
 }
 
-function AttachmentCard({ att, threadId }: { att: Att; threadId: string }) {
+function AttachmentCard({ att, threadId, accountId }: { att: Att; threadId: string; accountId?: string | null }) {
   const [status, setStatus] = useState<"none" | "importing" | "imported" | "error">("none");
   async function importToGed() {
     if (status === "importing" || status === "imported") return;
@@ -260,7 +264,7 @@ function AttachmentCard({ att, threadId }: { att: Att; threadId: string }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ mailId: att.messageId, threadId, attachmentId: att.attachmentId, filename: att.filename, mimeType: att.mimeType, sizeBytes: att.size }),
+        body: JSON.stringify({ mailId: att.messageId, threadId, attachmentId: att.attachmentId, filename: att.filename, mimeType: att.mimeType, sizeBytes: att.size, accountId: accountId ?? undefined }),
       });
       setStatus(res.ok ? "imported" : "error");
     } catch {

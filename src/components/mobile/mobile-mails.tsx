@@ -119,8 +119,8 @@ export function MobileMails({ threads, attachmentsByThread, query }: Props) {
             const badge = gedBadge(t, attachmentsByThread.get(t.id));
             return (
               <Link
-                key={t.id}
-                href={`/messagerie/thread/${t.id}`}
+                key={`${t.accountId}:${t.id}`}
+                href={`/messagerie/thread/${t.id}${t.accountId ? `?accountId=${encodeURIComponent(t.accountId)}` : ""}`}
                 className="flex gap-3 rounded-2xl border bg-white p-3"
                 style={{ borderColor: "var(--border)" }}
               >

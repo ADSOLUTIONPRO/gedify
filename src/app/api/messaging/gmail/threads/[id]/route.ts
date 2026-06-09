@@ -3,7 +3,7 @@ import { jsonError } from "@/lib/api-utils";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { getGmailThread, modifyGmailThread, trashGmailThread } from "@/lib/connectors/gmail/gmail-api";
 import { normaliseGmailMessage } from "@/lib/messaging/gmail-normalize";
-import { getActiveGmailAccount } from "@/lib/messaging/active-gmail-account";
+import { resolveGmailAccount } from "@/lib/messaging/active-gmail-account";
 import { listEmailLinks } from "@/lib/messaging/email-ged-link-store";
 import { analyzeEmail } from "@/lib/ai/analyze-email";
 
@@ -11,11 +11,12 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const account = await getActiveGmailAccount();
+    // Multi-comptes : l'id du thread appartient au compte passé en `accountId`.
+    const account = await resolveGmailAccount(request.nextUrl.searchParams.get("accountId"));
     if (!account) {
       return NextResponse.json(
         { error: "no_account", message: "Aucun compte Gmail connecté." },
@@ -67,15 +68,15 @@ export async function POST(
   const deny = await requireAuth(request);
   if (deny) return deny;
   try {
-    const account = await getActiveGmailAccount();
+    const { id } = await params;
+    const { action, accountId } = (await request.json().catch(() => ({}))) as { action?: ThreadAction; accountId?: string };
+    const account = await resolveGmailAccount(accountId ?? null);
     if (!account) {
       return NextResponse.json(
         { error: "no_account", message: "Aucun compte Gmail connecté." },
         { status: 412 },
       );
     }
-    const { id } = await params;
-    const { action } = (await request.json().catch(() => ({}))) as { action?: ThreadAction };
     switch (action) {
       case "archive":
         await modifyGmailThread(account.accountId, id, { removeLabelIds: ["INBOX"] });

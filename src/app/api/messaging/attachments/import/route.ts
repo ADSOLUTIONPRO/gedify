@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { recordAudit } from "@/lib/audit/audit-store";
 import { jsonError } from "@/lib/api-utils";
-import { getActiveGmailAccount } from "@/lib/messaging/active-gmail-account";
+import { resolveGmailAccount } from "@/lib/messaging/active-gmail-account";
 import { getGmailAttachment } from "@/lib/connectors/gmail/gmail-api";
 import { findExistingLink, createMailDocumentLink } from "@/lib/messaging/mail-document-links-store";
 import { paperlessFetch } from "@/lib/paperless";
@@ -19,6 +19,8 @@ type ImportBody = {
   filename: string;
   mimeType: string;
   sizeBytes?: number;
+  /** Compte Google propriétaire du message (multi-comptes). */
+  accountId?: string;
 };
 
 export async function POST(request: NextRequest) {
@@ -46,7 +48,7 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const account = await getActiveGmailAccount();
+  const account = await resolveGmailAccount(body.accountId ?? null);
   if (!account) {
     return NextResponse.json({ error: "Aucun compte Gmail connecté." }, { status: 503 });
   }
