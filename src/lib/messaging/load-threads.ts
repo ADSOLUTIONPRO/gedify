@@ -3,14 +3,14 @@ import "server-only";
 import { getGmailThread, listGmailThreads } from "@/lib/connectors/gmail/gmail-api";
 import { getGmailOAuthConfig, isGmailReconnectError } from "@/lib/connectors/gmail/oauth";
 import { getActiveGmailAccount, getInboxGmailAccounts } from "@/lib/messaging/active-gmail-account";
-import type { GmailAccountSummary } from "@/lib/connectors/gmail/gmail-token-store";
+import { type GmailAccountSummary, listGmailAccounts } from "@/lib/connectors/gmail/gmail-token-store";
 import { indexLinksByThread } from "@/lib/messaging/email-ged-link-store";
 import { indexLinksByThread as indexAttachmentImportsByThread } from "@/lib/messaging/mail-document-links-store";
 import { normaliseGmailThread, firstAddress } from "@/lib/messaging/gmail-normalize";
 import { getHiddenSenderEmails } from "@/lib/messaging/hidden-senders-store";
 import { buildGmailExclusionSuffix } from "@/lib/messaging/mail-folder-inclusion";
 import { listAccounts } from "@/lib/mail-connector/account-store";
-import { searchEmailMessages } from "@/lib/messaging/email-message-store";
+import { searchEmailMessages, getEmailMessageById, type EmailMessageRecord as ImapIndexRecord } from "@/lib/messaging/email-message-store";
 
 /** Résumé d'import des pièces jointes d'un thread (pour le badge d'état). */
 export type ThreadAttachmentSummary = { imported: number; error: boolean; docId: number | null };
@@ -92,6 +92,27 @@ function byLastMessageDesc(a: NormalizedThread, b: NormalizedThread): number {
  * « Boîte mail » : `selected` = "all" → tous les comptes IMAP actifs ; sinon ce
  * compte précis (vide si la sélection est un compte Gmail).
  */
+/** Convertit un message IMAP indexé en entrée de thread (lecture seule). */
+function imapRecordToThread(m: ImapIndexRecord, accountEmail: string): NormalizedThread {
+  const sender = firstAddress(m.from);
+  return {
+    id: m.id,
+    accountId: m.accountId,
+    accountEmail,
+    provider: "imap",
+    subject: m.subject,
+    snippet: (m.text ?? "").slice(0, 200),
+    lastMessageAt: m.date ?? m.createdAt,
+    participants: sender ? [sender] : [],
+    messageCount: 1,
+    attachmentCount: m.hasAttachments ? 1 : 0,
+    hasAttachments: m.hasAttachments,
+    unread: false,
+    important: false,
+    labelIds: [],
+  };
+}
+
 async function loadImapThreadRecords(selected: string, limit: number): Promise<NormalizedThread[]> {
   const imapAccounts = (await listAccounts()).filter((a) => a.authType === "imap-password" && a.isActive);
   if (imapAccounts.length === 0) return [];
@@ -104,25 +125,7 @@ async function loadImapThreadRecords(selected: string, limit: number): Promise<N
     .filter((m) => emailById.has(m.accountId))
     .sort((a, b) => ((a.date ?? a.createdAt) < (b.date ?? b.createdAt) ? 1 : -1))
     .slice(0, limit)
-    .map((m): NormalizedThread => {
-      const sender = firstAddress(m.from);
-      return {
-        id: m.id,
-        accountId: m.accountId,
-        accountEmail: emailById.get(m.accountId) ?? "",
-        provider: "imap",
-        subject: m.subject,
-        snippet: (m.text ?? "").slice(0, 200),
-        lastMessageAt: m.date ?? m.createdAt,
-        participants: sender ? [sender] : [],
-        messageCount: 1,
-        attachmentCount: m.hasAttachments ? 1 : 0,
-        hasAttachments: m.hasAttachments,
-        unread: false,
-        important: false,
-        labelIds: [],
-      };
-    });
+    .map((m) => imapRecordToThread(m, emailById.get(m.accountId) ?? ""));
 }
 
 /**
@@ -239,45 +242,77 @@ function processedThreadIdSet(
 }
 
 /**
- * Charge les threads ayant au moins une **liaison GED** enregistrée (scope thread) :
- * documents liés, classement dossier/projet, correspondant… (vue « Liés à la GED »).
- * Récupère directement les threads liés depuis le store — pas seulement ceux de l'inbox.
+ * « Importés en GED » — conversations liées à la GED OU avec PJ importée, TOUS
+ * comptes confondus. Chaque thread est récupéré depuis SON compte d'origine
+ * (l'`accountId` est enregistré dans les liens) : Gmail → API metadata ;
+ * IMAP → index local (lecture seule). Les threads sans compte connu retombent
+ * sur le compte Gmail actif (compat liens anciens).
  */
 export async function loadLinkedThreads(limit = 100): Promise<LoadThreadsResult> {
-  const account = await getActiveGmailAccount();
-  if (!account) {
-    return { connected: false, oauthConfigured: Boolean(getGmailOAuthConfig()) };
-  }
-
   const [linksByThread, hiddenEmails, attImportsByThread] = await Promise.all([
     indexLinksByThread(),
     getHiddenSenderEmails(),
     indexAttachmentImportsByThread(),
   ]);
   const attachmentsByThread = buildAttachmentSummary(attImportsByThread);
-  // « Importés en GED » = conversations liées à la GED OU ayant une PJ importée.
   const ids = [...processedThreadIdSet(linksByThread, attachmentsByThread)].slice(0, limit);
 
-  // Pas de filtre « expéditeurs masqués » ici : un mail explicitement lié à la GED
-  // doit rester visible même si son expéditeur est muté dans la boîte de réception.
+  const [gmailAccounts, allAccounts] = await Promise.all([listGmailAccounts(), listAccounts()]);
+  const fallbackGmail = await getActiveGmailAccount();
+  const hasAnyAccount = gmailAccounts.length > 0 || allAccounts.some((a) => a.authType === "imap-password" && a.isActive);
+  if (!hasAnyAccount) {
+    return { connected: false, oauthConfigured: Boolean(getGmailOAuthConfig()) };
+  }
+
+  const gmailEmail = new Map(gmailAccounts.map((a) => [a.accountId, a.email] as const));
+  const imapAccounts = allAccounts.filter((a) => a.authType === "imap-password" && a.isActive);
+  const imapEmail = new Map(imapAccounts.map((a) => [a.id, a.email] as const));
+
+  // Compte propriétaire de chaque thread (import PJ d'abord — accountId requis —,
+  // puis lien GED — accountId optionnel sur les anciens liens).
+  const accountByThread = new Map<string, string>();
+  for (const [tid, links] of attImportsByThread) {
+    const a = links.find((l) => l.accountId)?.accountId;
+    if (a) accountByThread.set(tid, a);
+  }
+  for (const [tid, links] of linksByThread) {
+    if (accountByThread.has(tid)) continue;
+    const a = links.find((l) => l.accountId)?.accountId;
+    if (a) accountByThread.set(tid, a);
+  }
+
+  // Pas de filtre « expéditeurs masqués » : un mail explicitement lié à la GED
+  // reste visible même si son expéditeur est muté dans la boîte de réception.
   const threads = (
     await Promise.all(
-      ids.map(async (id) => {
+      ids.map(async (id): Promise<NormalizedThread | null> => {
+        const accId = accountByThread.get(id);
+        // Message IMAP → index local.
+        if (accId && imapEmail.has(accId)) {
+          const rec = await getEmailMessageById(id).catch(() => null);
+          return rec ? imapRecordToThread(rec, imapEmail.get(accId) ?? "") : null;
+        }
+        // Gmail : compte résolu, sinon repli sur le compte actif (liens anciens).
+        const gAcc = accId && gmailEmail.has(accId) ? accId : fallbackGmail?.accountId ?? null;
+        if (!gAcc) return null;
         try {
-          const full = await getGmailThread(account.accountId, id, "metadata");
-          return normaliseGmailThread(full, { accountId: account.accountId, accountEmail: account.email });
+          const full = await getGmailThread(gAcc, id, "metadata");
+          return normaliseGmailThread(full, { accountId: gAcc, accountEmail: gmailEmail.get(gAcc) ?? fallbackGmail?.email ?? "" });
         } catch {
           return null;
         }
-      })
+      }),
     )
-  ).filter((t): t is NormalizedThread => t !== null);
+  )
+    .filter((t): t is NormalizedThread => t !== null)
+    .sort(byLastMessageDesc);
 
+  const totalBoxes = gmailAccounts.length + imapAccounts.length;
   return {
     connected: true,
-    accountEmail: account.email,
-    connectedAt: account.connectedAt,
-    scopes: account.scopes,
+    accountEmail: totalBoxes > 1 ? `Toutes les boîtes (${totalBoxes})` : fallbackGmail?.email ?? imapAccounts[0]?.email ?? "",
+    connectedAt: fallbackGmail?.connectedAt ?? new Date().toISOString(),
+    scopes: fallbackGmail?.scopes ?? [],
     threads,
     linksByThread,
     hiddenSenderEmails: [...hiddenEmails],
