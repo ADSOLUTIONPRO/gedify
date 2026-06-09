@@ -89,6 +89,19 @@ export async function getEmailMessageById(id: string): Promise<EmailMessageRecor
   return all.find((m) => m.id === id) ?? null;
 }
 
+/**
+ * Nombre RÉEL de messages indexés PAR COMPTE (clé = accountId) + total.
+ * L'id de chaque message est `${accountId}:${uid}` → strictement unique : un
+ * message appartient à un seul compte et n'est compté qu'une fois (plus de
+ * recopie d'un compteur global d'un compte sur l'autre).
+ */
+export async function countMessagesByAccount(): Promise<{ byAccount: Record<string, number>; total: number }> {
+  const all = await readAll();
+  const byAccount: Record<string, number> = {};
+  for (const m of all) byAccount[m.accountId] = (byAccount[m.accountId] ?? 0) + 1;
+  return { byAccount, total: all.length };
+}
+
 export async function searchEmailMessages(query: string, limit = 20): Promise<EmailMessageRecord[]> {
   const all = await readAll();
   const q = query.trim().toLowerCase();
