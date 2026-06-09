@@ -17,6 +17,7 @@ import { QuickActionsCard } from "@/components/dashboard/quick-actions-card";
 import { StatWidget } from "@/components/dashboard/stat-widget";
 import { ListWidget } from "@/components/dashboard/list-widget";
 import { PinnedFoldersWidget } from "@/components/dashboard/pinned-folders-widget";
+import { FavoritesCarouselWidget } from "@/components/dashboard/favorites-carousel-widget";
 import {
   DASHBOARD_WIDGETS,
   DASHBOARD_WIDGETS_STORAGE_KEY,
@@ -30,7 +31,7 @@ import {
 type Visibility = Record<WidgetKey, boolean>;
 
 const ORDER_KEY = "ged-dashboard-order";
-const DEFAULT_GRID_ORDER: GridWidgetKey[] = ["epingles", "documents", "messagerie", "finances", "ia", "calendrier", "contacts", "rappels", "administration"];
+const DEFAULT_GRID_ORDER: GridWidgetKey[] = ["epingles", "favoris", "documents", "messagerie", "finances", "ia", "calendrier", "contacts", "rappels", "administration"];
 
 const EURO = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
 
@@ -88,6 +89,8 @@ function renderGridWidget(
           </div>
         </section>
       );
+    case "favoris":
+      return <FavoritesCarouselWidget />;
     case "documents":
       return (
         <StatWidget
@@ -377,6 +380,7 @@ export function DashboardGrid({ data, userName }: { data: DashboardData; userNam
               <div id="widgets" className="grid scroll-mt-24 grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-3 2xl:gap-5">
               {gridVisible.map((key, idx) => {
                 const label = DASHBOARD_WIDGETS.find((w) => w.key === key)?.label ?? key;
+                const spanFull = key === "favoris" ? "sm:col-span-2 2xl:col-span-3" : "";
                 return (
                   <div
                     key={key}
@@ -384,7 +388,7 @@ export function DashboardGrid({ data, userName }: { data: DashboardData; userNam
                     onDragStart={() => onDragStart(key)}
                     onDragOver={(e) => onDragOver(e, key)}
                     onDrop={onDrop}
-                    className={reorgMode ? "relative cursor-grab rounded-2xl outline-2 outline-dashed outline-blue-200" : "relative"}
+                    className={`${spanFull} ${reorgMode ? "relative cursor-grab rounded-2xl outline-2 outline-dashed outline-blue-200" : "relative"}`}
                   >
                     {renderGridWidget(
                       key,
