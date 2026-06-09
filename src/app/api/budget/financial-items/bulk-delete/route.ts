@@ -3,7 +3,8 @@ import "server-only";
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { recordAudit } from "@/lib/audit/audit-store";
-import { getFinancialItem, deleteFinancialItem } from "@/lib/budget/financial-item-store";
+import { getFinancialItem, deleteFinancialItem, listFinancialItems } from "@/lib/budget/financial-item-store";
+import { aggregateFinances } from "@/lib/budget/finance-bucket";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,5 +47,7 @@ export async function POST(request: NextRequest) {
     details: `${deleted} supprimée(s), ${skipped} ignorée(s) (validées/payées préservées)`,
   });
 
-  return NextResponse.json({ ok: true, deleted, skipped });
+  // Agrégats recalculés (catégories exclusives) pour mise à jour immédiate (§9).
+  const aggregates = aggregateFinances(await listFinancialItems());
+  return NextResponse.json({ ok: true, deleted, skipped, aggregates });
 }

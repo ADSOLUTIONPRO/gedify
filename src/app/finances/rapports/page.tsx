@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { SpaceLayout } from "@/components/layout/space-layout";
 import { formatAmount } from "@/components/finances/finance-labels";
+import { FinanceDiagnosticPanel } from "@/components/finances/finance-diagnostic-panel";
 import { getYearlySummary } from "@/lib/budget/budget-calculations";
 import { currentBudgetYear } from "@/lib/budget/budget-periods";
 
@@ -23,6 +24,9 @@ export default async function FinancesRapportsPage() {
 
   return (
     <SpaceLayout spaceId="finances">
+      <div className="mb-4">
+        <FinanceDiagnosticPanel />
+      </div>
       <p className="mb-3 text-[13px]" style={{ color: "var(--text-muted)" }}>
         Rapport annuel <strong style={{ color: "var(--text-main)" }}>{year}</strong> — revenus, dépenses, payé et reste dû par mois.
       </p>

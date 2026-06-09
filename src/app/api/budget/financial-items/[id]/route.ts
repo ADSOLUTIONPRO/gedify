@@ -4,8 +4,10 @@ import { recordAudit } from "@/lib/audit/audit-store";
 import {
   deleteFinancialItem,
   getFinancialItem,
+  listFinancialItems,
   updateFinancialItem,
 } from "@/lib/budget/financial-item-store";
+import { aggregateFinances } from "@/lib/budget/finance-bucket";
 import type { FinancialItemInput } from "@/lib/budget/financial-item-types";
 
 export const runtime = "nodejs";
@@ -58,7 +60,9 @@ export async function DELETE(_request: NextRequest, ctx: Ctx) {
     const ok = await deleteFinancialItem(id);
     if (!ok) return NextResponse.json({ error: "Introuvable" }, { status: 404 });
     await recordAudit({ action: "budget.item.delete", target: `#${id}` });
-    return new Response(null, { status: 204 });
+    // Agrégats recalculés (catégories exclusives) pour mise à jour immédiate (§9).
+    const aggregates = aggregateFinances(await listFinancialItems());
+    return NextResponse.json({ success: true, deletedEntryId: id, aggregates });
   } catch (error) {
     return jsonError("Impossible de supprimer l'item", error);
   }
