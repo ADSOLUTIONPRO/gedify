@@ -1,11 +1,13 @@
 import Link from "next/link";
 import {
   Activity, AlertTriangle, CheckCircle2, ChevronRight, Database, DatabaseBackup,
-  Download, HardDrive, HeartPulse, RefreshCw, ScrollText, ShieldCheck, Trash2,
+  Download, HardDrive, HeartPulse, Info, RefreshCw, ScrollText, ShieldCheck, Trash2,
   UserCog, UserPlus, Users,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
+import { AdminConfigPanel } from "@/components/settings/administration-settings";
+import { getGedifyFeatureFlags } from "@/lib/settings/feature-flags";
 import { OrphanCleanupButton } from "@/components/admin/orphan-cleanup-button";
 import { PermisTagCleanupButton } from "@/components/admin/permis-tag-cleanup-button";
 import { ResetHistoryButton } from "@/components/admin/reset-history-button";
@@ -39,11 +41,12 @@ function relTime(iso: string): string {
 }
 
 export default async function AdministrationPage() {
-  const [status, users, audit, gmailAccounts] = await Promise.all([
+  const [status, users, audit, gmailAccounts, flags] = await Promise.all([
     getPaperlessStatus().catch(() => ({ connected: false } as Awaited<ReturnType<typeof getPaperlessStatus>>)),
     listUsers().catch(() => []),
     listAudit(6).catch(() => [] as AuditEntry[]),
     listGmailAccounts().catch(() => []),
+    getGedifyFeatureFlags().catch(() => ({ financeSpaceEnabled: true, autoBudgetClassificationEnabled: true, autoAiAnalysisEnabled: true, autoContactSyncEnabled: true })),
   ]);
   const stats = status.statistics ?? null;
   const backend = sqliteActive() ? "SQLite" : pgStorageActive() ? "PostgreSQL" : "JSON local";
@@ -156,6 +159,25 @@ export default async function AdministrationPage() {
               </div>
             </Card>
           </div>
+
+          {/* Configuration GEDify (intégrée depuis l'ancienne page Paramètres) */}
+          <section className="space-y-3">
+            <h2 className="text-[15px] font-extrabold" style={{ color: "var(--text-main)" }}>Configuration GEDify</h2>
+            <AdminConfigPanel initialFlags={flags} />
+          </section>
+
+          {/* Informations */}
+          <section className="space-y-3">
+            <h2 className="text-[15px] font-extrabold" style={{ color: "var(--text-main)" }}>Informations</h2>
+            <Card icon={Info} title="À propos de Gedify">
+              <div className="grid gap-2 py-1 sm:grid-cols-2">
+                <InfoRow label="Version Gedify" value={status.version ?? "—"} tone="blue" />
+                <InfoRow label="Version API" value={status.apiVersion ?? "—"} tone="blue" />
+                <InfoRow label="Moteur" value={status.connected ? "Connecté" : "Erreur"} tone={status.connected ? "green" : "rose"} />
+                <InfoRow label="Base de données" value={backend} tone="purple" />
+              </div>
+            </Card>
+          </section>
 
           {/* Outils de maintenance (fonctionnels) */}
           <div id="maintenance" className="space-y-4">
