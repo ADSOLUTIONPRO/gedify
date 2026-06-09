@@ -9,6 +9,7 @@ import {
   Loader2,
   Sparkles,
 } from "lucide-react";
+import { OcrAbsentModal } from "@/components/documents/ocr-absent-modal";
 
 type Props = {
   documentId: number;
@@ -34,15 +35,16 @@ export function AnalyzeDocumentButton({
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState<Feedback>(null);
+  const [ocrModal, setOcrModal] = useState(false);
 
-  async function run(forceFresh: boolean) {
+  async function run(forceFresh: boolean, allowWithoutOcr = false) {
     setLoading(true);
     setFeedback(null);
     try {
       const response = await fetch("/api/ai/analyze-document", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ documentId, force: forceFresh || force }),
+        body: JSON.stringify({ documentId, force: forceFresh || force, allowWithoutOcr }),
       });
       const data = (await response.json().catch(() => ({}))) as {
         analysis?: unknown;
@@ -50,11 +52,9 @@ export function AnalyzeDocumentButton({
         error?: string;
         message?: string;
       };
-      if (response.status === 422 && data.error === "no-ocr") {
-        setFeedback({
-          kind: "no-ocr",
-          message: data.message ?? "Pas de contenu OCR exploitable.",
-        });
+      // OCR absent → modale (Lancer l'OCR / Analyser sans OCR) au lieu de bloquer.
+      if (response.status === 422 && data.error === "no-ocr" && !allowWithoutOcr) {
+        setOcrModal(true);
         return;
       }
       if (!response.ok) {
@@ -77,8 +77,23 @@ export function AnalyzeDocumentButton({
     }
   }
 
+  async function ocrThenAnalyze() {
+    setOcrModal(false);
+    await fetch(`/api/documents/${documentId}/redo-ocr`, { method: "POST", credentials: "include" }).catch(() => {});
+    await run(true, true);
+  }
+  const modalEl = (
+    <OcrAbsentModal
+      open={ocrModal}
+      onLaunchOcr={() => void ocrThenAnalyze()}
+      onAnalyzeAnyway={() => { setOcrModal(false); void run(true, true); }}
+      onClose={() => setOcrModal(false)}
+    />
+  );
+
   if (variant === "subtle") {
     return (
+      <>
       <span className="inline-flex items-center gap-2">
         <button
           type="button"
@@ -97,11 +112,14 @@ export function AnalyzeDocumentButton({
           <span className="text-[11px] text-rose-700">{feedback.message}</span>
         ) : null}
       </span>
+      {modalEl}
+      </>
     );
   }
 
   if (variant === "compact") {
     return (
+      <>
       <div className="inline-flex items-center gap-2">
         <button
           type="button"
@@ -123,10 +141,13 @@ export function AnalyzeDocumentButton({
           </span>
         ) : null}
       </div>
+      {modalEl}
+      </>
     );
   }
 
   return (
+    <>
     <div>
       <div className="flex flex-wrap items-center gap-2">
         <button
@@ -172,5 +193,7 @@ export function AnalyzeDocumentButton({
         </p>
       ) : null}
     </div>
+    {modalEl}
+    </>
   );
 }

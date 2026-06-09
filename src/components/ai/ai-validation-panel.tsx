@@ -14,6 +14,7 @@ import {
   XCircle,
   Zap,
 } from "lucide-react";
+import { OcrAbsentModal } from "@/components/documents/ocr-absent-modal";
 import type { AIAnalysis } from "@/lib/ai/types";
 
 type Props = {
@@ -58,6 +59,9 @@ export function AIValidationPanel({ analysis }: Props) {
   const [, startTransition] = useTransition();
   const [busy, setBusy] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<Feedback>(null);
+  // Modale « OCR absent » : l'analyse n'est jamais bloquée faute d'OCR.
+  const [ocrModal, setOcrModal] = useState(false);
+  const [pendingAi, setPendingAi] = useState<{ label: string; body: Record<string, unknown> } | null>(null);
 
   const badge = providerBadge(analysis.provider);
   const isLocalOnly =
@@ -83,6 +87,16 @@ export function AIValidationPanel({ analysis }: Props) {
         };
         if (response.status === 401) {
           throw new Error("Session GED expirée — veuillez vous reconnecter.");
+        }
+        // OCR absent sur une analyse → proposer le choix (Lancer l'OCR / Analyser
+        // sans OCR) au lieu d'afficher une erreur bloquante.
+        if (url === "/api/ai/analyze-document" && response.status === 422 && errorData.error === "no-ocr") {
+          const b = (body ?? {}) as Record<string, unknown>;
+          if (!b.allowWithoutOcr) {
+            setPendingAi({ label, body: b });
+            setOcrModal(true);
+            return;
+          }
         }
         throw new Error(
           errorData.message ?? errorData.details ?? errorData.error ?? `HTTP ${response.status}`
@@ -110,6 +124,20 @@ export function AIValidationPanel({ analysis }: Props) {
     } finally {
       setBusy(null);
     }
+  }
+
+  /** « Oui, lancer l'analyse IA » : rejoue la dernière analyse sans OCR. */
+  async function analyzeWithoutOcr() {
+    setOcrModal(false);
+    if (!pendingAi) return;
+    await send(pendingAi.label, "/api/ai/analyze-document", { ...pendingAi.body, allowWithoutOcr: true });
+  }
+  /** « Lancer l'OCR » : relance l'OCR puis rejoue l'analyse. */
+  async function ocrThenAnalyze() {
+    setOcrModal(false);
+    if (!pendingAi) return;
+    await fetch(`/api/documents/${analysis.documentId}/redo-ocr`, { method: "POST", credentials: "include" }).catch(() => {});
+    await send(pendingAi.label, "/api/ai/analyze-document", { ...pendingAi.body, allowWithoutOcr: true });
   }
 
   return (
@@ -303,6 +331,14 @@ export function AIValidationPanel({ analysis }: Props) {
           <span>{feedback.message}</span>
         </p>
       ) : null}
+
+      {/* Modale partagée « OCR absent » : l'analyse n'est jamais bloquée. */}
+      <OcrAbsentModal
+        open={ocrModal}
+        onLaunchOcr={() => void ocrThenAnalyze()}
+        onAnalyzeAnyway={() => void analyzeWithoutOcr()}
+        onClose={() => setOcrModal(false)}
+      />
     </div>
   );
 }

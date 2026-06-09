@@ -18,6 +18,8 @@ type Body = {
   createFinancialItems?: boolean;
   /** Liste explicite (ex. documents visibles / sélectionnés). Sinon, scan global. */
   documentIds?: number[];
+  /** Analyser même sans OCR exploitable (vision/document direct). Défaut : true en lot. */
+  allowWithoutOcr?: boolean;
 };
 
 export async function POST(request: NextRequest) {
@@ -47,6 +49,7 @@ export async function POST(request: NextRequest) {
           force: body.force,
           autoValidate: body.autoValidate,
           createFinancialItems: body.createFinancialItems ?? true,
+          allowWithoutOcr: body.allowWithoutOcr ?? true,
         });
         if (outcome.status === "ok") {
           if (outcome.autoValidated) autoValidated += 1;

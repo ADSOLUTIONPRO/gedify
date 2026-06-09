@@ -497,7 +497,7 @@ function DetailPanel({
           </button>
         ) : null}
         {item.sourceDocumentId ? (
-          <button type="button" disabled={busy} onClick={() => { void fetch(`/api/documents/${item.sourceDocumentId}/reanalyze`, { method: "POST", credentials: "include" }); }} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border px-2 text-[12.5px] font-semibold transition hover:bg-slate-50 disabled:opacity-50" style={{ borderColor: "var(--border)", color: "#7C3AED" }}>
+          <button type="button" disabled={busy} onClick={() => { void fetch(`/api/documents/${item.sourceDocumentId}/reanalyze`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ force: true, allowWithoutOcr: true }) }); }} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border px-2 text-[12.5px] font-semibold transition hover:bg-slate-50 disabled:opacity-50" style={{ borderColor: "var(--border)", color: "#7C3AED" }}>
             <Sparkles className="h-4 w-4" strokeWidth={1.85} /> Relancer IA
           </button>
         ) : null}

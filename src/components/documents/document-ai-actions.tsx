@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FileSearch, Loader2, ScanLine, Sparkles, type LucideIcon } from "lucide-react";
 import { DocumentAiResultDialog } from "@/components/documents/document-ai-result-dialog";
+import { OcrAbsentModal } from "@/components/documents/ocr-absent-modal";
 import { fetchCurrentUser } from "@/lib/documents/document-quick-edit";
 import { ANALYSIS_ACTIONS, logAiAction, runAiAction, type AiActionId, type AiActionResult } from "@/lib/documents/document-ai";
 
@@ -173,50 +174,14 @@ export function DocumentAiActions({ documentId, onOpenSheet, onChanged, show = D
         onOpenSheet={() => { setDialogOpen(false); onOpenSheet?.(); }}
       />
 
-      {/* Modale « OCR absent » : l'analyse n'est plus bloquée par l'absence d'OCR. */}
-      {ocrModal ? (
-        <div className="fixed inset-0 z-[95] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="OCR absent">
-          <button type="button" aria-label="Fermer" onClick={() => setOcrModal(false)} className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm" />
-          <div className="relative z-10 w-full max-w-md rounded-3xl p-5 shadow-2xl" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-            {ocrStatus === "pending" ? (
-              <>
-                {/* §19 — OCR encore en cours */}
-                <h2 className="text-[16px] font-extrabold" style={{ color: "var(--text-main)" }}>OCR en cours</h2>
-                <p className="mt-2 text-[13px] leading-relaxed" style={{ color: "var(--text-muted)" }}>
-                  L&apos;OCR de ce document n&apos;est pas encore terminé. Vous pouvez attendre la fin de l&apos;OCR, ou lancer l&apos;analyse IA maintenant (directement sur le document).
-                </p>
-                <div className="mt-4 flex flex-col gap-2">
-                  <button type="button" onClick={() => setOcrModal(false)} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl px-4 text-[13.5px] font-bold text-white transition hover:opacity-90" style={{ background: "var(--accent)" }}>
-                    Attendre l&apos;OCR
-                  </button>
-                  <button type="button" onClick={() => void analyzeWithoutOcr()} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border px-4 text-[13.5px] font-bold transition hover:bg-[var(--bg-card-soft)]" style={{ borderColor: "var(--border)", color: "var(--text-main)" }}>
-                    <Sparkles className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden="true" /> Lancer maintenant
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                {/* OCR absent / insuffisant */}
-                <h2 className="text-[16px] font-extrabold" style={{ color: "var(--text-main)" }}>OCR absent</h2>
-                <p className="mt-2 text-[13px] leading-relaxed" style={{ color: "var(--text-muted)" }}>
-                  Ce document ne dispose pas encore de texte OCR exploitable. L&apos;analyse IA peut tout de même examiner directement le document, mais certains résultats peuvent être moins précis selon le format et la qualité des pages.
-                </p>
-                <div className="mt-4 flex flex-col gap-2">
-                  <button type="button" onClick={() => void ocrThenAnalyze()} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl px-4 text-[13.5px] font-bold text-white transition hover:opacity-90" style={{ background: "var(--accent)" }}>
-                    <ScanLine className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden="true" /> Lancer l&apos;OCR
-                  </button>
-                  <button type="button" onClick={() => void analyzeWithoutOcr()} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border px-4 text-[13.5px] font-bold transition hover:bg-[var(--bg-card-soft)]" style={{ borderColor: "var(--border)", color: "var(--text-main)" }}>
-                    <Sparkles className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden="true" /> Oui, lancer l&apos;analyse IA
-                  </button>
-                </div>
-              </>
-            )}
-            <button type="button" onClick={() => setOcrModal(false)} className="mt-2 inline-flex h-10 w-full items-center justify-center rounded-xl px-4 text-[13px] font-semibold transition hover:bg-[var(--bg-card-soft)]" style={{ color: "var(--text-muted)" }}>
-              Annuler
-            </button>
-          </div>
-        </div>
-      ) : null}
+      {/* Modale partagée « OCR absent / en cours » : analyse jamais bloquée. */}
+      <OcrAbsentModal
+        open={ocrModal}
+        ocrStatus={ocrStatus}
+        onLaunchOcr={() => void ocrThenAnalyze()}
+        onAnalyzeAnyway={() => void analyzeWithoutOcr()}
+        onClose={() => setOcrModal(false)}
+      />
     </div>
   );
 }

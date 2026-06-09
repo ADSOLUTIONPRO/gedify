@@ -14,6 +14,7 @@ import {
   useDocumentProcessingStatus,
   type ProcessingStatus,
 } from "@/hooks/use-document-processing-status";
+import { OcrAbsentModal } from "@/components/documents/ocr-absent-modal";
 
 type Props = {
   documentId: number;
@@ -80,17 +81,23 @@ function ReanalyzeButton({
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [ocrModal, setOcrModal] = useState(false);
 
-  async function run() {
+  async function run(allowWithoutOcr = false) {
     setLoading(true);
     setError(null);
     try {
       const res = await fetch(`/api/documents/${documentId}/reanalyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ force: true }),
+        body: JSON.stringify({ force: true, allowWithoutOcr }),
       });
       const data = (await res.json().catch(() => ({}))) as { message?: string; status?: string };
+      // OCR absent → modale (Lancer l'OCR / Analyser sans OCR) au lieu de bloquer.
+      if (res.status === 422 && data.status === "pending_ocr" && !allowWithoutOcr) {
+        setOcrModal(true);
+        return;
+      }
       if (!res.ok) {
         if (res.status === 409) throw new Error("Analyse déjà en cours — patientez.");
         throw new Error(data.message ?? `HTTP ${res.status}`);
@@ -104,12 +111,18 @@ function ReanalyzeButton({
     }
   }
 
+  async function ocrThenAnalyze() {
+    setOcrModal(false);
+    await fetch(`/api/documents/${documentId}/redo-ocr`, { method: "POST", credentials: "include" }).catch(() => {});
+    await run(true);
+  }
+
   return (
     <span className="flex flex-col gap-1">
       <button
         type="button"
         disabled={loading}
-        onClick={run}
+        onClick={() => void run()}
         className="inline-flex items-center gap-1.5 rounded-xl border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700 transition hover:bg-violet-100 disabled:opacity-60"
       >
         {loading ? (
@@ -122,6 +135,12 @@ function ReanalyzeButton({
       {error ? (
         <span className="text-[11px] text-rose-600">{error}</span>
       ) : null}
+      <OcrAbsentModal
+        open={ocrModal}
+        onLaunchOcr={() => void ocrThenAnalyze()}
+        onAnalyzeAnyway={() => { setOcrModal(false); void run(true); }}
+        onClose={() => setOcrModal(false)}
+      />
     </span>
   );
 }

@@ -20,6 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { AutocompleteInput, type AutocompleteSuggestion } from "@/components/ui/autocomplete-input";
+import { OcrAbsentModal } from "@/components/documents/ocr-absent-modal";
 import { FolderPickerField } from "@/components/folders/folder-picker-field";
 import { FolderPickerModal, type FolderSelection } from "@/components/folders/folder-picker-modal";
 import { CreateCalendarItemModal } from "@/components/calendar/create-calendar-item-modal";
@@ -173,6 +174,7 @@ type Phase = "view" | "running" | "applying" | "applied" | "error";
 export function DocumentAiSheet({ doc, onClose, onApplied }: { doc: DocumentVM; onClose: () => void; onApplied?: () => void }) {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("view");
+  const [ocrModal, setOcrModal] = useState(false);
   const [hasAnalysis, setHasAnalysis] = useState(Boolean(doc.ai));
   const [sug, setSug] = useState<Suggestions>(() => fromVM(doc));
   const [step, setStep] = useState(0);
@@ -210,7 +212,7 @@ export function DocumentAiSheet({ doc, onClose, onApplied }: { doc: DocumentVM; 
     return () => { clearTimeout(reset); clearInterval(iv); };
   }, [phase]);
 
-  async function launch() {
+  async function launch(allowWithoutOcr = false) {
     setErrorMsg(null);
     setPhase("running");
     const ctrl = new AbortController();
@@ -220,10 +222,16 @@ export function DocumentAiSheet({ doc, onClose, onApplied }: { doc: DocumentVM; 
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ documentId: doc.id, mode: "cloud", advanced: true, autoApply: false, force: true }),
+        body: JSON.stringify({ documentId: doc.id, mode: "cloud", advanced: true, autoApply: false, force: true, allowWithoutOcr }),
         signal: ctrl.signal,
       });
       const data = (await res.json().catch(() => ({}))) as { analysis?: AiAnalysisShape; diagnostics?: AiDiagnostics; message?: string; error?: string };
+      // OCR absent → modale (Lancer l'OCR / Analyser sans OCR) au lieu de bloquer.
+      if (res.status === 422 && data.error === "no-ocr" && !allowWithoutOcr) {
+        setPhase("view");
+        setOcrModal(true);
+        return;
+      }
       if (!res.ok || !data.analysis) {
         setErrorMsg(data.message || data.error || `Analyse impossible (${res.status}).`);
         setSug((s) => ({ ...s, ocrLength: data.diagnostics?.ocrLength ?? s.ocrLength, provider: data.diagnostics?.provider ?? s.provider, model: data.diagnostics?.model ?? s.model }));
@@ -238,6 +246,13 @@ export function DocumentAiSheet({ doc, onClose, onApplied }: { doc: DocumentVM; 
       setErrorMsg("Analyse impossible — réessayez.");
       setPhase("error");
     }
+  }
+
+  /** « Lancer l'OCR » : relance l'OCR puis l'analyse (jamais bloquée). */
+  async function ocrThenAnalyze() {
+    setOcrModal(false);
+    await fetch(`/api/documents/${doc.id}/redo-ocr`, { method: "POST", credentials: "include" }).catch(() => {});
+    await launch(true);
   }
 
   async function apply() {
@@ -586,6 +601,15 @@ export function DocumentAiSheet({ doc, onClose, onApplied }: { doc: DocumentVM; 
       {folderModalOpen ? (
         <FolderPickerModal currentValue={folderSel} allowCreate onSelect={(v) => void addToFolder(v)} onClose={() => setFolderModalOpen(false)} />
       ) : null}
+
+      {/* Modale partagée « OCR absent / en cours » : l'analyse n'est jamais bloquée. */}
+      <OcrAbsentModal
+        open={ocrModal}
+        ocrStatus={doc.statuses.ocr}
+        onLaunchOcr={() => void ocrThenAnalyze()}
+        onAnalyzeAnyway={() => { setOcrModal(false); void launch(true); }}
+        onClose={() => setOcrModal(false)}
+      />
 
       {calItemOpen ? (
         <CreateCalendarItemModal

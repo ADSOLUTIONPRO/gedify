@@ -18,14 +18,14 @@ export async function POST(request: NextRequest, { params }: Ctx) {
   try {
     const { id } = await params;
     const docId = Number(id);
-    const body = await request.json().catch(() => ({})) as { force?: boolean };
+    const body = await request.json().catch(() => ({})) as { force?: boolean; allowWithoutOcr?: boolean };
 
     console.log(`[AI_ROUTE] POST /api/documents/${docId}/reanalyze requestId=${requestId} force=${body.force ?? true}`);
 
     const lockResult = await withDocumentAnalysisLock(docId, async () => {
       const startMs = Date.now();
       console.log(`[AI_CALL_START] requestId=${requestId} docId=${docId} provider=${process.env.AI_PROVIDER ?? "mock"} purpose=reanalyze`);
-      const outcome = await runDocumentAnalysis(docId, { force: body.force ?? true, createFinancialItems: true, autoApply: true });
+      const outcome = await runDocumentAnalysis(docId, { force: body.force ?? true, createFinancialItems: true, autoApply: true, allowWithoutOcr: body.allowWithoutOcr ?? false });
       console.log(`[AI_CALL_END] requestId=${requestId} durationMs=${Date.now() - startMs} status=${outcome.status}`);
       return outcome;
     });

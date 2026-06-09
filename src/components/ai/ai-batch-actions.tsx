@@ -41,6 +41,8 @@ export function AiBatchActions({ pendingCount, visibleIds }: AiBatchActionsProps
         force: options.reanalyze,
         autoValidate: options.autoValidate,
         createFinancialItems: options.createBudget,
+        // Lot : ne jamais bloquer sur l'OCR absent (analyse directe du document).
+        allowWithoutOcr: true,
       };
       if (scope === "visible" && visibleIds && visibleIds.length > 0) {
         body.documentIds = visibleIds;

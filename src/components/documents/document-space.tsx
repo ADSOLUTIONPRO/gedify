@@ -17,6 +17,7 @@ import type { DocActionHandlers } from "@/components/documents/document-action-m
 import { DocumentLightbox } from "@/components/documents/document-lightbox";
 import { DocumentAiSheet } from "@/components/documents/document-ai-sheet";
 import { DocumentAiResultDialog } from "@/components/documents/document-ai-result-dialog";
+import { OcrAbsentModal } from "@/components/documents/ocr-absent-modal";
 import { BulkAnalyzeDialog } from "@/components/documents/bulk-analyze-dialog";
 import type { DocumentVM } from "@/components/documents/types";
 import { ConfirmActionDialog } from "@/components/ui/confirm-action-dialog";
@@ -130,6 +131,8 @@ export function DocumentSpace({
   const [bulkDocs, setBulkDocs] = useState<{ id: number; title: string; ocr?: "done" | "low" | "pending" }[] | null>(null);
   // Action document unitaire (menu « … ») ciblant les panneaux groupés sur un seul doc.
   const [singleActionDoc, setSingleActionDoc] = useState<DocumentVM | null>(null);
+  // Modale « OCR absent » : l'analyse d'un document n'est jamais bloquée faute d'OCR.
+  const [ocrModal, setOcrModal] = useState<{ doc: DocumentVM; action: AiActionId } | null>(null);
 
   useEffect(() => {
     void Promise.resolve().then(async () => setAiUser(await fetchCurrentUser()));
@@ -141,12 +144,20 @@ export function DocumentSpace({
     return () => clearAssistantOverrides();
   }, [selectedIds, activeId]);
 
-  async function runAi(doc: DocumentVM, action: AiActionId) {
+  async function runAi(doc: DocumentVM, action: AiActionId, allowWithoutOcr = false) {
     if (aiBusyId) return;
     const isAnalysis = ANALYSIS_ACTIONS.includes(action);
     setAiBusyId(doc.id);
     if (isAnalysis) { setAiDialogDoc(doc); setAiDialogResult(null); setAiDialogLoading(true); }
-    const res = await runAiAction(doc.id, action);
+    const res = await runAiAction(doc.id, action, { allowWithoutOcr });
+    // OCR absent et non explicitement autorisé → proposer le choix (Lancer l'OCR /
+    // Analyser sans OCR) au lieu d'afficher une erreur dans le dialogue.
+    if (isAnalysis && res.code === "no-ocr" && !allowWithoutOcr) {
+      setAiDialogDoc(null); setAiDialogResult(null); setAiDialogLoading(false);
+      setAiBusyId(null);
+      setOcrModal({ doc, action });
+      return;
+    }
     await logAiAction(doc.id, action, res.ok, aiUser);
     setAiBusyId(null);
     if (isAnalysis) {
@@ -267,6 +278,8 @@ export function DocumentSpace({
     errorCode: string;
     makeUrls: (id: number) => string[];
     pollThumbnail?: boolean;
+    /** Corps JSON optionnel envoyé à chaque POST (ex. allowWithoutOcr pour l'analyse). */
+    body?: Record<string, unknown>;
   }) => {
     const targets = selectedDocs.length > 0 ? selectedDocs : activeDoc ? [activeDoc] : [];
     if (targets.length === 0) return;
@@ -279,7 +292,11 @@ export function DocumentSpace({
       for (const url of opts.makeUrls(doc.id)) {
         const isPreview = opts.pollThumbnail && url.includes("regenerate-preview");
         try {
-          const res = await fetch(url, { method: "POST", credentials: "include" });
+          const res = await fetch(url, {
+            method: "POST",
+            credentials: "include",
+            ...(opts.body ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(opts.body) } : {}),
+          });
           if (isPreview) continue; // aperçu : best-effort, ne fait pas échouer le doc
           if (!res.ok) { ok = false; lastErr = `HTTP ${res.status}`; continue; }
           if (opts.pollThumbnail && url.includes("regenerate-thumbnail")) {
@@ -302,7 +319,8 @@ export function DocumentSpace({
   };
 
   const reanalyzeSelection = () =>
-    runBulkProgress({ title: "Analyse IA", errorCode: "ai_failed", makeUrls: (id) => [`/api/documents/${id}/reanalyze`] });
+    // Lot : ne jamais bloquer sur l'OCR absent (analyse directe du document).
+    runBulkProgress({ title: "Analyse IA", errorCode: "ai_failed", makeUrls: (id) => [`/api/documents/${id}/reanalyze`], body: { force: true, allowWithoutOcr: true } });
   const redoOcrSelection = () =>
     runBulkProgress({ title: "Relancer l'OCR", errorCode: "ocr_failed", makeUrls: (id) => [`/api/documents/${id}/redo-ocr`] });
   const regenerateThumbnailSelection = () =>
@@ -590,6 +608,22 @@ export function DocumentSpace({
         result={aiDialogResult}
         onClose={() => setAiDialogDoc(null)}
         onOpenSheet={() => { const d = aiDialogDoc; setAiDialogDoc(null); if (d) setAiSheetDoc(d); }}
+      />
+
+      {/* Modale partagée « OCR absent / en cours » : analyse unitaire jamais bloquée. */}
+      <OcrAbsentModal
+        open={ocrModal !== null}
+        ocrStatus={ocrModal?.doc.statuses.ocr}
+        onLaunchOcr={() => {
+          const m = ocrModal; setOcrModal(null);
+          if (!m) return;
+          void (async () => {
+            await fetch(`/api/documents/${m.doc.id}/redo-ocr`, { method: "POST", credentials: "include" }).catch(() => {});
+            await runAi(m.doc, m.action, true);
+          })();
+        }}
+        onAnalyzeAnyway={() => { const m = ocrModal; setOcrModal(null); if (m) void runAi(m.doc, m.action, true); }}
+        onClose={() => setOcrModal(null)}
       />
 
       {/* Analyse IA groupée */}
