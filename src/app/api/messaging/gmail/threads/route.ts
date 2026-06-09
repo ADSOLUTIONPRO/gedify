@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { jsonError } from "@/lib/api-utils";
 import { getInboxGmailAccounts } from "@/lib/messaging/active-gmail-account";
 import { fetchAccountThreads } from "@/lib/messaging/load-threads";
+import { buildGmailExclusionSuffix } from "@/lib/messaging/mail-folder-inclusion";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,18 +25,23 @@ export async function GET(request: NextRequest) {
       100,
     );
     const pageToken = url.searchParams.get("pageToken") ?? undefined;
+    // prefs=1 (vue « Courriels à traiter ») → applique les exclusions de libellés
+    // manuelles par compte (§13).
+    const applyPrefs = url.searchParams.get("prefs") === "1";
+    const accountQuery = async (accId: string) =>
+      applyPrefs ? query + (await buildGmailExclusionSuffix(accId).catch(() => "")) : query;
 
     // Mono-compte (compte précis sélectionné) → pagination par curseur conservée.
     if (!aggregate && accounts.length === 1) {
       const account = accounts[0];
-      const { threads, nextPageToken } = await fetchAccountThreads(account, query, maxResults, pageToken);
+      const { threads, nextPageToken } = await fetchAccountThreads(account, await accountQuery(account.accountId), maxResults, pageToken);
       return NextResponse.json({ accountId: account.accountId, accountEmail: account.email, threads, nextPageToken });
     }
 
     // « Toutes les boîtes » → agrège tous les comptes (échec d'un compte ignoré),
     // fusion + tri par date, borne globale. Pas de pagination fusionnée.
     const perAccount = await Promise.all(
-      accounts.map((account) => fetchAccountThreads(account, query, maxResults).catch(() => ({ threads: [], nextPageToken: null }))),
+      accounts.map(async (account) => fetchAccountThreads(account, await accountQuery(account.accountId), maxResults).catch(() => ({ threads: [], nextPageToken: null }))),
     );
     const threads = perAccount
       .flatMap((p) => p.threads)

@@ -69,6 +69,7 @@ export async function MailFolderView({
           attachmentsByThread={result.attachmentsByThread}
           query={query}
           accountFilter={accountId ?? null}
+          applyFolderPrefs={excludeProcessed}
           accountErrors={result.accountErrors}
           accountEmail={subtitle ?? result.accountEmail}
           folderLabel={title}

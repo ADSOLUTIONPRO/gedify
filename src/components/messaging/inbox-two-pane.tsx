@@ -28,6 +28,8 @@ type Props = {
   query?: string;
   /** Filtre « Boîte mail » courant (id de compte ou null/"all") — propagé aux refetch. */
   accountFilter?: string | null;
+  /** Vue « Courriels à traiter » → applique les exclusions de libellés par compte. */
+  applyFolderPrefs?: boolean;
   /** Boîtes en erreur de synchronisation (bandeau discret). */
   accountErrors?: { email: string; reconnect: boolean }[];
   accountEmail?: string | null;
@@ -50,6 +52,7 @@ export function InboxTwoPane({
   attachmentsByThread,
   query = "in:inbox",
   accountFilter = null,
+  applyFolderPrefs = false,
   accountErrors = [],
   accountEmail,
   folderLabel,
@@ -104,6 +107,7 @@ export function InboxTwoPane({
     try {
       const params = new URLSearchParams({ q, limit: "50" });
       if (accountFilter) params.set("accountId", accountFilter);
+      if (applyFolderPrefs) params.set("prefs", "1");
       const res = await fetch(`/api/messaging/gmail/threads?${params.toString()}`, { credentials: "include", cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as { threads?: Thread[]; nextPageToken?: string | null };
@@ -141,6 +145,7 @@ export function InboxTwoPane({
     try {
       const params = new URLSearchParams({ q: effectiveQuery, limit: "25", pageToken: nextPageToken });
       if (accountFilter) params.set("accountId", accountFilter);
+      if (applyFolderPrefs) params.set("prefs", "1");
       const res = await fetch(`/api/messaging/gmail/threads?${params.toString()}`, { credentials: "include", cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as { threads?: Thread[]; nextPageToken?: string | null };

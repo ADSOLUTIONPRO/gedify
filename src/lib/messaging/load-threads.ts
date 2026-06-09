@@ -8,6 +8,7 @@ import { indexLinksByThread } from "@/lib/messaging/email-ged-link-store";
 import { indexLinksByThread as indexAttachmentImportsByThread } from "@/lib/messaging/mail-document-links-store";
 import { normaliseGmailThread } from "@/lib/messaging/gmail-normalize";
 import { getHiddenSenderEmails } from "@/lib/messaging/hidden-senders-store";
+import { buildGmailExclusionSuffix } from "@/lib/messaging/mail-folder-inclusion";
 
 /** Résumé d'import des pièces jointes d'un thread (pour le badge d'état). */
 export type ThreadAttachmentSummary = { imported: number; error: boolean; docId: number | null };
@@ -108,7 +109,12 @@ export async function loadThreads(
   const perAccount = await Promise.all(
     accounts.map(async (account) => {
       try {
-        const { threads, nextPageToken } = await fetchAccountThreads(account, query, limit);
+        // « Courriels à traiter » : retire les libellés exclus manuellement (§13)
+        // de CE compte (requête per-compte, pas globale).
+        const accountQuery = opts.excludeProcessed
+          ? query + (await buildGmailExclusionSuffix(account.accountId).catch(() => ""))
+          : query;
+        const { threads, nextPageToken } = await fetchAccountThreads(account, accountQuery, limit);
         return { account, threads, nextPageToken, error: false, reconnect: false };
       } catch (error) {
         const reconnect = isGmailReconnectError(error);

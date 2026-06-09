@@ -13,16 +13,14 @@ import {
 } from "lucide-react";
 import { AccountActions } from "@/components/mail-connector/account-actions";
 import { GmailControls } from "@/components/mail-connector/gmail-controls";
+import { GmailFolderPrefs } from "@/components/mail-connector/gmail-folder-prefs";
 import { ErrorState } from "@/components/ui/error-state";
 import { MetadataGrid } from "@/components/ui/metadata-grid";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { StatCard } from "@/components/ui/stat-card";
 import { getAccount } from "@/lib/mail-connector/account-store";
-import {
-  DEFAULT_EXCLUDED_FOLDER_NAMES,
-  GMAIL_EXCLUDED_LABELS,
-} from "@/lib/mail-connector/default-excluded-folders";
+import { DEFAULT_EXCLUDED_FOLDER_NAMES } from "@/lib/mail-connector/default-excluded-folders";
 import { isSecureStorageReady } from "@/lib/mail-connector/encryption";
 import { listLogs } from "@/lib/mail-connector/log-store";
 import { findProvider } from "@/lib/mail-connector/providers";
@@ -155,10 +153,12 @@ export default async function AccountDetailPage({ params }: PageProps) {
 
       <div className="mt-6 grid gap-6 xl:grid-cols-3">
         <SectionCard icon={Filter} title="Dossiers et labels">
+          {account.connector === "gmail-oauth" ? (
+            <GmailFolderPrefs accountId={account.id} />
+          ) : (
+          <>
           <p className="mb-3 text-xs text-slate-500">
-            {account.connector === "gmail-oauth"
-              ? "Les libellés Gmail (LABEL_ID) déterminent ce qui est scanné. SPAM, TRASH, DRAFT, SENT, CATEGORY_PROMOTIONS et CATEGORY_SOCIAL sont exclus par défaut."
-              : "Sélectionnez les dossiers IMAP à surveiller. Les dossiers Spam, Corbeille, Brouillons et Envoyés sont exclus par défaut (FR + EN)."}
+            Sélectionnez les dossiers IMAP à surveiller. Les dossiers Spam, Corbeille, Brouillons et Envoyés sont exclus par défaut (FR + EN).
           </p>
           {account.folderRules?.watchedFolders.length ? (
             <div className="mb-3">
@@ -181,10 +181,7 @@ export default async function AccountDetailPage({ params }: PageProps) {
             Exclus par défaut
           </p>
           <div className="mt-1.5 flex flex-wrap gap-1">
-            {(account.connector === "gmail-oauth"
-              ? GMAIL_EXCLUDED_LABELS
-              : DEFAULT_EXCLUDED_FOLDER_NAMES.slice(0, 14)
-            ).map((folder) => (
+            {DEFAULT_EXCLUDED_FOLDER_NAMES.slice(0, 14).map((folder) => (
               <span
                 key={folder}
                 className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500"
@@ -200,6 +197,8 @@ export default async function AccountDetailPage({ params }: PageProps) {
             </code>{" "}
             avec <code className="font-mono">folderRules</code>.
           </p>
+          </>
+          )}
         </SectionCard>
 
         <SectionCard icon={Users} title="Expéditeurs">
