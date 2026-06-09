@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, EyeOff, FolderPlus, Loader2, Paperclip, RefreshCw, Search, SlidersHorizontal, X } from "lucide-react";
 import { MailClassifyPanel } from "@/components/messaging/mail-classify-panel";
+import { MailboxSelector } from "@/components/messaging/mailbox-selector";
 import { MailReadingPane } from "@/components/messaging/mail-reading-pane";
 import { MailFilterAutocomplete, type FilterSuggestion } from "@/components/messaging/mail-filter-autocomplete";
 import { ConfirmActionDialog } from "@/components/ui/confirm-action-dialog";
@@ -243,6 +244,10 @@ export function InboxTwoPane({
       <div className="flex min-h-0 flex-col border-r bg-white" style={{ borderColor: LINE }}>
         {/* Recherche + filtres avancés */}
         <div className="shrink-0 border-b px-3 py-2" style={{ borderColor: LINE }}>
+          {/* Filtre « Boîte mail » (auto-masqué si ≤ 1 boîte connectée). */}
+          <div className="mb-2 empty:hidden">
+            <MailboxSelector />
+          </div>
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: MUTED }} strokeWidth={1.75} />
