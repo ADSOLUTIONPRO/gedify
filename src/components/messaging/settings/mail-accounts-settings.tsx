@@ -1,21 +1,52 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, CheckCircle2, Clock, Inbox, Loader2, Plus, RefreshCw } from "lucide-react";
 import { MailAccountCard, type MenuAction } from "./mail-account-card";
 import { MailAccountDetailsPanel } from "./mail-account-details-panel";
-import { AddMailAccountModal } from "./add-mail-account-modal";
+import { ConnectMailboxModal, type ConnectInitial } from "./connect-mailbox-modal";
 import { relativeTime, type MailAccountVM, type SignatureVM } from "./types";
 
 const RETURN_TO = "/messagerie/parametres-emails";
 
-export function MailAccountsSettings({ accounts, signatures }: { accounts: MailAccountVM[]; signatures: SignatureVM[] }) {
+/** Reprise du parcours après un aller-retour OAuth (ou ouverture directe via
+ *  ?modal=connect-mailbox), transmise par la page serveur. */
+export type InitialConnect = {
+  open?: boolean;
+  provider?: "apple" | "custom";
+  oauthProvider?: "google" | "microsoft";
+  accountId?: string;
+  error?: string;
+};
+
+function buildConnectInitial(ic: InitialConnect | undefined, accounts: MailAccountVM[]): ConnectInitial | undefined {
+  if (!ic) return undefined;
+  if (ic.oauthProvider && ic.accountId) {
+    return { oauthProvider: ic.oauthProvider, oauthAccount: accounts.find((a) => a.id === ic.accountId) ?? null };
+  }
+  if (ic.error) return { error: ic.error };
+  if (ic.provider) return { provider: ic.provider };
+  return {};
+}
+
+export function MailAccountsSettings({ accounts, signatures, initialConnect }: { accounts: MailAccountVM[]; signatures: SignatureVM[]; initialConnect?: InitialConnect }) {
   const router = useRouter();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [syncingAll, setSyncingAll] = useState(false);
-  const [addOpen, setAddOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState<boolean>(() => Boolean(initialConnect));
+  const [modalInitial, setModalInitial] = useState<ConnectInitial | undefined>(() => buildConnectInitial(initialConnect, accounts));
+
+  // Nettoie les paramètres d'URL de reprise OAuth (sans recharger la page) pour
+  // qu'un rafraîchissement ultérieur ne rouvre pas la modale.
+  useEffect(() => {
+    if (initialConnect && typeof window !== "undefined" && window.location.search) {
+      window.history.replaceState(null, "", RETURN_TO);
+    }
+  }, [initialConnect]);
+
+  function openAdd() { setModalInitial(undefined); setAddOpen(true); }
 
   const selected = useMemo(() => accounts.find((a) => a.id === selectedId) ?? null, [accounts, selectedId]);
 
@@ -109,7 +140,7 @@ export function MailAccountsSettings({ accounts, signatures }: { accounts: MailA
           <button type="button" onClick={() => void syncAll()} disabled={syncingAll || accounts.length === 0} className="inline-flex h-10 items-center gap-2 rounded-xl border bg-white px-3.5 text-[13px] font-semibold transition hover:bg-slate-50 disabled:opacity-50" style={{ borderColor: "var(--border-strong)", color: "var(--text-main)" }}>
             {syncingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" strokeWidth={1.85} />} Synchroniser toutes les boîtes
           </button>
-          <button type="button" onClick={() => setAddOpen(true)} className="inline-flex h-10 items-center gap-2 rounded-xl px-4 text-[13px] font-bold text-white transition hover:opacity-90" style={{ background: "var(--accent)" }}>
+          <button type="button" onClick={openAdd} className="inline-flex h-10 items-center gap-2 rounded-xl px-4 text-[13px] font-bold text-white transition hover:opacity-90" style={{ background: "var(--accent)" }}>
             <Plus className="h-4 w-4" strokeWidth={2.5} /> Ajouter une boîte
           </button>
         </div>
@@ -130,7 +161,7 @@ export function MailAccountsSettings({ accounts, signatures }: { accounts: MailA
           <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl" style={{ background: "var(--accent-soft)", color: "var(--accent)" }}><Inbox className="h-6 w-6" strokeWidth={1.6} /></span>
           <p className="text-[15px] font-bold" style={{ color: "var(--text-main)" }}>Aucune boîte mail connectée</p>
           <p className="mt-1 text-[13px]" style={{ color: "var(--text-muted)" }}>Connectez votre première boîte pour afficher et traiter vos emails dans GEDify.</p>
-          <button type="button" onClick={() => setAddOpen(true)} className="mt-4 inline-flex h-10 items-center gap-2 rounded-xl px-4 text-[13px] font-bold text-white" style={{ background: "var(--accent)" }}><Plus className="h-4 w-4" strokeWidth={2.5} /> Ajouter une boîte</button>
+          <button type="button" onClick={openAdd} className="mt-4 inline-flex h-10 items-center gap-2 rounded-xl px-4 text-[13px] font-bold text-white" style={{ background: "var(--accent)" }}><Plus className="h-4 w-4" strokeWidth={2.5} /> Ajouter une boîte</button>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
@@ -147,11 +178,11 @@ export function MailAccountsSettings({ accounts, signatures }: { accounts: MailA
                 onMenuAction={(action) => onMenu(a, action)}
               />
             ))}
-            <button type="button" onClick={() => setAddOpen(true)} className="flex w-full items-center gap-3 rounded-2xl border border-dashed p-4 text-left transition hover:bg-[var(--bg-card-soft)]" style={{ borderColor: "var(--accent)" }}>
+            <button type="button" onClick={openAdd} className="flex w-full items-center gap-3 rounded-2xl border border-dashed p-4 text-left transition hover:bg-[var(--bg-card-soft)]" style={{ borderColor: "var(--accent)" }}>
               <span className="flex h-11 w-11 items-center justify-center rounded-full" style={{ background: "var(--accent-soft)", color: "var(--accent)" }}><Plus className="h-5 w-5" strokeWidth={2} /></span>
               <span className="flex-1">
                 <span className="block text-[14px] font-bold" style={{ color: "var(--text-main)" }}>Ajouter une nouvelle boîte mail</span>
-                <span className="block text-[12px]" style={{ color: "var(--text-muted)" }}>Google, Apple/iCloud ou autre fournisseur</span>
+                <span className="block text-[12px]" style={{ color: "var(--text-muted)" }}>Google, Apple/iCloud, Microsoft ou autre fournisseur</span>
               </span>
               <span style={{ color: "var(--text-hint)" }}>›</span>
             </button>
@@ -205,7 +236,7 @@ export function MailAccountsSettings({ accounts, signatures }: { accounts: MailA
         </div>
       )}
 
-      {addOpen ? <AddMailAccountModal onClose={() => setAddOpen(false)} /> : null}
+      {addOpen ? <ConnectMailboxModal initial={modalInitial} onClose={() => setAddOpen(false)} onConnected={() => router.refresh()} /> : null}
     </div>
   );
 }

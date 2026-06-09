@@ -1,11 +1,31 @@
 import type { Metadata } from "next";
-import { MailAccountsSettings } from "@/components/messaging/settings/mail-accounts-settings";
+import { MailAccountsSettings, type InitialConnect } from "@/components/messaging/settings/mail-accounts-settings";
 import { buildMailAccountVMs } from "@/lib/messaging/mail-account-vm";
 import { listSignatures } from "@/lib/messaging/email-signature-store";
 import type { SignatureVM } from "@/components/messaging/settings/types";
+import type { PageSearchParams } from "@/lib/page-params";
+import { firstParam } from "@/lib/page-params";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Paramètres des Emails — Messagerie" };
+
+/** Construit l'état de reprise de la modale à partir de l'URL : retour OAuth
+ *  (gmail|outlook=connected&accountId), erreur OAuth, ou ouverture directe
+ *  (?modal=connect-mailbox, ?provider=icloud depuis l'ancienne route). */
+function readInitialConnect(params: Record<string, string | string[] | undefined>): InitialConnect | undefined {
+  const accountId = firstParam(params, "accountId") ?? undefined;
+  if (firstParam(params, "gmail") === "connected") return { oauthProvider: "google", accountId };
+  if (firstParam(params, "outlook") === "connected") return { oauthProvider: "microsoft", accountId };
+  const error = firstParam(params, "gmail_error") ?? firstParam(params, "outlook_error");
+  if (error) return { error };
+  if (firstParam(params, "modal") === "connect-mailbox") {
+    const provider = firstParam(params, "provider");
+    if (provider === "icloud" || provider === "apple") return { provider: "apple" };
+    if (provider && provider !== "gmail" && provider !== "outlook") return { provider: "custom" };
+    return { open: true };
+  }
+  return undefined;
+}
 
 /**
  * « Emails & boîtes connectées » — implémentation UNIQUE, intégrée à l'espace
@@ -14,7 +34,9 @@ export const metadata: Metadata = { title: "Paramètres des Emails — Messageri
  * Google OAuth »), panneau de détail contextuel par compte (Informations /
  * Synchronisation / Envoi / Signature / Dossiers / Sécurité). Données réelles.
  */
-export default async function MessagerieParametresEmailsPage() {
+export default async function MessagerieParametresEmailsPage({ searchParams }: { searchParams: PageSearchParams }) {
+  const params = await searchParams;
+  const initialConnect = readInitialConnect(params);
   const [accounts, signatures] = await Promise.all([
     buildMailAccountVMs(),
     listSignatures(),
@@ -23,7 +45,7 @@ export default async function MessagerieParametresEmailsPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl p-4 lg:p-6">
-      <MailAccountsSettings accounts={accounts} signatures={signatureVMs} />
+      <MailAccountsSettings accounts={accounts} signatures={signatureVMs} initialConnect={initialConnect} />
     </div>
   );
 }
