@@ -142,10 +142,9 @@ export const SPACE_MENUS: Record<string, SpaceMenu> = {
     id: "finances",
     title: "Finances",
     description: "Budget, revenus & échéances",
-    action: { label: "Ajouter un document", href: "/import", icon: Receipt },
     items: [
       { label: "Vue d'ensemble", href: "/finances", icon: Gauge },
-      { label: "À encaisser", href: "/finances?vue=a-encaisser", icon: Banknote },
+      { label: "À encaisser", href: "/finances/a-encaisser", icon: Banknote },
       { label: "Encaissements", href: "/finances/revenus", icon: Wallet },
       { label: "Factures", href: "/finances/documents", icon: Receipt },
     ],
