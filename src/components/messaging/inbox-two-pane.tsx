@@ -246,7 +246,7 @@ export function InboxTwoPane({
   }, [nextPageToken, loadingMore, visible.length]);
 
   return (
-    <div className="grid h-full min-h-0" style={{ gridTemplateColumns: "minmax(0,470px) 1fr" }}>
+    <div className="grid h-full min-h-0" style={{ gridTemplateColumns: "minmax(340px, 38%) minmax(0, 1fr)" }}>
       {/* ════════ Colonne 2 — Liste des messages ════════ */}
       <div className="flex min-h-0 flex-col border-r bg-white" style={{ borderColor: LINE }}>
         {/* Recherche + filtres avancés */}
