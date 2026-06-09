@@ -7,8 +7,7 @@ import {
   getDecryptedPassword,
   recordAccountSyncResult,
 } from "./account-store";
-import { withImap, withImapXOAuth2 } from "./imap-client";
-import { getValidOutlookAccessToken } from "@/lib/connectors/outlook/outlook-access";
+import { withImap } from "./imap-client";
 import { appendLog } from "./log-store";
 import {
   evaluateAttachment,
@@ -79,41 +78,30 @@ export async function syncMailAccount(accountId: string): Promise<MailSyncResult
     };
   }
 
-  // Résolution des identifiants selon le type d'authentification, puis choix de
-  // la méthode d'ouverture IMAP : mot de passe (basique) ou XOAUTH2 (Outlook).
-  let runWithClient: <T>(handler: (client: ImapFlow) => Promise<T>) => Promise<T>;
-
-  if (account.authType === "imap-password") {
-    const password = await getDecryptedPassword(accountId);
-    if (!password) {
-      const msg = "Aucun mot de passe stocké (stockage sécurisé à connecter).";
-      await recordAccountSyncResult(accountId, { ok: false, errorMessage: msg });
-      return {
-        accountId, ok: false, imported: 0, ignored: 0, errors: 1, duplicates: 0,
-        durationMs: Date.now() - started, message: msg, logIds: [],
-      };
-    }
-    runWithClient = (handler) => withImap(account, password, handler);
-  } else if (account.authType === "oauth-outlook") {
-    let accessToken: string;
-    try {
-      ({ accessToken } = await getValidOutlookAccessToken(accountId));
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Token Microsoft indisponible — reconnectez le compte.";
-      await recordAccountSyncResult(accountId, { ok: false, errorMessage: msg });
-      return {
-        accountId, ok: false, imported: 0, ignored: 0, errors: 1, duplicates: 0,
-        durationMs: Date.now() - started, message: msg, logIds: [],
-      };
-    }
-    runWithClient = (handler) => withImapXOAuth2(account, accessToken, handler);
-  } else {
-    // oauth-gmail : relève gérée par le connecteur Gmail (API), pas en IMAP ici.
+  // Microsoft/Outlook : relève via Microsoft Graph (et non IMAP).
+  if (account.authType === "oauth-outlook") {
+    const { syncOutlookAccount } = await import("@/lib/connectors/outlook/sync-outlook-account");
+    return syncOutlookAccount(accountId);
+  }
+  // Gmail : relève gérée par le connecteur Gmail (API), pas ici.
+  if (account.authType !== "imap-password") {
     return {
       accountId, ok: false, imported: 0, ignored: 0, errors: 0, duplicates: 0,
       durationMs: 0, message: "Synchronisation gérée par le connecteur Gmail.", logIds: [],
     };
   }
+
+  // Comptes IMAP classiques (mot de passe).
+  const password = await getDecryptedPassword(accountId);
+  if (!password) {
+    const msg = "Aucun mot de passe stocké (stockage sécurisé à connecter).";
+    await recordAccountSyncResult(accountId, { ok: false, errorMessage: msg });
+    return {
+      accountId, ok: false, imported: 0, ignored: 0, errors: 1, duplicates: 0,
+      durationMs: Date.now() - started, message: msg, logIds: [],
+    };
+  }
+  const runWithClient = <T,>(handler: (client: ImapFlow) => Promise<T>): Promise<T> => withImap(account, password, handler);
 
   const rules = await listRules();
   let imported = 0;

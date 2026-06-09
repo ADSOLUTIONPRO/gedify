@@ -9,8 +9,8 @@ import { paperlessFetchRaw } from "@/lib/paperless";
 import { createEmailLink } from "@/lib/messaging/email-ged-link-store";
 import { resolveSendAccount } from "@/lib/messaging/sendable-accounts";
 import { getAccountWithSecret, getDecryptedPassword } from "@/lib/mail-connector/account-store";
-import { sendSmtpMessage, sendSmtpMessageOAuth2 } from "@/lib/mail-connector/smtp-send";
-import { getValidOutlookAccessToken } from "@/lib/connectors/outlook/outlook-access";
+import { sendSmtpMessage } from "@/lib/mail-connector/smtp-send";
+import { sendMail as sendOutlookGraphMail } from "@/lib/connectors/outlook/graph-api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -175,10 +175,16 @@ export async function POST(request: NextRequest) {
         inReplyTo: body.inReplyTo,
         attachments: attachments.length ? attachments : undefined,
       };
-      let sent;
+      let sent: { id: string; accepted: string[] };
       if (acct.authType === "oauth-outlook") {
-        const { accessToken } = await getValidOutlookAccessToken(sender.id);
-        sent = await sendSmtpMessageOAuth2(acct, accessToken, smtpInput);
+        // Microsoft : envoi via Graph /me/sendMail (avec pièces jointes).
+        const r = await sendOutlookGraphMail(sender.id, {
+          to: body.to, cc: body.cc, bcc: body.bcc, subject: body.subject,
+          html: smtpInput.body,
+          attachments: attachments.length ? attachments.map((a) => ({ filename: a.filename, mimeType: a.mimeType, contentBase64: a.contentBase64 })) : undefined,
+          inReplyToInternetMessageId: body.inReplyTo ?? null,
+        });
+        sent = { id: r.id, accepted: [body.to] };
       } else {
         const password = await getDecryptedPassword(sender.id);
         if (!password) {

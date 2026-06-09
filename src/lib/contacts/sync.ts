@@ -195,8 +195,21 @@ export async function syncEmailContacts(): Promise<EmailSyncResult> {
 
 /** Synchronise TOUT (Google + emails). Best-effort : un échec d'une source
  *  n'empêche pas l'autre. Renvoie le détail par source. */
-export async function syncAllContacts(): Promise<{ google: GoogleSyncResult; email: EmailSyncResult }> {
+export async function syncAllContacts(): Promise<{ google: GoogleSyncResult; email: EmailSyncResult; outlook?: { synced: number } }> {
   const google = await syncGoogleContacts();
   const email = await syncEmailContacts();
-  return { google, email };
+  // Contacts Microsoft (Graph) des comptes Outlook connectés — best-effort.
+  let outlookSynced = 0;
+  try {
+    const { listAccounts } = await import("@/lib/mail-connector/account-store");
+    const { syncOutlookContacts } = await import("@/lib/connectors/outlook/sync-outlook-contacts");
+    const outlookAccounts = (await listAccounts()).filter((a) => a.authType === "oauth-outlook" && a.isActive);
+    for (const acc of outlookAccounts) {
+      const r = await syncOutlookContacts(acc.id);
+      if (r.ok) outlookSynced += r.synced ?? 0;
+    }
+  } catch {
+    /* best-effort : n'empêche pas Google/email */
+  }
+  return { google, email, outlook: { synced: outlookSynced } };
 }

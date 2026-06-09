@@ -3,23 +3,26 @@ import "server-only";
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 /* ────────────────────────────────────────────────────────────────────────
-   OAuth2 Microsoft (Outlook.com / Hotmail / Live / Microsoft 365).
+   OAuth2 Microsoft (Outlook.com / Hotmail / Live / Microsoft 365 / Exchange
+   Online), flux « authorization code » serveur (Entra / Azure AD v2.0).
 
-   Microsoft a désactivé l'authentification basique (IMAP/POP/SMTP par mot de
-   passe) pour les comptes personnels Outlook.com/Hotmail et la plupart des
-   tenants M365 : la seule méthode supportée est OAuth2 / Modern Auth (XOAUTH2).
-   Ce module gère le flux « authorization code » (Entra / Azure AD v2.0) ; les
-   tokens servent ensuite à se connecter en IMAP et SMTP via XOAUTH2.
+   Accès via MICROSOFT GRAPH (et non IMAP/SMTP) : lecture des messages, dossiers,
+   brouillons et envoyés, envoi de messages avec pièces jointes, agenda et
+   contacts. Les permissions déléguées Graph correspondantes doivent être
+   accordées dans l'app Entra. `offline_access` fournit le refresh token.
    ──────────────────────────────────────────────────────────────────────── */
 
-/** Portées requises pour relever (IMAP) et envoyer (SMTP) via Outlook. */
+/** Portées Microsoft Graph (déléguées) requises par le connecteur. */
 export const DEFAULT_OUTLOOK_SCOPES = [
   "offline_access",
   "openid",
   "email",
   "profile",
-  "https://outlook.office.com/IMAP.AccessAsUser.All",
-  "https://outlook.office.com/SMTP.Send",
+  "https://graph.microsoft.com/User.Read",
+  "https://graph.microsoft.com/Mail.ReadWrite",
+  "https://graph.microsoft.com/Mail.Send",
+  "https://graph.microsoft.com/Calendars.ReadWrite",
+  "https://graph.microsoft.com/Contacts.ReadWrite",
 ];
 
 export type OutlookOAuthConfig = {

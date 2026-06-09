@@ -4,14 +4,16 @@ import { requireAuth } from "@/lib/auth/require-auth";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getActiveGmailAccount } from "@/lib/messaging/active-gmail-account";
 import { pullGoogleEvents } from "@/lib/calendar/google-sync";
+import { listAccounts } from "@/lib/mail-connector/account-store";
+import { pullOutlookEvents } from "@/lib/connectors/outlook/sync-outlook-calendar";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * POST /api/calendar/sync — importe les événements Google (PULL) du compte
- * actif dans le socle, sur une fenêtre [-30 j, +120 j]. Idempotent (upsert).
- * Renvoie 409 avec un message clair si le scope Calendar manque.
+ * POST /api/calendar/sync — importe les événements Google ET Microsoft (PULL)
+ * des comptes connectés dans le socle, fenêtre [-30 j, +120 j]. Idempotent
+ * (upsert par provider/externalId). 409 si le scope Calendar Google manque.
  */
 export async function POST(req: NextRequest) {
   const deny = await requireAuth(req);
@@ -19,14 +21,22 @@ export async function POST(req: NextRequest) {
   try {
     const user = await getCurrentUser();
     const userId = user ? String(user.id) : "local";
-    const account = await getActiveGmailAccount();
-    if (!account) {
-      return NextResponse.json({ error: "no_account", message: "Aucun compte Google connecté." }, { status: 400 });
-    }
     const from = new Date(Date.now() - 30 * 86400000).toISOString();
     const to = new Date(Date.now() + 120 * 86400000).toISOString();
-    const report = await pullGoogleEvents(userId, account.accountId, { from, to });
-    return NextResponse.json({ ok: true, report });
+
+    const googleAccount = await getActiveGmailAccount();
+    const outlookAccounts = (await listAccounts()).filter((a) => a.authType === "oauth-outlook" && a.isActive);
+    if (!googleAccount && outlookAccounts.length === 0) {
+      return NextResponse.json({ error: "no_account", message: "Aucun compte Google ou Microsoft connecté." }, { status: 400 });
+    }
+
+    const report = googleAccount ? await pullGoogleEvents(userId, googleAccount.accountId, { from, to }) : null;
+    const outlookReports = [] as { accountId: string; imported: number; updated: number; errors: string[] }[];
+    for (const acc of outlookAccounts) {
+      const r = await pullOutlookEvents(userId, acc.id, { from, to });
+      outlookReports.push({ accountId: acc.id, ...r });
+    }
+    return NextResponse.json({ ok: true, report, outlookReports });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (message.includes("CALENDAR_SCOPE_MISSING")) {
