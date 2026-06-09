@@ -5,6 +5,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { pgStorageActive, jsonFallback, pgReadAll, pgReadByJsonIds, pgWriteAll } from "@/lib/db/pg-store";
 import { getBudgetDataDir } from "./storage";
+import { isAmountTombstoned, isDocumentTombstoned, recordDeletion } from "./financial-deletion-store";
 import { classifyDueDate, toBudgetYear } from "./budget-periods";
 import {
   KIND_TO_DIRECTION,
@@ -232,9 +233,21 @@ export async function updateFinancialItem(
 
 export async function deleteFinancialItem(id: string): Promise<boolean> {
   const all = await readAll();
+  const target = all.find((e) => e.id === id);
   const next = all.filter((e) => e.id !== id);
   if (next.length === all.length) return false;
   await writeAll(next);
+  // Tombstone : empêche l'IA de recréer automatiquement la ligne supprimée et
+  // évite sa réapparition comme « montant détecté » dans la Fiche Doc.
+  if (target?.sourceDocumentId != null) {
+    await recordDeletion({
+      documentId: target.sourceDocumentId,
+      scope: "amount",
+      kind: target.kind,
+      amount: target.amount,
+      label: target.label,
+    }).catch(() => {});
+  }
   return true;
 }
 
@@ -255,6 +268,14 @@ export async function upsertFinancialItemFromAnalysis(
   const docId = input.sourceDocumentId ?? null;
   const kind = input.kind;
   const amount = input.amount ?? 0;
+
+  // Respecte une suppression manuelle : ne pas recréer une ligne tombstonée.
+  if (docId !== null && input.isAiDetected) {
+    if ((await isDocumentTombstoned(docId)) || (await isAmountTombstoned(docId, amount, kind))) {
+      const existingForDoc = all.find((e) => e.sourceDocumentId === docId && Math.abs(e.amount - amount) < 0.01);
+      if (existingForDoc) return { item: existingForDoc, created: false };
+    }
+  }
 
   if (docId !== null && kind) {
     const duplicate = all.find((existing) => {

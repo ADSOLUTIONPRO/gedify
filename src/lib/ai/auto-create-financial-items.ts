@@ -6,6 +6,7 @@ import {
   createFinancialItem,
   listFinancialItems,
 } from "@/lib/budget/financial-item-store";
+import { isAmountTombstoned, isDocumentTombstoned } from "@/lib/budget/financial-deletion-store";
 import type { FinancialItem } from "@/lib/budget/financial-item-types";
 import { getPaperlessPublicUrl } from "@/lib/paperless";
 
@@ -63,6 +64,17 @@ export async function autoCreateFinancialItemsFromAnalysis(
 ): Promise<{ created: FinancialItem[]; skipped: number }> {
   const primary = selectPrimaryImpact(analysis);
   if (!primary) return { created: [], skipped: 0 };
+
+  // Provenance `manual_delete` : une donnée supprimée à la main n'est JAMAIS
+  // recréée automatiquement. La nouvelle détection reste visible dans la fiche
+  // IA (montant détecté) mais n'est pas réinjectée au budget sans action
+  // explicite de l'utilisateur (« restaurer volontairement »).
+  if (analysis.documentId != null) {
+    if (await isDocumentTombstoned(analysis.documentId)) return { created: [], skipped: 1 };
+    if (await isAmountTombstoned(analysis.documentId, primary.amount, primary.kind)) {
+      return { created: [], skipped: 1 };
+    }
+  }
 
   const existing = await listFinancialItems({ analysisId: analysis.id });
   const baseUrl = getPaperlessPublicUrl();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Check, Loader2, Plus, Trash2, Wallet } from "lucide-react";
 import {
   KIND_LABELS,
@@ -97,15 +97,67 @@ export function AmountBreakdownEditor({
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Confirmation + suppression réelle (tombstone) d'une ligne.
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const currency = seeds[0]?.currency ?? "EUR";
+
+  // Au montage : retire de la répartition les montants supprimés manuellement
+  // (tombstones), pour qu'une donnée effacée ne réapparaisse pas à la réouverture.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(`/api/documents/${documentId}/budget-breakdown`, { method: "GET", credentials: "include" });
+        if (!res.ok) return;
+        const data = (await res.json().catch(() => ({}))) as {
+          removedFromBudget?: boolean;
+          deletions?: { scope: string; amount?: number | null }[];
+        };
+        if (cancelled) return;
+        if (data.removedFromBudget) { setLines([]); return; }
+        const cents = (n: number) => Math.round(n * 100);
+        const tomb = new Set((data.deletions ?? []).filter((d) => d.scope === "amount" && d.amount != null).map((d) => cents(d.amount as number)));
+        if (tomb.size > 0) setLines((prev) => prev.filter((l) => !tomb.has(cents(l.amount || 0))));
+      } catch {
+        /* best-effort : en cas d'échec on garde les seeds */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [documentId]);
 
   function update(id: string, patch: Partial<Line>) {
     setLines((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)));
     setDone(null);
   }
-  function remove(id: string) {
-    setLines((prev) => prev.filter((l) => l.id !== id));
+
+  /**
+   * Supprime réellement la donnée : pose un tombstone côté serveur (la ligne ne
+   * sera ni recréée par l'IA ni ré-affichée) et retire toute ligne budget
+   * persistée correspondante. Les lignes vierges (montant 0) sont retirées
+   * localement sans appel réseau.
+   */
+  async function remove(id: string) {
+    const line = lines.find((l) => l.id === id);
+    setConfirmId(null);
+    if (!line || !line.amount) {
+      setLines((prev) => prev.filter((l) => l.id !== id));
+      return;
+    }
+    setDeletingId(id);
+    try {
+      await fetch(`/api/documents/${documentId}/budget-breakdown`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: line.amount, kind: line.kind, label: line.label || null }),
+      }).catch(() => {});
+      setLines((prev) => prev.filter((l) => l.id !== id));
+      onCreated?.(0);
+    } finally {
+      setDeletingId(null);
+    }
   }
   function addLine() {
     setLines((prev) => [
@@ -126,6 +178,28 @@ export function AmountBreakdownEditor({
 
   const includedTotal = lines.filter((l) => l.include).reduce((a, l) => a + (l.amount || 0), 0);
   const includedCount = lines.filter((l) => l.include).length;
+
+  // « Retirer du budget » (document-scope) : supprime toutes les lignes
+  // persistées du document et pose un tombstone document (l'IA ne reclasse plus
+  // ce document au budget tant que l'utilisateur ne crée pas une ligne).
+  const [removingDoc, setRemovingDoc] = useState(false);
+  const [confirmRemoveDoc, setConfirmRemoveDoc] = useState(false);
+  async function removeFromBudget() {
+    setRemovingDoc(true);
+    try {
+      await fetch(`/api/documents/${documentId}/budget-breakdown`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ all: true }),
+      }).catch(() => {});
+      setLines([]);
+      setConfirmRemoveDoc(false);
+      onCreated?.(0);
+    } finally {
+      setRemovingDoc(false);
+    }
+  }
 
   async function createAll() {
     if (busy || includedCount === 0) return;
@@ -195,9 +269,18 @@ export function AmountBreakdownEditor({
                     style={{ borderColor: "var(--border)" }}
                   />
                   <span className="text-[10px]" style={{ color: dir === "incoming" ? "#15803D" : dir === "outgoing" ? "#B45309" : "var(--text-hint)" }}>{currency}</span>
-                  <button type="button" onClick={() => remove(l.id)} aria-label="Supprimer la ligne" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-rose-600">
-                    <Trash2 className="h-3.5 w-3.5" strokeWidth={1.85} />
-                  </button>
+                  {confirmId === l.id ? (
+                    <span className="flex shrink-0 items-center gap-1">
+                      <button type="button" onClick={() => setConfirmId(null)} className="inline-flex h-7 items-center rounded-lg border px-2 text-[11px] font-semibold" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>Annuler</button>
+                      <button type="button" onClick={() => void remove(l.id)} disabled={deletingId === l.id} className="inline-flex h-7 items-center gap-1 rounded-lg px-2 text-[11px] font-bold text-white disabled:opacity-50" style={{ background: "var(--danger)" }}>
+                        {deletingId === l.id ? <Loader2 className="h-3 w-3 animate-spin" /> : null} Supprimer
+                      </button>
+                    </span>
+                  ) : (
+                    <button type="button" onClick={() => setConfirmId(l.id)} aria-label="Supprimer la donnée financière" title="Supprimer la donnée financière" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-rose-600">
+                      <Trash2 className="h-3.5 w-3.5" strokeWidth={1.85} />
+                    </button>
+                  )}
                 </div>
                 <div className="mt-1.5 grid grid-cols-2 gap-1.5 sm:grid-cols-4">
                   <select value={l.kind} onChange={(e) => update(l.id, { kind: e.target.value as FinancialKind })} className={inputCls} style={{ borderColor: "var(--border)" }} aria-label="Catégorie">
@@ -240,16 +323,32 @@ export function AmountBreakdownEditor({
       {error ? <p className="text-[11.5px] font-semibold" style={{ color: "#DC2626" }}>{error}</p> : null}
       {done != null ? <p className="text-[11.5px] font-semibold" style={{ color: "#15803D" }}>{done} ligne(s) ajoutée(s) au budget.</p> : null}
 
-      <button
-        type="button"
-        onClick={() => void createAll()}
-        disabled={busy || includedCount === 0}
-        className="inline-flex h-9 items-center gap-1.5 rounded-xl px-4 text-[12.5px] font-bold text-white transition hover:opacity-90 disabled:opacity-50"
-        style={{ background: "var(--accent)" }}
-      >
-        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wallet className="h-4 w-4" strokeWidth={2} />}
-        Créer {includedCount > 0 ? `${includedCount} ` : ""}ligne(s) au budget
-      </button>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => void createAll()}
+          disabled={busy || includedCount === 0}
+          className="inline-flex h-9 items-center gap-1.5 rounded-xl px-4 text-[12.5px] font-bold text-white transition hover:opacity-90 disabled:opacity-50"
+          style={{ background: "var(--accent)" }}
+        >
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wallet className="h-4 w-4" strokeWidth={2} />}
+          Créer {includedCount > 0 ? `${includedCount} ` : ""}ligne(s) au budget
+        </button>
+
+        {confirmRemoveDoc ? (
+          <span className="inline-flex items-center gap-1.5 rounded-xl border px-2 py-1 text-[11.5px]" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>
+            Retirer ce document du budget ?
+            <button type="button" onClick={() => setConfirmRemoveDoc(false)} className="inline-flex h-7 items-center rounded-lg border px-2 font-semibold" style={{ borderColor: "var(--border)" }}>Annuler</button>
+            <button type="button" onClick={() => void removeFromBudget()} disabled={removingDoc} className="inline-flex h-7 items-center gap-1 rounded-lg px-2 font-bold text-white disabled:opacity-50" style={{ background: "var(--danger)" }}>
+              {removingDoc ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" strokeWidth={2} />} Retirer
+            </button>
+          </span>
+        ) : (
+          <button type="button" onClick={() => setConfirmRemoveDoc(true)} className="inline-flex h-9 items-center gap-1.5 rounded-xl border px-3 text-[12px] font-semibold transition hover:bg-rose-50" style={{ borderColor: "var(--border)", color: "var(--danger)" }}>
+            <Trash2 className="h-3.5 w-3.5" strokeWidth={1.85} /> Retirer du budget
+          </button>
+        )}
+      </div>
     </div>
   );
 }
