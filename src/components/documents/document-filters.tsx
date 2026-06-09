@@ -178,7 +178,7 @@ export function DocumentFilters({
             className="fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-sm sm:hidden"
           />
           <div
-            className="animate-filter-in fixed inset-x-0 bottom-0 z-50 flex max-h-[88vh] flex-col overflow-y-auto rounded-t-3xl border p-4 shadow-2xl sm:static sm:z-auto sm:mt-2 sm:max-h-none sm:rounded-2xl sm:p-4 sm:shadow-sm"
+            className="animate-filter-in fixed inset-x-0 bottom-0 z-50 flex max-h-[88vh] flex-col overflow-y-auto rounded-t-3xl border p-4 shadow-2xl sm:absolute sm:bottom-auto sm:left-auto sm:right-0 sm:top-full sm:z-30 sm:mt-2 sm:max-h-none sm:w-[640px] sm:max-w-[calc(100vw-1.5rem)] sm:rounded-2xl sm:p-4 sm:shadow-xl"
             style={{ background: "var(--surface)", borderColor: "var(--border)" }}
             role="dialog"
             aria-label="Filtres des documents"
