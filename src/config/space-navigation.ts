@@ -62,7 +62,6 @@ export const spaceNavigation: Record<string, SpaceNavItem[]> = {
   office: [
     { label: "Documents", href: "/redaction" },
     { label: "Modèles", href: "/redaction/modeles" },
-    { label: "Signatures", href: "/redaction/signatures" },
     { label: "Nouveau", href: "/redaction/nouveau" },
   ],
   organiser: [

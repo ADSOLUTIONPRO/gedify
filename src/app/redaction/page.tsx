@@ -83,13 +83,6 @@ export default async function RedactionHubPage() {
           >
             <LayoutTemplate className="h-4 w-4" strokeWidth={1.85} aria-hidden="true" /> Modèles DOCX
           </Link>
-          <Link
-            href="/redaction/signatures"
-            className="inline-flex h-10 items-center gap-2 rounded-xl border bg-white px-4 text-sm font-semibold transition hover:bg-slate-50"
-            style={{ borderColor: "var(--border)", color: "var(--text-main)" }}
-          >
-            <FileSignature className="h-4 w-4" strokeWidth={1.85} aria-hidden="true" /> Signatures
-          </Link>
         </div>
 
         {/* Documents en cours — lignes compactes */}

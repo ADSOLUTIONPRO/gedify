@@ -96,7 +96,7 @@ export function DocumentToolbar({ document }: Props) {
         </div>
         <div className="ml-auto flex flex-wrap gap-2">
           <Link
-            href="/redaction/signatures"
+            href="/documents/signatures"
             className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
             title="Gérer les signatures"
           >

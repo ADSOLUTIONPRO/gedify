@@ -16,9 +16,6 @@ import {
   FileType2,
   FolderTree,
   Gauge,
-  HeartPulse,
-  HelpCircle,
-  History,
   Inbox,
   LayoutDashboard,
   LayoutGrid,
@@ -30,7 +27,6 @@ import {
   Receipt,
   RefreshCw,
   Repeat,
-  ScrollText,
   Send,
   Settings,
   Sliders,
@@ -203,32 +199,18 @@ export const SPACE_MENUS: Record<string, SpaceMenu> = {
     title: "Administration",
     description: "Gouvernance, configuration & maintenance",
     groups: [
-      { id: "gouvernance", title: "Gouvernance & sécurité" },
       { id: "configuration", title: "Configuration système" },
-      { id: "infrastructure", title: "Infrastructure & services" },
-      { id: "ia", title: "Analyse IA" },
       { id: "personnalisation", title: "Personnalisation avancée" },
       { id: "support", title: "Support & maintenance" },
     ],
     items: [
-      // Item sans groupe → rendu en tête (Vue d'ensemble).
-      { label: "Vue d'ensemble", href: "/administration", icon: LayoutDashboard },
-      // Gouvernance & sécurité
-      { label: "Audit & journaux", href: "/journaux", icon: ScrollText, group: "gouvernance" },
       // Configuration système
       { label: "Paramètres généraux", href: "/administration/parametres", icon: Settings, group: "configuration" },
       { label: "Sauvegardes & restauration", href: "/administration/sauvegarde", icon: DatabaseBackup, group: "configuration" },
-      { label: "Licences & informations", href: "/statut", icon: FileText, group: "configuration" },
-      // Infrastructure & services
-      { label: "Santé système", href: "/administration/sante", icon: HeartPulse, group: "infrastructure" },
-      // Analyse IA
-      { label: "Historique IA", href: "/ia/historique", icon: History, group: "ia" },
       // Personnalisation avancée
       { label: "Thèmes & apparence", href: "/administration/parametres", icon: Palette, group: "personnalisation" },
       // Support & maintenance
-      { label: "Diagnostics", href: "/administration/sante", icon: Activity, group: "support" },
       { label: "Outils de maintenance", href: "/administration#maintenance", icon: Wrench, group: "support" },
-      { label: "Centre d'aide", href: "/statut", icon: HelpCircle, group: "support" },
     ],
   },
 
@@ -240,7 +222,6 @@ export const SPACE_MENUS: Record<string, SpaceMenu> = {
     items: [
       { label: "Rédaction", href: "/redaction", icon: PenLine },
       { label: "Modèles", href: "/redaction/modeles", icon: FileType2 },
-      { label: "Signatures", href: "/redaction/signatures", icon: FileText },
     ],
   },
 

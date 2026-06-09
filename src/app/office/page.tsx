@@ -22,11 +22,6 @@ export default function OfficePage() {
             href: "/redaction/modeles",
             description: "Modèles de courriers et de documents réutilisables.",
           },
-          {
-            label: "Signatures",
-            href: "/redaction/signatures",
-            description: "Gérez vos signatures et blocs d'en-tête.",
-          },
         ]}
       />
     </SpaceLayout>
