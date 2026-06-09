@@ -58,7 +58,7 @@ function validate(file: File): { ok: true } | { ok: false; reason: string } {
   return { ok: true };
 }
 
-export function useFolderUpload({ folderId, onImported }: { folderId: string; onImported?: () => void }) {
+export function useFolderUpload({ folderId = "", onImported }: { folderId?: string; onImported?: () => void }) {
   const router = useRouter();
   const [items, setItems] = useState<FolderUploadItem[]>([]);
   const seq = useRef(0);
@@ -102,7 +102,7 @@ export function useFolderUpload({ folderId, onImported }: { folderId: string; on
       patch(it.key, { status: "uploading" });
       const fd = new FormData();
       fd.append("document", it.file, it.name);
-      fd.append("folderId", folderId);
+      if (folderId) fd.append("folderId", folderId);
       fd.append("source", "organizer");
       try {
         const res = await fetch("/api/documents/import", { method: "POST", body: fd });

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { openComposer } from "@/lib/messaging/mail-composer-store";
+import { useAssistantOpenSignal } from "@/lib/assistant/assistant-open-store";
 import type { ProposedAction, QuickSuggestion } from "@/lib/assistant/assistant-types";
 import { useConversations } from "@/lib/assistant/use-conversations";
 import { useAssistantContext } from "./assistant-context-provider";
@@ -46,6 +47,15 @@ function AssistantWidget() {
     newChat, openConversation, rename, setArchived, remove,
   } = useConversations();
   const [open, setOpen] = useState(false);
+  // Ouverture programmée depuis l'extérieur (ex. « Analyse IA » du dashboard).
+  const openSignal = useAssistantOpenSignal();
+  const lastSignalRef = useRef(0);
+  useEffect(() => {
+    if (openSignal > 0 && openSignal !== lastSignalRef.current) {
+      lastSignalRef.current = openSignal;
+      setOpen(true);
+    }
+  }, [openSignal]);
   const [loading, setLoading] = useState(false);
   const [configured, setConfigured] = useState(true);
   const [actionStates, setActionStates] = useState<Record<string, ActionRuntimeState>>({});

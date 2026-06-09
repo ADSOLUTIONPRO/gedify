@@ -17,10 +17,13 @@ export function FolderImportModal({
   folderName,
   onClose,
 }: {
-  folderId: string;
-  folderName: string;
+  /** Si fourni → import classé dans ce dossier. Sinon → import général (GED). */
+  folderId?: string;
+  folderName?: string;
   onClose: () => void;
 }) {
+  const hasFolder = Boolean(folderId);
+  const title = hasFolder ? `Importer dans « ${folderName} »` : "Importer des documents";
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const { items, stageFiles, startUpload, removeItem, uploading, pendingCount, hasResults } = useFolderUpload({ folderId });
@@ -42,7 +45,7 @@ export function FolderImportModal({
   const successItems = items.filter((i) => i.status === "success");
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center p-3 sm:p-5" role="dialog" aria-modal="true" aria-label={`Importer dans ${folderName}`}>
+    <div className="fixed inset-0 z-[90] flex items-center justify-center p-3 sm:p-5" role="dialog" aria-modal="true" aria-label={title}>
       <button type="button" aria-label="Fermer" onClick={() => { if (!uploading) onClose(); }} className="absolute inset-0 bg-slate-950/55 backdrop-blur-sm" />
       <div className="relative z-10 flex max-h-[92vh] w-full max-w-xl flex-col overflow-hidden rounded-3xl shadow-2xl" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
         {/* En-tête */}
@@ -53,10 +56,12 @@ export function FolderImportModal({
             </span>
             <div className="min-w-0">
               <h2 className="text-[15.5px] font-extrabold tracking-tight" style={{ color: "var(--text-main)" }}>
-                Importer dans «&nbsp;{folderName}&nbsp;»
+                {hasFolder ? <>Importer dans «&nbsp;{folderName}&nbsp;»</> : "Importer des documents"}
               </h2>
               <p className="mt-0.5 text-[12.5px]" style={{ color: "var(--text-muted)" }}>
-                Les documents importés seront automatiquement classés dans ce dossier.
+                {hasFolder
+                  ? "Les documents importés seront automatiquement classés dans ce dossier."
+                  : "Les documents importés sont ajoutés à votre GED, puis analysés automatiquement (OCR, indexation, IA)."}
               </p>
             </div>
           </div>
@@ -104,9 +109,15 @@ export function FolderImportModal({
                     <FileText className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" /> Ouvrir le document
                   </Link>
                 ) : null}
-                <Link href={`/dossiers/${folderId}`} className="inline-flex h-8 items-center gap-1.5 rounded-lg border bg-white px-2.5 text-[12px] font-semibold" style={{ borderColor: "var(--border)", color: "var(--text-main)" }}>
-                  <FolderInput className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" /> Voir dans le dossier
-                </Link>
+                {hasFolder ? (
+                  <Link href={`/dossiers/${folderId}`} className="inline-flex h-8 items-center gap-1.5 rounded-lg border bg-white px-2.5 text-[12px] font-semibold" style={{ borderColor: "var(--border)", color: "var(--text-main)" }}>
+                    <FolderInput className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" /> Voir dans le dossier
+                  </Link>
+                ) : (
+                  <Link href="/documents" className="inline-flex h-8 items-center gap-1.5 rounded-lg border bg-white px-2.5 text-[12px] font-semibold" style={{ borderColor: "var(--border)", color: "var(--text-main)" }}>
+                    <FileText className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" /> Voir mes documents
+                  </Link>
+                )}
               </div>
             </div>
           ) : null}
