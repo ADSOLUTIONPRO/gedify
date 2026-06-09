@@ -165,7 +165,7 @@ export function AdministrationSettings(props: AdminSettingsProps) {
           <Section id="ged" icon={FileText} tone="green" title="GED & documents">
             <ToggleLine label="Analyse IA automatique à l'import" desc="Analyse les documents dès l'import (l'analyse manuelle reste possible)" checked={flags.autoAiAnalysisEnabled} onChange={(v) => setFlags((f) => ({ ...f, autoAiAnalysisEnabled: v }))} />
             <Status label="OCR & indexation" value="Automatiques" tone="green" />
-            <Manage row links={[{ href: "/a-traiter", label: "Documents à traiter" }, { href: "/administration/doublons", label: "Doublons" }, { href: "/administration/sante", label: "Santé GED" }]} />
+            <Manage row links={[{ href: "/a-traiter", label: "Documents à traiter" }, { href: "/documents/doublons", label: "Doublons" }, { href: "/administration/sante", label: "Santé GED" }]} />
           </Section>
 
           {/* 6. Workflows */}

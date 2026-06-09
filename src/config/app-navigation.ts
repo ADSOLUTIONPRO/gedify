@@ -6,7 +6,6 @@ import {
   CalendarRange,
   CheckSquare,
   Coins,
-  CopyCheck,
   DatabaseZap,
   FileText,
   FileType2,
@@ -28,8 +27,6 @@ import {
   Sparkles,
   Tag,
   TrendingUp,
-  Upload,
-  UserCircle,
   Users,
   UsersRound,
   Wallet,
@@ -125,22 +122,10 @@ export const administrationDropdownNavigation: NavigationSection[] = [
     section: "Automatisation",
     items: [
       {
-        label: "Import",
-        href: "/import",
-        icon: Upload,
-        description: "Import manuel, sources et traitements.",
-      },
-      {
         label: "Workflows",
         href: "/workflows",
         icon: Workflow,
         description: "Règles automatiques et scénarios.",
-      },
-      {
-        label: "Emails & Connecteurs",
-        href: "/emails",
-        icon: Mail,
-        description: "Gmail, IMAP, règles d'import et pièces jointes.",
       },
       {
         label: "Journaux",
@@ -170,12 +155,6 @@ export const administrationDropdownNavigation: NavigationSection[] = [
         href: "/groupes",
         icon: UsersRound,
         description: "Groupes et droits.",
-      },
-      {
-        label: "Profil",
-        href: "/profil",
-        icon: UserCircle,
-        description: "Préférences du compte.",
       },
       {
         label: "Tokens API",
@@ -208,12 +187,6 @@ export const administrationDropdownNavigation: NavigationSection[] = [
         description: "Rôles utilisateurs, permissions et journal d'audit.",
       },
       {
-        label: "Doublons",
-        href: "/administration/doublons",
-        icon: CopyCheck,
-        description: "Détection et fusion des documents en double.",
-      },
-      {
         label: "Sauvegarde & migration",
         href: "/administration/sauvegarde",
         icon: DatabaseZap,
@@ -233,11 +206,8 @@ export const ADMINISTRATION_ACTIVE_PREFIXES: readonly string[] = [
   "/activite",
   "/journaux",
   "/workflows",
-  "/emails",
-  "/import",
   "/utilisateurs",
   "/groupes",
-  "/profil",
   "/tokens",
   "/parametres",
   "/statut",
