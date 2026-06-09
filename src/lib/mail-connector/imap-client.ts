@@ -21,6 +21,11 @@ export function buildImapConfig(
     },
     logger: false as const,
     tls: account.encryption === "starttls" ? { rejectUnauthorized: true } : undefined,
+    // Évite qu'un test/synchro reste bloqué indéfiniment sur un serveur lent ou
+    // injoignable : la connexion (TCP + TLS + bannière + LOGIN) doit aboutir
+    // dans ces délais, sinon ImapFlow rejette avec une erreur réseau claire.
+    connectionTimeout: 20000,
+    greetingTimeout: 12000,
   };
 }
 
