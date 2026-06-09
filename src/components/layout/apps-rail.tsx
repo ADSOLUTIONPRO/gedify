@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, type LucideIcon } from "lucide-react";
+import { Home, LifeBuoy, type LucideIcon } from "lucide-react";
 import { BrandLogo } from "@/components/ui/brand-logo";
 import { getSpaceById } from "@/config/spaces";
 import { getActiveSpaceId, RAIL_PRIMARY, RAIL_SECONDARY } from "@/config/space-menus";
@@ -55,7 +55,7 @@ function RailTile({ entry, active }: { entry: RailEntry; active: boolean }) {
  * = #F7F1E7), icône + libellé sous l'icône, actif rose doux. Masqué sous `lg`
  * (navigation via `MobileTabBar`).
  */
-export function AppsRail({ userInitials, financeEnabled = true }: { userInitials: string; financeEnabled?: boolean }) {
+export function AppsRail({ financeEnabled = true }: { userInitials?: string; financeEnabled?: boolean }) {
   const pathname = usePathname();
   const activeId = getActiveSpaceId(pathname);
   // Masque l'espace Finances si le module est désactivé (Paramètres › Modules).
@@ -78,11 +78,17 @@ export function AppsRail({ userInitials, financeEnabled = true }: { userInitials
         ))}
       </nav>
 
-      {/* Bas : profil (les réglages système sont dans Administration) */}
-      <div className="flex w-full flex-col items-center gap-1.5 border-t px-1.5 py-2.5" style={{ borderColor: "var(--border)" }}>
-        <Link href="/profil" title="Mon profil" aria-label="Mon profil" className="flex h-9 w-9 items-center justify-center rounded-full text-[12px] font-bold text-white transition hover:opacity-90" style={{ background: "var(--accent)" }}>
-          {userInitials || "?"}
-        </Link>
+      {/* Bas : Centre d'aide & Support (non branché pour le moment). */}
+      <div className="flex w-full flex-col items-center border-t px-1.5 py-2" style={{ borderColor: "var(--border)" }}>
+        <button
+          type="button"
+          title="Centre d'aide & Support"
+          aria-label="Centre d'aide & Support"
+          className="group flex min-h-[56px] w-full cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 transition hover:bg-black/[0.04]"
+        >
+          <LifeBuoy className="h-[24px] w-[24px] shrink-0" style={{ color: "#6B7280" }} strokeWidth={1.85} aria-hidden="true" />
+          <span className="w-full truncate text-center text-[10.5px] font-semibold leading-tight" style={{ color: "#5F6B7A" }}>Aide</span>
+        </button>
       </div>
     </aside>
   );
