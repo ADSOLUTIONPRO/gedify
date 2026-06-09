@@ -50,10 +50,12 @@ function ComposerWindow({ initial, minimized }: { initial: ComposerInitial; mini
   const [showPicker, setShowPicker] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef(initial.bodyHtml ?? "");
-  const [signatures, setSignatures] = useState<{ id: string; name: string; html: string; isDefault: boolean }[]>([]);
+  const [signatures, setSignatures] = useState<{ id: string; name: string; html: string; isDefault: boolean; mailbox: string | null }[]>([]);
   const [selectedSig, setSelectedSig] = useState("");
   const [editorKey, setEditorKey] = useState(0);
   const appliedSigRef = useRef("");
+  const sigReadyRef = useRef(false);
+  const sigLastAccountRef = useRef<string>("");
   const [accounts, setAccounts] = useState<SendableAcct[]>([]);
   const [accountId, setAccountId] = useState<string>("");
   const [draftId, setDraftId] = useState<string | null>(null);
@@ -79,7 +81,9 @@ function ComposerWindow({ initial, minimized }: { initial: ComposerInitial; mini
         if (cancelled || !d?.accounts) return;
         const list = d.accounts as SendableAcct[];
         setAccounts(list);
-        const def = list.find((a) => a.canSend) ?? list[0];
+        // Réponse : présélectionner la boîte ayant reçu le message (initial.accountId).
+        const preferred = initial.accountId ? list.find((a) => a.id === initial.accountId) : null;
+        const def = preferred ?? list.find((a) => a.canSend) ?? list[0];
         if (def) setAccountId(def.id);
       })
       .catch(() => {});
@@ -87,9 +91,10 @@ function ComposerWindow({ initial, minimized }: { initial: ComposerInitial; mini
       cancelled = true;
       if (timer.current) clearTimeout(timer.current);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Signatures : chargement + insertion auto de la signature par défaut sur un nouveau mail.
+  // Signatures : chargement (l'application se fait dans l'effet par-compte ci-dessous).
   useEffect(() => {
     let cancelled = false;
     fetch("/api/messaging/signatures", { credentials: "include" })
@@ -97,18 +102,42 @@ function ComposerWindow({ initial, minimized }: { initial: ComposerInitial; mini
       .then((d) => {
         if (cancelled || !d?.signatures) return;
         setSignatures(d.signatures);
-        if (!threadId) {
-          const def = d.signatures.find((s: { isDefault: boolean }) => s.isDefault);
-          if (def) {
-            setSelectedSig(def.id);
-            applySignature(def.html);
-          }
-        }
       })
       .catch(() => {});
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /** Signature par défaut pour un compte : signature de cette boîte sinon défaut global. */
+  function defaultSigFor(accId: string) {
+    const email = accounts.find((a) => a.id === accId)?.email?.toLowerCase();
+    const perBox = email ? signatures.find((s) => (s.mailbox ?? "").toLowerCase() === email) : undefined;
+    return perBox ?? signatures.find((s) => s.isDefault) ?? null;
+  }
+
+  /** Change le compte « De » et fait suivre la signature (boîte d'envoi → sa signature, §10). */
+  function changeAccount(id: string) {
+    setAccountId(id);
+    sigLastAccountRef.current = id;
+    const sig = defaultSigFor(id);
+    setSelectedSig(sig?.id ?? "");
+    applySignature(sig?.html ?? "");
+  }
+
+  // Application INITIALE (nouveau message) : signature du compte présélectionné,
+  // une fois comptes + signatures chargés. Le changement de compte ultérieur est
+  // géré par changeAccount (piloté par l'événement).
+  useEffect(() => {
+    if (sigReadyRef.current || signatures.length === 0 || !accountId) return;
+    sigReadyRef.current = true;
+    sigLastAccountRef.current = accountId;
+    if (!threadId) {
+      const sig = defaultSigFor(accountId);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedSig(sig?.id ?? "");
+      applySignature(sig?.html ?? "");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountId, signatures, threadId]);
 
   function hasContent() {
     return Boolean(recipients.length > 0 || subject.trim() || attachments.length > 0 || bodyRef.current.replace(/<[^>]*>/g, "").trim());
@@ -312,13 +341,13 @@ function ComposerWindow({ initial, minimized }: { initial: ComposerInitial; mini
           ) : (
             <select
               value={accountId}
-              onChange={(e) => setAccountId(e.target.value)}
+              onChange={(e) => changeAccount(e.target.value)}
               className="w-full bg-transparent text-[13px] outline-none"
               style={{ color: "var(--text-main)" }}
             >
               {accounts.map((a) => (
                 <option key={a.id} value={a.id}>
-                  {a.email}
+                  {a.name ? `${a.name} — ${a.email}` : a.email}
                   {a.canSend ? "" : " — envoi non configuré"}
                 </option>
               ))}

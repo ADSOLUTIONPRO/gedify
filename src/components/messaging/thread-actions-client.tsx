@@ -56,7 +56,7 @@ export function ThreadActionsClient({ threadId, latestMessage, accountEmail }: P
       <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-white p-3" style={{ borderColor: "var(--border)" }}>
         <button
           type="button"
-          onClick={() => openComposer({ to: replyTo, subject: /^re:/i.test(subject) ? subject : `Re: ${subject}`, threadId, inReplyTo })}
+          onClick={() => openComposer({ to: replyTo, subject: /^re:/i.test(subject) ? subject : `Re: ${subject}`, threadId, inReplyTo, accountId: latestMessage.accountId ?? undefined })}
           className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12.5px] font-semibold transition hover:bg-[#FCFAF7]"
           style={{ borderColor: "var(--border)", color: "var(--text-main)" }}
         >

@@ -120,10 +120,13 @@ export function MailReadingPane({ threadId, accountId, onClassify, onArchive, on
       ? [sender?.email, ...latest.to.map((t) => t.email), ...latest.cc.map((c) => c.email)]
       : [sender?.email];
     const to = [...new Set(recipients.filter((e): e is string => Boolean(e) && e !== accountEmail))];
-    openComposer({ to: to.join(", "), subject: `Re: ${latest.subject ?? ""}`.trim(), threadId: threadId ?? undefined, inReplyTo: latest.id });
+    // Répondre depuis la boîte qui a reçu le message (§9).
+    const replyAccount = accountId ?? data?.accountId ?? undefined;
+    openComposer({ to: to.join(", "), subject: `Re: ${latest.subject ?? ""}`.trim(), threadId: threadId ?? undefined, inReplyTo: latest.id, accountId: replyAccount ?? undefined });
   }
   function forward() {
-    openComposer({ subject: `Tr: ${latest.subject ?? ""}`.trim(), threadId: threadId ?? undefined, inReplyTo: latest.id });
+    const replyAccount = accountId ?? data?.accountId ?? undefined;
+    openComposer({ subject: `Tr: ${latest.subject ?? ""}`.trim(), threadId: threadId ?? undefined, inReplyTo: latest.id, accountId: replyAccount ?? undefined });
   }
 
   return (

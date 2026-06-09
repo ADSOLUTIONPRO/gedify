@@ -10,6 +10,8 @@ export type ComposerInitial = {
   bodyHtml?: string;
   threadId?: string;
   inReplyTo?: string;
+  /** Compte d'envoi présélectionné (réponse → boîte ayant reçu le message). */
+  accountId?: string;
   /** Documents GED à joindre (récupérés côté serveur à l'envoi). */
   attachments?: ComposerAttachment[];
 };
