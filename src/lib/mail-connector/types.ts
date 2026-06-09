@@ -75,6 +75,10 @@ export type MailAccount = {
   connector: "imap" | "gmail-oauth" | null;
   /** Persisted account email reported by Gmail (refresh token holder) — gmail-oauth only. */
   gmailEmail: string | null;
+  /** Couleur du compte (badges, filtres, calendrier). Hex, ou null. */
+  color?: string | null;
+  /** Boîte d'envoi par défaut (une seule par utilisateur). */
+  isDefault?: boolean;
   createdAt: string;
   updatedAt: string;
 };

@@ -114,6 +114,8 @@ function applyDefaults(input: MailAccountInput): Partial<MailAccount> {
     defaultTags: input.defaultTags ?? [],
     defaultCorrespondent: input.defaultCorrespondent ?? null,
     defaultDocumentType: input.defaultDocumentType ?? null,
+    color: input.color ?? null,
+    isDefault: input.isDefault ?? false,
   };
 }
 
@@ -239,6 +241,12 @@ export async function updateAccount(
   };
 
   all[index] = updated;
+  // Boîte par défaut exclusive : une seule à la fois.
+  if (updated.isDefault) {
+    for (let i = 0; i < all.length; i++) {
+      if (i !== index && all[i].isDefault) all[i] = { ...all[i], isDefault: false };
+    }
+  }
   await writeAll(all);
   return publicAccount(updated);
 }
