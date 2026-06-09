@@ -64,7 +64,7 @@ export function DocumentRow({ doc, checked, active, onToggle, onActivate, action
       </span>
 
       {/* Miniature (aperçu moyen au survol) */}
-      <DocumentHoverPreview documentId={doc.id} title={doc.displayTitle} className="flex h-12 w-10 items-center justify-center overflow-hidden rounded-md bg-[#F4F0E8]">
+      <DocumentHoverPreview documentId={doc.id} title={doc.displayTitle} className="flex h-12 w-10 items-center justify-center overflow-hidden bg-[#F4F0E8]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={doc.thumbUrl} alt="" loading="lazy" className="h-full w-full object-cover object-top" />
       </DocumentHoverPreview>

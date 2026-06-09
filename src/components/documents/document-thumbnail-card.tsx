@@ -68,7 +68,7 @@ export function DocumentThumbnailCard({ doc, checked, active, onToggle, onActiva
       }}
     >
       {/* Miniature à gauche (aperçu moyen au survol) */}
-      <DocumentHoverPreview documentId={doc.id} title={doc.displayTitle} className="group/thumb relative h-[116px] w-[88px] shrink-0 overflow-hidden rounded-xl bg-[#F4F0E8]">
+      <DocumentHoverPreview documentId={doc.id} title={doc.displayTitle} className="group/thumb relative h-[116px] w-[88px] shrink-0 overflow-hidden bg-[#F4F0E8]">
         <label className="absolute left-1.5 top-1.5 z-10 flex items-center" onClick={(e) => e.stopPropagation()}>
           <input
             type="checkbox"
