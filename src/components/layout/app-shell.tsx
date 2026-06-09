@@ -7,6 +7,7 @@ import { AppsRail } from "@/components/layout/apps-rail";
 import { SpaceMenuSidebar } from "@/components/layout/space-menu-sidebar";
 import { MailComposer } from "@/components/messaging/mail-composer";
 import { ImportActivityIndicator } from "@/components/layout/import-activity-indicator";
+import { GlobalDropImport } from "@/components/layout/global-drop-import";
 import { readSession } from "@/lib/auth/session";
 import { getGedifyFeatureFlags } from "@/lib/settings/feature-flags";
 
@@ -64,6 +65,8 @@ export async function AppShell({ children }: AppShellProps) {
       <MailComposer />
       {/* Indicateur global non bloquant de traitement (import → OCR/IA/miniatures) */}
       <ImportActivityIndicator />
+      {/* Glisser-déposer global : déposer un fichier n'importe où → import direct */}
+      <GlobalDropImport />
     </div>
   );
 }

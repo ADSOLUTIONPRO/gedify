@@ -15,18 +15,21 @@ import { FOLDER_IMPORT_ACCEPT, useFolderUpload } from "@/lib/documents/use-folde
 export function FolderImportModal({
   folderId,
   folderName,
+  autoImportFiles,
   onClose,
 }: {
   /** Si fourni → import classé dans ce dossier. Sinon → import général (GED). */
   folderId?: string;
   folderName?: string;
+  /** Fichiers à importer IMMÉDIATEMENT à l'ouverture (glisser-déposer global). */
+  autoImportFiles?: File[];
   onClose: () => void;
 }) {
   const hasFolder = Boolean(folderId);
   const title = hasFolder ? `Importer dans « ${folderName} »` : "Importer des documents";
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
-  const { items, stageFiles, startUpload, removeItem, uploading, pendingCount, hasResults } = useFolderUpload({ folderId });
+  const { items, stageFiles, startUpload, uploadFiles, removeItem, uploading, pendingCount, hasResults } = useFolderUpload({ folderId });
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === "Escape" && !uploading) onClose(); }
@@ -35,6 +38,14 @@ export function FolderImportModal({
     document.body.style.overflow = "hidden";
     return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = prev; };
   }, [onClose, uploading]);
+
+  // Import direct des fichiers déposés (drag-and-drop global) dès l'ouverture.
+  const autoStarted = useRef(false);
+  useEffect(() => {
+    if (autoStarted.current || !autoImportFiles || autoImportFiles.length === 0) return;
+    autoStarted.current = true;
+    void uploadFiles(autoImportFiles);
+  }, [autoImportFiles, uploadFiles]);
 
   function onDrop(e: DragEvent<HTMLDivElement>) {
     e.preventDefault();
