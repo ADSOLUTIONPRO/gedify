@@ -15,6 +15,9 @@ export type ThreadAttachmentSummary = { imported: number; error: boolean; docId:
 export type NormalizedThread = NonNullable<Awaited<ReturnType<typeof normaliseGmailThread>>>;
 export type LinksByThread = Awaited<ReturnType<typeof indexLinksByThread>>;
 
+/** Comptes dont la synchronisation a échoué (affiché en bandeau discret). */
+export type AccountSyncError = { email: string; reconnect: boolean };
+
 export type LoadThreadsResult =
   | { connected: false; oauthConfigured: boolean; needsReconnect?: boolean }
   | {
@@ -27,6 +30,8 @@ export type LoadThreadsResult =
       hiddenSenderEmails: string[];
       nextPageToken: string | null;
       attachmentsByThread: Map<string, ThreadAttachmentSummary>;
+      /** Boîtes en erreur lors de l'agrégation (les autres restent affichées). */
+      accountErrors: AccountSyncError[];
     };
 
 type AttImports = Awaited<ReturnType<typeof indexAttachmentImportsByThread>>;
@@ -144,6 +149,10 @@ export async function loadThreads(
   const nextPageToken = !aggregate ? perAccount[0]?.nextPageToken ?? null : null;
   const primary = accounts[0];
   const accountEmail = aggregate && accounts.length > 1 ? `Toutes les boîtes (${accounts.length})` : primary.email;
+  // Boîtes en erreur (token expiré/révoqué) : signalées sans masquer les autres.
+  const accountErrors: AccountSyncError[] = perAccount
+    .filter((p) => p.error)
+    .map((p) => ({ email: p.account.email, reconnect: p.reconnect }));
 
   console.log(
     `[mail] accounts=${accounts.length} aggregate=${aggregate} folder=${query} apiReturned=${perAccount.reduce((n, p) => n + p.threads.length, 0)} displayedCount=${finalThreads.length} hiddenSenders=${hiddenEmails.size}`,
@@ -159,6 +168,7 @@ export async function loadThreads(
     hiddenSenderEmails: [...hiddenEmails],
     nextPageToken,
     attachmentsByThread,
+    accountErrors,
   };
 }
 
@@ -217,5 +227,6 @@ export async function loadLinkedThreads(limit = 100): Promise<LoadThreadsResult>
     hiddenSenderEmails: [...hiddenEmails],
     nextPageToken: null,
     attachmentsByThread,
+    accountErrors: [],
   };
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { EyeOff, FolderPlus, Loader2, Paperclip, RefreshCw, Search, SlidersHorizontal, X } from "lucide-react";
+import { AlertTriangle, EyeOff, FolderPlus, Loader2, Paperclip, RefreshCw, Search, SlidersHorizontal, X } from "lucide-react";
 import { MailClassifyPanel } from "@/components/messaging/mail-classify-panel";
 import { MailReadingPane } from "@/components/messaging/mail-reading-pane";
 import { MailFilterAutocomplete, type FilterSuggestion } from "@/components/messaging/mail-filter-autocomplete";
@@ -27,6 +27,8 @@ type Props = {
   query?: string;
   /** Filtre « Boîte mail » courant (id de compte ou null/"all") — propagé aux refetch. */
   accountFilter?: string | null;
+  /** Boîtes en erreur de synchronisation (bandeau discret). */
+  accountErrors?: { email: string; reconnect: boolean }[];
   accountEmail?: string | null;
   folderLabel: string;
 };
@@ -47,6 +49,7 @@ export function InboxTwoPane({
   attachmentsByThread,
   query = "in:inbox",
   accountFilter = null,
+  accountErrors = [],
   accountEmail,
   folderLabel,
 }: Props) {
@@ -313,6 +316,18 @@ export function InboxTwoPane({
             {loading ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : <RefreshCw className="h-[18px] w-[18px]" strokeWidth={1.85} />}
           </button>
         </div>
+
+        {/* Avertissement par compte (l'agrégat reste affiché pour les autres). */}
+        {accountErrors.length > 0 ? (
+          <div className="flex shrink-0 items-center gap-2 border-b px-4 py-2 text-[12px]" style={{ borderColor: LINE, background: "#FFF7ED", color: "#9A3412" }} role="status">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden="true" />
+            <span className="truncate">
+              {accountErrors.length === 1
+                ? `1 boîte n'a pas pu être synchronisée (${accountErrors[0].email})${accountErrors[0].reconnect ? " — reconnexion requise" : ""}.`
+                : `${accountErrors.length} boîtes n'ont pas pu être synchronisées : ${accountErrors.map((e) => e.email).join(", ")}.`}
+            </span>
+          </div>
+        ) : null}
 
         {/* Barre d'actions groupées */}
         {anySelected ? (
