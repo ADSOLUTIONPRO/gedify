@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import Link from "next/link";
 import {
   Archive, Calendar, FileSignature, FileText, HardDrive, Info, ListPlus, Loader2,
@@ -59,19 +59,42 @@ export function AdministrationSettings(props: AdminSettingsProps) {
     flags.autoAiAnalysisEnabled !== saved.autoAiAnalysisEnabled ||
     flags.autoContactSyncEnabled !== saved.autoContactSyncEnabled;
 
-  // Scroll-spy
+  // Scroll-spy indépendant du nombre de colonnes : on calcule la position de
+  // CHAQUE section relativement au conteneur de défilement et on active la
+  // dernière section franchie (top ≤ ligne de détection). Un IntersectionObserver
+  // « bande + ratio » ignorait la colonne de droite en disposition 2 colonnes.
   useEffect(() => {
     const root = scrollRef.current;
-    const io = new IntersectionObserver(
-      (entries) => {
-        const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio);
-        if (visible[0]) setActive(visible[0].target.id);
-      },
-      { root, rootMargin: "-20% 0px -70% 0px", threshold: [0, 0.2, 0.5] },
-    );
-    SECTIONS.forEach((s) => { const el = document.getElementById(s.id); if (el) io.observe(el); });
-    return () => io.disconnect();
+    if (!root) return;
+    let raf = 0;
+    const compute = () => {
+      const rootTop = root.getBoundingClientRect().top;
+      const line = 110; // px sous le haut de la zone scrollable (sous la barre sticky)
+      let currentId = SECTIONS[0]?.id ?? "";
+      let best = -Infinity;
+      for (const s of SECTIONS) {
+        const el = document.getElementById(s.id);
+        if (!el) continue;
+        const top = el.getBoundingClientRect().top - rootTop;
+        if (top <= line && top > best) { best = top; currentId = s.id; }
+      }
+      if (currentId) setActive(currentId);
+    };
+    const onScroll = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(compute); };
+    onScroll();
+    root.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => { cancelAnimationFrame(raf); root.removeEventListener("scroll", onScroll); window.removeEventListener("resize", onScroll); };
   }, []);
+
+  /** Clic d'ancre : scrolle vers la section et l'active immédiatement (fonctionne
+   *  pour toute colonne, et au clavier via Enter sur le lien). */
+  function goToSection(e: MouseEvent, id: string) {
+    e.preventDefault();
+    setActive(id);
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (typeof history !== "undefined") history.replaceState(null, "", `#${id}`);
+  }
 
   async function save() {
     setSaving(true); setMsg(null);
@@ -99,7 +122,7 @@ export function AdministrationSettings(props: AdminSettingsProps) {
           {SECTIONS.map((s, i) => {
             const on = active === s.id;
             return (
-              <a key={s.id} href={`#${s.id}`} className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[12.5px] transition"
+              <a key={s.id} href={`#${s.id}`} onClick={(e) => goToSection(e, s.id)} aria-current={on ? "true" : undefined} className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[12.5px] transition"
                 style={{ background: on ? "var(--accent-soft)" : "transparent", color: on ? "var(--accent)" : "var(--text-muted)", fontWeight: on ? 700 : 500 }}>
                 <span className="w-4 text-right text-[11px]" style={{ color: on ? "var(--accent)" : "var(--text-hint)" }}>{i + 1}</span>
                 <span className="truncate">{s.label}</span>
