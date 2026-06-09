@@ -43,6 +43,8 @@ type Props = {
   threadId: string | null;
   /** Compte Google propriétaire du thread (multi-comptes) — ciblage des appels. */
   accountId?: string | null;
+  /** Fournisseur du message sélectionné (défaut gmail). "imap" = lecture seule. */
+  accountProvider?: "gmail" | "imap";
   folderLabel: string;
   onClassify: (threadId: string) => void;
   onArchive?: (threadId: string) => void;
@@ -50,7 +52,7 @@ type Props = {
   onMarkUnread?: (threadId: string) => void;
 };
 
-export function MailReadingPane({ threadId, accountId, onClassify, onArchive, onTrash, onMarkUnread }: Props) {
+export function MailReadingPane({ threadId, accountId, accountProvider = "gmail", onClassify, onArchive, onTrash, onMarkUnread }: Props) {
   const [data, setData] = useState<ThreadDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,8 +71,11 @@ export function MailReadingPane({ threadId, accountId, onClassify, onArchive, on
     let cancelled = false;
     setLoading(true);
     setError(null);
-    const qs = accountId ? `?accountId=${encodeURIComponent(accountId)}` : "";
-    fetch(`/api/messaging/gmail/threads/${threadId}${qs}`, { credentials: "include", cache: "no-store" })
+    // IMAP : lecture seule depuis l'index local ; Gmail : API live ciblée sur le compte.
+    const endpoint = accountProvider === "imap"
+      ? `/api/messaging/imap/messages/${encodeURIComponent(threadId)}`
+      : `/api/messaging/gmail/threads/${threadId}${accountId ? `?accountId=${encodeURIComponent(accountId)}` : ""}`;
+    fetch(endpoint, { credentials: "include", cache: "no-store" })
       .then(async (res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return (await res.json()) as ThreadDetail;
@@ -79,7 +84,7 @@ export function MailReadingPane({ threadId, accountId, onClassify, onArchive, on
       .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : "Lecture impossible."); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [threadId, accountId]);
+  }, [threadId, accountId, accountProvider]);
 
   if (!threadId) {
     return (
@@ -139,8 +144,13 @@ export function MailReadingPane({ threadId, accountId, onClassify, onArchive, on
           <IconBtn icon={ReplyAll} label="Répondre à tous" onClick={() => reply(true)} />
           <IconBtn icon={Forward} label="Transférer" onClick={forward} />
           <IconBtn icon={CalendarPlus} label="Créer un RDV / une tâche" onClick={() => setCalOpen(true)} />
-          <IconBtn icon={Archive} label="Archiver" onClick={() => threadId && onArchive?.(threadId)} />
-          <IconBtn icon={Trash2} label="Supprimer" onClick={() => threadId && onTrash?.(threadId)} />
+          {/* Actions de label Gmail indisponibles en IMAP (lecture seule). */}
+          {accountProvider !== "imap" ? (
+            <>
+              <IconBtn icon={Archive} label="Archiver" onClick={() => threadId && onArchive?.(threadId)} />
+              <IconBtn icon={Trash2} label="Supprimer" onClick={() => threadId && onTrash?.(threadId)} />
+            </>
+          ) : null}
           <div className="relative">
             <IconBtn icon={MoreHorizontal} label="Plus" onClick={() => setMenuOpen((v) => !v)} />
             {menuOpen ? (
@@ -148,7 +158,9 @@ export function MailReadingPane({ threadId, accountId, onClassify, onArchive, on
                 <button type="button" aria-hidden="true" tabIndex={-1} className="fixed inset-0 z-40 cursor-default" onClick={() => setMenuOpen(false)} />
                 <div className="absolute right-0 top-11 z-50 w-60 overflow-hidden rounded-xl border bg-white py-1 shadow-xl" style={{ borderColor: LINE }} role="menu">
                   <MenuItem icon={FolderPlus} label="Classer dans un dossier…" onClick={() => { setMenuOpen(false); if (threadId) onClassify(threadId); }} />
-                  <MenuItem icon={MailOpen} label="Marquer comme non lu" onClick={() => { setMenuOpen(false); if (threadId) onMarkUnread?.(threadId); }} />
+                  {accountProvider !== "imap" ? (
+                    <MenuItem icon={MailOpen} label="Marquer comme non lu" onClick={() => { setMenuOpen(false); if (threadId) onMarkUnread?.(threadId); }} />
+                  ) : null}
                 </div>
               </>
             ) : null}

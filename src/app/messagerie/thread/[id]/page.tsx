@@ -20,7 +20,9 @@ import { ThreadMeetingCard } from "@/components/messaging/thread-meeting-card";
 import { analyzeEmail } from "@/lib/ai/analyze-email";
 import { getGmailThread } from "@/lib/connectors/gmail/gmail-api";
 import { resolveGmailAccount } from "@/lib/messaging/active-gmail-account";
-import { normaliseGmailMessage } from "@/lib/messaging/gmail-normalize";
+import { normaliseGmailMessage, firstAddress } from "@/lib/messaging/gmail-normalize";
+import { getEmailMessageById } from "@/lib/messaging/email-message-store";
+import { listAccounts } from "@/lib/mail-connector/account-store";
 import { loadThreadGedContext } from "@/lib/messaging/thread-ged-context";
 import { NoGmailState } from "@/components/messaging/no-gmail-state";
 import { getGmailOAuthConfig, isGmailReconnectError } from "@/lib/connectors/gmail/oauth";
@@ -45,10 +47,45 @@ export default async function ThreadDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ accountId?: string }>;
+  searchParams: Promise<{ accountId?: string; provider?: string }>;
 }) {
   const { id } = await params;
-  const { accountId } = await searchParams;
+  const { accountId, provider } = await searchParams;
+
+  // Message IMAP (inbox unifiée) : lecture seule depuis l'index local.
+  if (provider === "imap") {
+    const rec = await getEmailMessageById(id);
+    if (!rec) {
+      return (
+        <PageShell>
+          <PageHeader breadcrumb={[{ href: "/dashboard", label: "Accueil" }, { href: "/messagerie", label: "Messagerie" }, { label: "Message" }]} backLink={{ href: "/messagerie/inbox", label: "Retour à la boîte" }} title="Message" />
+          <ErrorState title="Message introuvable" message="Ce message n'est plus indexé localement." />
+        </PageShell>
+      );
+    }
+    const email = (await listAccounts()).find((a) => a.id === rec.accountId)?.email ?? "";
+    const sender = firstAddress(rec.from);
+    return (
+      <PageShell>
+        <PageHeader
+          breadcrumb={[{ href: "/dashboard", label: "Accueil" }, { href: "/messagerie", label: "Messagerie" }, { label: rec.subject ?? "Message" }]}
+          backLink={{ href: "/messagerie/inbox", label: "Retour à la boîte" }}
+          title={rec.subject ?? "(sans objet)"}
+        />
+        <SectionCard icon={Mail} title="Message">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-[12.5px]" style={{ color: "var(--text-muted)" }}>
+            <span><strong style={{ color: "var(--text-main)" }}>{sender?.name || sender?.email || "Expéditeur inconnu"}</strong>{sender?.name && sender.email ? ` · ${sender.email}` : ""}</span>
+            <span>{rec.date ? new Date(rec.date).toLocaleString("fr-FR") : ""}</span>
+          </div>
+          <p className="mb-3 text-[11.5px]" style={{ color: "var(--text-hint)" }}>Boîte : {email} · lecture seule (IMAP)</p>
+          <div className="whitespace-pre-wrap text-[13.5px] leading-relaxed" style={{ color: "var(--text-main)" }}>
+            {rec.text || "(Aucun contenu texte indexé pour ce message.)"}
+          </div>
+        </SectionCard>
+      </PageShell>
+    );
+  }
+
   // Multi-comptes : le thread appartient au compte passé (repli compte actif).
   const account = await resolveGmailAccount(accountId ?? null);
 

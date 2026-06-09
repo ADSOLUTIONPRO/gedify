@@ -83,6 +83,12 @@ async function doUpsert(rec: Omit<EmailMessageRecord, "createdAt">): Promise<voi
   await writeAll(all.slice(0, MAX));
 }
 
+/** Message indexé par id (`${accountId}:${uid}`) — lecture seule de l'inbox unifiée. */
+export async function getEmailMessageById(id: string): Promise<EmailMessageRecord | null> {
+  const all = await readAll();
+  return all.find((m) => m.id === id) ?? null;
+}
+
 export async function searchEmailMessages(query: string, limit = 20): Promise<EmailMessageRecord[]> {
   const all = await readAll();
   const q = query.trim().toLowerCase();

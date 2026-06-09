@@ -55,6 +55,8 @@ export type EmailThreadRecord = {
   id: string;
   accountId: string;
   accountEmail: string;
+  /** Fournisseur (défaut : gmail). "imap" = élément lecture seule dans l'inbox unifiée. */
+  provider?: "gmail" | "imap";
   subject: string | null;
   snippet: string | null;
   /** Date du message le plus récent dans le thread (ISO). */

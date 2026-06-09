@@ -173,6 +173,8 @@ export function InboxTwoPane({
   // Action sur un fil (archiver / corbeille / lu / non lu). Archiver et corbeille
   // retirent le fil de la liste de façon optimiste et libèrent le volet de lecture.
   async function threadAction(id: string, action: "archive" | "trash" | "markRead" | "markUnread", toastMsg?: string) {
+    // Actions de label Gmail : non applicables aux messages IMAP (lecture seule).
+    if (threads.find((t) => t.id === id)?.provider === "imap") return;
     const removeFromList = action === "archive" || action === "trash";
     if (removeFromList) {
       setThreads((prev) => prev.filter((t) => t.id !== id));
@@ -460,6 +462,7 @@ export function InboxTwoPane({
         <MailReadingPane
           threadId={effectiveSelected}
           accountId={selectedThread?.accountId ?? null}
+          accountProvider={selectedThread?.provider ?? "gmail"}
           folderLabel={folderLabel}
           onClassify={(id) => setClassifyIds([id])}
           onArchive={(id) => void threadAction(id, "archive", "Conversation archivée")}

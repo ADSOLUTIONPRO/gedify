@@ -69,25 +69,28 @@ export async function resolveGmailAccount(
 export async function getInboxGmailAccounts(override?: string | null): Promise<{
   aggregate: boolean;
   accounts: GmailAccountSummary[];
+  /** Sélection résolue ("all" ou id de compte) — partagée avec l'agrégation IMAP. */
+  selected: string;
 }> {
-  const accounts = await listGmailAccounts();
-  if (accounts.length === 0) return { aggregate: false, accounts: [] };
-
   // Priorité : override (filtre URL `?accountId=`) > cookie « Boîte active ».
-  let selected: string | undefined = override && override.trim() ? override.trim() : undefined;
-  if (!selected) {
+  let sel: string | undefined = override && override.trim() ? override.trim() : undefined;
+  if (!sel) {
     try {
-      selected = (await cookies()).get(ACTIVE_MAILBOX_COOKIE)?.value;
+      sel = (await cookies()).get(ACTIVE_MAILBOX_COOKIE)?.value;
     } catch {
       /* hors contexte requête → ignore */
     }
   }
+  const selected = sel && sel.trim() ? sel.trim() : "all";
 
-  if (selected && selected !== "all") {
+  const accounts = await listGmailAccounts();
+  if (accounts.length === 0) return { aggregate: false, accounts: [], selected };
+
+  if (selected !== "all") {
     const match = accounts.find((a) => a.accountId === selected);
-    return match ? { aggregate: false, accounts: [match] } : { aggregate: false, accounts: [] };
+    return { aggregate: false, accounts: match ? [match] : [], selected };
   }
 
   const sorted = [...accounts].sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
-  return { aggregate: true, accounts: sorted };
+  return { aggregate: true, accounts: sorted, selected };
 }

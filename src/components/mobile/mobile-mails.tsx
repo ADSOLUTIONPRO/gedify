@@ -120,7 +120,7 @@ export function MobileMails({ threads, attachmentsByThread, query }: Props) {
             return (
               <Link
                 key={`${t.accountId}:${t.id}`}
-                href={`/messagerie/thread/${t.id}${t.accountId ? `?accountId=${encodeURIComponent(t.accountId)}` : ""}`}
+                href={`/messagerie/thread/${t.id}?${new URLSearchParams({ ...(t.accountId ? { accountId: t.accountId } : {}), ...(t.provider === "imap" ? { provider: "imap" } : {}) }).toString()}`}
                 className="flex gap-3 rounded-2xl border bg-white p-3"
                 style={{ borderColor: "var(--border)" }}
               >
