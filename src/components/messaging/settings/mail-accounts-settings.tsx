@@ -161,6 +161,7 @@ export function MailAccountsSettings({ accounts, signatures }: { accounts: MailA
           <div className="hidden lg:block">
             {selected ? (
               <MailAccountDetailsPanel
+                key={selected.id}
                 account={selected}
                 signatures={signatures}
                 busy={busyId === selected.id}
@@ -186,6 +187,7 @@ export function MailAccountsSettings({ accounts, signatures }: { accounts: MailA
               <button type="button" aria-label="Fermer" onClick={() => setSelectedId(null)} className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" />
               <div className="absolute inset-y-0 right-0 w-full max-w-md p-3">
                 <MailAccountDetailsPanel
+                  key={selected.id}
                   account={selected}
                   signatures={signatures}
                   busy={busyId === selected.id}
