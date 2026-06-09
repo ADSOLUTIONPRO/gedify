@@ -9,7 +9,6 @@ import { PageShell } from "@/components/ui/page-shell";
 import { AdminConfigPanel } from "@/components/settings/administration-settings";
 import { getGedifyFeatureFlags } from "@/lib/settings/feature-flags";
 import { OrphanCleanupButton } from "@/components/admin/orphan-cleanup-button";
-import { PermisTagCleanupButton } from "@/components/admin/permis-tag-cleanup-button";
 import { ResetHistoryButton } from "@/components/admin/reset-history-button";
 import { SyncDeletedButton } from "@/components/admin/sync-deleted-button";
 import { ScopedResetButton } from "@/components/admin/scoped-reset-button";
@@ -50,6 +49,8 @@ export default async function AdministrationPage() {
   ]);
   const stats = status.statistics ?? null;
   const backend = sqliteActive() ? "SQLite" : pgStorageActive() ? "PostgreSQL" : "JSON local";
+  const installType = sqliteActive() ? "Synology (SQLite)" : pgStorageActive() ? "Coolify (PostgreSQL)" : "Local (JSON)";
+  const build = process.env.SOURCE_COMMIT ?? process.env.GEDIFY_BUILD ?? process.env.NEXT_PUBLIC_BUILD ?? null;
   const activeUsers = users.filter((u) => u.is_active !== false).length;
   const aiOn = Boolean(process.env.OLLAMA_BASE_URL || process.env.OPENAI_API_KEY || process.env.AI_CLOUD_BASE_URL);
   const docsTotal = stats?.documents_total ?? null;
@@ -175,18 +176,18 @@ export default async function AdministrationPage() {
                 <InfoRow label="Version API" value={status.apiVersion ?? "—"} tone="blue" />
                 <InfoRow label="Moteur" value={status.connected ? "Connecté" : "Erreur"} tone={status.connected ? "green" : "rose"} />
                 <InfoRow label="Base de données" value={backend} tone="purple" />
+                <InfoRow label="Type d'installation" value={installType} tone="blue" />
+                <InfoRow label="État de connexion" value={status.connected ? "Opérationnel" : "Indisponible"} tone={status.connected ? "green" : "rose"} />
+                {build ? <InfoRow label="Build" value={build} tone="blue" /> : null}
               </div>
             </Card>
           </section>
 
           {/* Outils de maintenance (fonctionnels) */}
           <div id="maintenance" className="space-y-4">
-            <Card icon={UserCog} title="Maintenance des données" description="Nettoyage des données IA orphelines + correction des tags de permis.">
+            <Card icon={UserCog} title="Maintenance des données" description="Nettoyage des données IA orphelines.">
               <div className="flex flex-col gap-4 py-1">
                 <OrphanCleanupButton />
-                <div className="border-t pt-4" style={{ borderColor: "var(--border-soft)" }}>
-                  <PermisTagCleanupButton />
-                </div>
               </div>
             </Card>
 

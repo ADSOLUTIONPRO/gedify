@@ -22,7 +22,6 @@ import {
   Link2,
   ListChecks,
   Mail,
-  Palette,
   PenLine,
   Receipt,
   RefreshCw,
@@ -199,15 +198,11 @@ export const SPACE_MENUS: Record<string, SpaceMenu> = {
     description: "Gouvernance, configuration & maintenance",
     groups: [
       { id: "configuration", title: "Configuration système" },
-      { id: "personnalisation", title: "Personnalisation avancée" },
       { id: "support", title: "Support & maintenance" },
     ],
     items: [
       // Configuration système
-      { label: "Paramètres généraux", href: "/administration/parametres", icon: Settings, group: "configuration" },
       { label: "Sauvegardes & restauration", href: "/administration/sauvegarde", icon: DatabaseBackup, group: "configuration" },
-      // Personnalisation avancée
-      { label: "Thèmes & apparence", href: "/administration/parametres", icon: Palette, group: "personnalisation" },
       // Support & maintenance
       { label: "Outils de maintenance", href: "/administration#maintenance", icon: Wrench, group: "support" },
     ],
