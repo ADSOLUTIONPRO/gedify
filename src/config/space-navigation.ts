@@ -20,8 +20,8 @@ export const spaceNavigation: Record<string, SpaceNavItem[]> = {
     { label: "Récents", href: "/documents?tab=recents" },
     { label: "Favoris", href: "/documents?tab=favoris" },
     { label: "Partagés avec moi", href: "/documents?tab=partages" },
-    { label: "À traiter", href: "/documents?tab=a-traiter" },
-    { label: "Archives", href: "/documents?tab=archives" },
+    { label: "À traiter", href: "/documents/a-traiter" },
+    { label: "Archives", href: "/documents/archives" },
     { label: "Corbeille", href: "/corbeille" },
   ],
   ia: [

@@ -51,6 +51,8 @@ type DocumentSpaceProps = {
   paperlessUrl: string | null;
   /** Cible des filtres (défaut /documents). Permet de rester dans un dossier. */
   basePath?: string;
+  /** "unarchive" sur la page Archives (action Désarchiver) ; sinon "archive". */
+  archiveMode?: "archive" | "unarchive";
 };
 
 /**
@@ -96,6 +98,7 @@ export function DocumentSpace({
   showImport,
   paperlessUrl,
   basePath,
+  archiveMode = "archive",
 }: DocumentSpaceProps) {
   const router = useRouter();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -323,6 +326,14 @@ export function DocumentSpace({
     runBulkProgress({ title: "Analyse IA", errorCode: "ai_failed", makeUrls: (id) => [`/api/documents/${id}/reanalyze`], body: { force: true, allowWithoutOcr: true } });
   const redoOcrSelection = () =>
     runBulkProgress({ title: "Relancer l'OCR", errorCode: "ocr_failed", makeUrls: (id) => [`/api/documents/${id}/redo-ocr`] });
+  // Archiver / désarchiver la sélection (statut GEDify, store dédié).
+  const archiveSelection = () =>
+    runBulkProgress({
+      title: archiveMode === "unarchive" ? "Désarchivage" : "Archivage",
+      errorCode: "archive_failed",
+      makeUrls: (id) => [`/api/documents/${id}/archive`],
+      body: { archived: archiveMode !== "unarchive" },
+    });
   const regenerateThumbnailSelection = () =>
     runBulkProgress({
       title: "Régénération miniature + aperçu",
@@ -461,7 +472,8 @@ export function DocumentSpace({
             onEdit={() => setShowBulkEdit(true)}
             onAddToFolder={() => setShowAddToFolder(true)}
             onSendByMail={sendByMail}
-            onArchive={() => primary && router.push(primary.detailHref)}
+            onArchive={() => void archiveSelection()}
+            archiveMode={archiveMode}
             onReanalyze={() => void reanalyzeSelection()}
             onRedoOcr={() => void redoOcrSelection()}
             onRegenerateThumbnail={() => void regenerateThumbnailSelection()}

@@ -35,6 +35,8 @@ type DocumentBulkActionsProps = {
   firstDocId: number | null;
   /** Capacités conditionnelles selon les statuts de la sélection (libellés). */
   matrix?: BulkActionsMatrix;
+  /** "unarchive" → libellé « Désarchiver » et action toujours active (page Archives). */
+  archiveMode?: "archive" | "unarchive";
 };
 
 const actionClass =
@@ -62,6 +64,7 @@ export function DocumentBulkActions({
   onRegenerateThumbnail,
   onOpenFirst,
   onDelete,
+  archiveMode = "archive",
   paperlessUrl,
   firstDocId,
   matrix,
@@ -169,9 +172,10 @@ export function DocumentBulkActions({
                 Régénérer miniature + aperçu
               </button>
 
-              <button type="button" disabled={matrix ? !matrix.archiveEnabled : false} title={matrix?.archiveReason ?? undefined} onClick={() => { if (matrix && !matrix.archiveEnabled) return; onArchive(); setMenuOpen(false); }} className={`${menuItemClass} disabled:opacity-40`} style={{ color: "var(--text-main)" }}>
+              {/* Archive = statut GEDify réel (store) → action toujours disponible. */}
+              <button type="button" onClick={() => { onArchive(); setMenuOpen(false); }} className={menuItemClass} style={{ color: "var(--text-main)" }}>
                 <Archive className="h-4 w-4 shrink-0" strokeWidth={1.75} />
-                {matrix?.archiveLabel ?? "Archiver"}
+                {archiveMode === "unarchive" ? "Désarchiver" : "Archiver"}
               </button>
             </div>
           </>

@@ -98,7 +98,7 @@ export function buildCleanupGroups({
       title: "Documents à classer",
       description: "Documents sans type, correspondant ou tag.",
       count: inboxCount,
-      href: "/documents?tab=a-traiter",
+      href: "/documents/a-traiter",
     },
   ];
 
