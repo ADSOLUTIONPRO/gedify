@@ -8,6 +8,7 @@ import { STATUS_META, type DocumentVM } from "@/components/documents/types";
 import { DocumentStatusBadges } from "@/components/documents/document-status-badges";
 import { DocumentActionMenu, type DocActionHandlers } from "@/components/documents/document-action-menu";
 import { DocumentFavoriteStar } from "@/components/documents/document-favorite-star";
+import { DocumentHoverPreview } from "@/components/documents/document-hover-preview";
 import { GedifyErrorHint } from "@/components/ui/gedify-error-hint";
 
 type DocumentThumbnailCardProps = {
@@ -66,8 +67,8 @@ export function DocumentThumbnailCard({ doc, checked, active, onToggle, onActiva
         boxShadow: checked || active ? "0 0 0 1.5px var(--accent), var(--shadow-card)" : "var(--shadow-card)",
       }}
     >
-      {/* Miniature à gauche */}
-      <div className="group/thumb relative h-[116px] w-[88px] shrink-0 overflow-hidden rounded-xl bg-[#F4F0E8]">
+      {/* Miniature à gauche (aperçu moyen au survol) */}
+      <DocumentHoverPreview documentId={doc.id} title={doc.displayTitle} className="group/thumb relative h-[116px] w-[88px] shrink-0 overflow-hidden rounded-xl bg-[#F4F0E8]">
         <label className="absolute left-1.5 top-1.5 z-10 flex items-center" onClick={(e) => e.stopPropagation()}>
           <input
             type="checkbox"
@@ -103,7 +104,7 @@ export function DocumentThumbnailCard({ doc, checked, active, onToggle, onActiva
             <Search className="h-4 w-4" style={{ color: "var(--text-main)" }} strokeWidth={2.25} aria-hidden="true" />
           </span>
         </button>
-      </div>
+      </DocumentHoverPreview>
 
       {/* Informations à droite */}
       <div className="flex min-w-0 flex-1 flex-col">

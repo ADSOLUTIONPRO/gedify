@@ -401,10 +401,12 @@ export function DocumentSpace({
     </div>
   );
 
-  // Vue « Vignette » : cartes HORIZONTALES compactes, multi-colonnes selon la
-  // largeur (mêmes données / handlers / actions que la grille).
+  // Vue « Vignette » : cartes HORIZONTALES compactes. Colonnes via CONTAINER
+  // QUERY (largeur réellement disponible → s'adapte au panneau Détail et reste
+  // cohérent quel que soit l'écran) : 1 colonne, puis 2 ≥ 560px, 3 ≥ 920px.
   const thumbnailCards = (
-    <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(340px,1fr))]">
+    <div className="@container">
+      <div className="grid grid-cols-1 gap-3 @[560px]:grid-cols-2 @[920px]:grid-cols-3">
       {displayDocs.map((doc) => (
         <DocumentThumbnailCard
           key={doc.id}
@@ -418,6 +420,7 @@ export function DocumentSpace({
           aiBusy={aiBusyId === doc.id}
         />
       ))}
+      </div>
     </div>
   );
 

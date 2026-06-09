@@ -8,6 +8,7 @@ import { STATUS_META, formatAmount, type DocumentVM } from "@/components/documen
 import { DocumentStatusBadges } from "@/components/documents/document-status-badges";
 import { type DocActionHandlers } from "@/components/documents/document-action-menu";
 import { DocumentFavoriteStar } from "@/components/documents/document-favorite-star";
+import { DocumentHoverPreview } from "@/components/documents/document-hover-preview";
 import { GedifyErrorHint } from "@/components/ui/gedify-error-hint";
 
 type DocumentSpaceCardProps = {
@@ -82,7 +83,7 @@ export function DocumentSpaceCard({ doc, checked, active, onToggle, onActivate, 
         <DocumentFavoriteStar documentId={doc.id} />
       </div>
 
-      <div className="group/thumb relative flex h-32 items-center justify-center overflow-hidden bg-[#F4F0E8]">
+      <DocumentHoverPreview documentId={doc.id} title={doc.displayTitle} className="group/thumb relative flex h-32 items-center justify-center overflow-hidden bg-[#F4F0E8]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={thumbSrc} alt="" loading="lazy" className="h-full w-full object-cover object-top" />
 
@@ -114,7 +115,7 @@ export function DocumentSpaceCard({ doc, checked, active, onToggle, onActivate, 
             <Search className="h-4 w-4" style={{ color: "var(--text-main)" }} strokeWidth={2.25} aria-hidden="true" />
           </span>
         </button>
-      </div>
+      </DocumentHoverPreview>
 
       <div className="flex min-w-0 flex-1 flex-col p-3.5">
         {/* Dossier / type + date */}

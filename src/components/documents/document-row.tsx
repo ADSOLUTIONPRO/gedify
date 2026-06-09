@@ -7,6 +7,7 @@ import { STATUS_META, formatAmount, type DocumentVM } from "@/components/documen
 import { DocumentStatusBadges } from "@/components/documents/document-status-badges";
 import { DocumentActionMenu, type DocActionHandlers } from "@/components/documents/document-action-menu";
 import { DocumentFavoriteStar } from "@/components/documents/document-favorite-star";
+import { DocumentHoverPreview } from "@/components/documents/document-hover-preview";
 
 type DocumentRowProps = {
   doc: DocumentVM;
@@ -38,7 +39,7 @@ export function DocumentRow({ doc, checked, active, onToggle, onActivate, action
         }
       }}
       aria-pressed={active}
-      className="group grid cursor-pointer grid-cols-[auto_auto_1fr_auto] items-center gap-3 border-b px-3 py-2.5 transition-colors last:border-b-0"
+      className="group grid cursor-pointer grid-cols-[auto_auto_auto_minmax(0,1fr)_auto] items-center gap-3 border-b px-3 py-2.5 transition-colors last:border-b-0"
       style={{
         borderColor: "var(--border-soft)",
         background: active ? "var(--accent-soft)" : undefined,
@@ -62,11 +63,11 @@ export function DocumentRow({ doc, checked, active, onToggle, onActivate, action
         <DocumentFavoriteStar documentId={doc.id} className="flex h-7 w-7 items-center justify-center rounded-lg transition hover:bg-[var(--bg-card-soft)]" />
       </span>
 
-      {/* Miniature */}
-      <span className="flex h-11 w-9 items-center justify-center overflow-hidden rounded-md bg-[#F4F0E8]">
+      {/* Miniature (aperçu moyen au survol) */}
+      <DocumentHoverPreview documentId={doc.id} title={doc.displayTitle} className="flex h-12 w-10 items-center justify-center overflow-hidden rounded-md bg-[#F4F0E8]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={doc.thumbUrl} alt="" loading="lazy" className="h-full w-full object-cover object-top" />
-      </span>
+      </DocumentHoverPreview>
 
       {/* Titre + métadonnées */}
       <div className="min-w-0">
