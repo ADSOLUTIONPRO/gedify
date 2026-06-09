@@ -182,6 +182,9 @@ function SpaceMenuInner({ onNavigate }: { onNavigate?: () => void }) {
  */
 export function SpaceMenuSidebar({ financeEnabled = true }: { financeEnabled?: boolean }) {
   const pathname = usePathname();
+  // Accueil / Dashboard : pas de sidebar secondaire (redondante avec le rail
+  // principal). Le contenu du tableau de bord occupe toute la largeur libérée.
+  if (getActiveSpaceId(pathname) === "accueil") return null;
   // L'espace Messagerie a sa propre sidebar complète (MessagerieShell) → on masque
   // la sidebar générique d'espace ici pour n'en afficher qu'une seule.
   if (pathname.startsWith("/messagerie")) return null;
@@ -211,6 +214,9 @@ export function SpaceMenuSidebar({ financeEnabled = true }: { financeEnabled?: b
 /** Bouton + drawer pour accéder au menu de l'espace sur mobile / tablette. */
 export function MobileSpaceMenu() {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+  // Accueil / Dashboard : aucun menu d'espace secondaire (cohérent desktop).
+  if (getActiveSpaceId(pathname) === "accueil") return null;
   return (
     <>
       <button
