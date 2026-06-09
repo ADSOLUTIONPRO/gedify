@@ -10,6 +10,7 @@ import {
   isGmailStoreSecure,
   saveGmailTokens,
 } from "@/lib/connectors/gmail/gmail-token-store";
+import { invalidateMailboxCounts } from "@/lib/messaging/mailbox-counts";
 import { createAccount, listAccounts, updateAccount } from "@/lib/mail-connector/account-store";
 import { GMAIL_DEFAULT_WATCHED_LABELS, GMAIL_EXCLUDED_LABELS } from "@/lib/mail-connector/default-excluded-folders";
 import { DEFAULT_SENDER_FILTER } from "@/lib/mail-connector/mail-filter-types";
@@ -125,6 +126,8 @@ export async function GET(request: NextRequest) {
       accessTokenExpiresAt: Date.now() + (tokens.expires_in - 60) * 1000,
       scopes: tokens.scope.split(" "),
     });
+
+    invalidateMailboxCounts(); // un nouveau compte → recompter les boîtes.
 
     const returnTo = (decoded.returnTo as string | undefined) || "/emails/comptes";
     const successUrl = new URL(returnTo, resolveAppOrigin(request));

@@ -7,6 +7,7 @@ import {
 } from "@/lib/connectors/gmail/gmail-token-store";
 import { revokeRefreshToken } from "@/lib/connectors/gmail/oauth";
 import { deleteAccount, updateAccount } from "@/lib/mail-connector/account-store";
+import { invalidateMailboxCounts } from "@/lib/messaging/mailbox-counts";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,6 +34,7 @@ export async function POST(request: NextRequest) {
     } else {
       await updateAccount(body.accountId, { isActive: false });
     }
+    invalidateMailboxCounts(); // boîte retirée/désactivée → recompter.
     await recordAudit({
       action: "mail.account.disconnect",
       target: `#${body.accountId}`,

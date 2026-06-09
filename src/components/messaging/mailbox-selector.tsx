@@ -31,6 +31,8 @@ export function MailboxSelector() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [accounts, setAccounts] = useState<Acct[]>([]);
+  // Compteurs « à traiter » par boîte (§17) — chargés en différé, best-effort.
+  const [counts, setCounts] = useState<{ total: number; byId: Record<string, number> } | null>(null);
 
   // URL prioritaire ; sinon cookie ; sinon « toutes les boîtes ».
   const urlAccount = searchParams.get("accountId");
@@ -52,6 +54,24 @@ export function MailboxSelector() {
       cancelled = true;
     };
   }, [urlAccount]);
+
+  // Compteurs (cache serveur 5 min) : n'impactent pas l'affichage du filtre.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/messaging/mailbox-counts", { credentials: "include", cache: "no-store" });
+        const d = res.ok ? await res.json() : null;
+        if (cancelled || !d?.boxes) return;
+        const byId: Record<string, number> = {};
+        for (const b of d.boxes as { id: string; count: number }[]) byId[b.id] = b.count;
+        setCounts({ total: d.total ?? 0, byId });
+      } catch {
+        /* compteurs best-effort */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Tri par nom d'affichage / email A–Z (comptes réels uniquement).
   const sorted = useMemo(
@@ -84,10 +104,10 @@ export function MailboxSelector() {
         className="max-w-[230px] truncate rounded-lg border bg-white px-2 py-1 text-[12.5px] font-semibold outline-none"
         style={{ borderColor: "var(--border)", color: "var(--text-main)" }}
       >
-        <option value="all">Toutes les boîtes</option>
+        <option value="all">Toutes les boîtes{counts ? ` (${counts.total})` : ""}</option>
         {sorted.map((a) => (
           <option key={a.id} value={a.id}>
-            {a.name ? `${a.name} — ${a.email}` : a.email} ({providerLabel(a.type)})
+            {a.name ? `${a.name} — ${a.email}` : a.email} ({providerLabel(a.type)}){counts && a.id in counts.byId ? ` · ${counts.byId[a.id]}` : ""}
           </option>
         ))}
       </select>
