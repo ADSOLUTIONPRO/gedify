@@ -77,7 +77,8 @@ type CollectionData = {
 /** Charge les données de la collection (aucun JSX). Peut lever (erreur réseau). */
 async function loadCollection(params: Awaited<PageSearchParams>, scope: DocumentsScope): Promise<CollectionData> {
   const page = numberParam(params, "page", 1);
-  const view = firstParam(params, "view", "") === "table" ? "table" : "grid";
+  const viewParam = firstParam(params, "view", "");
+  const view: CollectionData["view"] = viewParam === "table" ? "table" : viewParam === "thumbnail" ? "thumbnail" : "grid";
   const tab = scope === "a-traiter" ? "a-traiter" : scope === "archives" ? "archives" : (firstParam(params, "tab", "") ?? "");
   const reqSize = numberParam(params, "taille", DEFAULT_PAGE_SIZE);
   const pageSize = PAGE_SIZES.includes(reqSize) ? reqSize : DEFAULT_PAGE_SIZE;
