@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { LayoutGrid, Plus, Table2 } from "lucide-react";
+import { LayoutGrid, Plus, Rows3, Table2 } from "lucide-react";
 import { ErrorState } from "@/components/ui/error-state";
 import { MobileDocuments } from "@/components/mobile/mobile-documents";
 import { Pagination } from "@/components/ui/pagination";
@@ -68,7 +68,7 @@ type CollectionData = {
   selectAllQuery: string;
   currentQuery: string;
   etat: string | undefined;
-  view: "grid" | "table";
+  view: "grid" | "table" | "thumbnail";
   page: number;
   pageSize: number;
   tab: string;
@@ -239,6 +239,7 @@ export async function DocumentsCollection({
               <ViewToggle
                 options={[
                   { value: "grid", icon: LayoutGrid, label: "Grille" },
+                  { value: "thumbnail", icon: Rows3, label: "Vignette" },
                   { value: "table", icon: Table2, label: "Liste" },
                 ]}
                 active={data.view}

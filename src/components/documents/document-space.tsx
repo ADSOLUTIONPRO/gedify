@@ -10,6 +10,7 @@ import { DocumentAddToFolderPanel } from "@/components/documents/document-add-to
 import { DocumentEmptyState } from "@/components/documents/document-empty-state";
 import { DocumentFilters, type DocumentFilterValues } from "@/components/documents/document-filters";
 import { DocumentList } from "@/components/documents/document-list";
+import { DocumentThumbnailCard } from "@/components/documents/document-thumbnail-card";
 import { DocumentPreviewPanel } from "@/components/documents/document-preview-panel";
 import { DocumentSpaceCard } from "@/components/documents/document-space-card";
 import { FavoritesProvider } from "@/components/documents/favorites-provider";
@@ -37,7 +38,7 @@ type DocumentSpaceProps = {
   totalCount: number;
   /** Query des filtres pour /api/documents/ids (sélection de la TOTALITÉ). */
   selectAllQuery?: string;
-  view: "grid" | "table";
+  view: "grid" | "table" | "thumbnail";
   filterValues: DocumentFilterValues;
   correspondents: Option[];
   types: Option[];
@@ -400,6 +401,26 @@ export function DocumentSpace({
     </div>
   );
 
+  // Vue « Vignette » : cartes HORIZONTALES compactes, multi-colonnes selon la
+  // largeur (mêmes données / handlers / actions que la grille).
+  const thumbnailCards = (
+    <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(340px,1fr))]">
+      {displayDocs.map((doc) => (
+        <DocumentThumbnailCard
+          key={doc.id}
+          doc={doc}
+          checked={selectedIds.has(doc.id)}
+          active={doc.id === activeId}
+          onToggle={toggle}
+          onActivate={setActiveId}
+          onPreview={setPreviewDoc}
+          actions={docActions}
+          aiBusy={aiBusyId === doc.id}
+        />
+      ))}
+    </div>
+  );
+
   return (
     <FavoritesProvider>
       <div className="flex gap-6">
@@ -489,6 +510,8 @@ export function DocumentSpace({
               <DocumentEmptyState title={emptyTitle} description={emptyDescription} showImport={showImport} />
             ) : view === "grid" ? (
               <div className="p-3">{cards}</div>
+            ) : view === "thumbnail" ? (
+              <div className="p-3">{thumbnailCards}</div>
             ) : (
               <>
                 <div className="hidden md:block">
