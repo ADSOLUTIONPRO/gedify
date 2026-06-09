@@ -6,45 +6,32 @@ import { AddFinancialItemButton } from "@/components/finances/financial-item-for
 import { formatDate } from "@/lib/format";
 import {
   getAllCorrespondentsFinancialSummary,
-  getAllDebts,
-  getAllDueItems,
-  getMonthlySummary,
-  getOverdueItems,
 } from "@/lib/budget/budget-calculations";
 import { listFinancialItems } from "@/lib/budget/financial-item-store";
-import { currentBudgetMonth } from "@/lib/budget/budget-periods";
-import { getPrincipalType } from "@/lib/budget/finance-classification";
+import { aggregateFinances, filterByBucket } from "@/lib/budget/finance-bucket";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "Finances — Gedify" };
 
 export default async function FinancesPage() {
-  const [monthSummary, due, overdue, debts, correspondents, allItems] = await Promise.all([
-    getMonthlySummary(currentBudgetMonth()),
-    getAllDueItems(),
-    getOverdueItems(),
-    getAllDebts(),
+  const [correspondents, allItems] = await Promise.all([
     getAllCorrespondentsFinancialSummary(),
     listFinancialItems(),
   ]);
 
-  const totals = monthSummary.totals;
-  const toReview = allItems.filter((i) => i.status === "to_review" || i.status === "suggested" || i.validationStatus === "needs_review");
-  const debtsRemaining = debts.reduce((sum, d) => sum + (d.amountRemaining ?? Math.max(0, d.amount - d.amountPaid)), 0);
-  const dueSoon = [...due.bucketed.this_week, ...due.bucketed.this_month];
-
-  // Dépenses à venir : lignes dont le type principal dérivé est « dépense à venir ».
-  const upcomingExpenses = allItems
-    .filter((i) => getPrincipalType(i) === "depense_a_venir")
-    .reduce((s, i) => s + (i.amountRemaining ?? Math.max(0, i.amount - i.amountPaid)), 0);
+  // SOURCE DE VÉRITÉ UNIQUE : une ligne = une seule catégorie exclusive (§2-5).
+  // Cartes, listes et résumé dérivent tous de cette agrégation → cohérence
+  // garantie (carte == page) et plus de double comptage.
+  const agg = aggregateFinances(allItems);
+  const toReview = filterByBucket(allItems, "to_review");
+  const dueSoon = filterByBucket(allItems, "due_soon");
+  const overdue = filterByBucket(allItems, "overdue");
 
   // ── Données pour la version mobile (< md) ──
-  const incomingItems = allItems.filter((i) => i.direction === "incoming");
-  const expenseItems = allItems.filter((i) => i.direction === "outgoing");
-  const mobileToCollect = Math.max(0, totals.incoming - totals.incomingReceived);
-  const mobileToCollectCount = incomingItems.filter((i) => i.status !== "paid").length;
-  const mobileForecast = allItems.filter((i) => i.status === "scheduled").reduce((s, i) => s + i.amount, 0);
+  const mobileToCollect = agg.income.total;
+  const mobileToCollectCount = agg.income.count;
+  const mobileForecast = dueSoon.reduce((s, i) => s + (i.amountRemaining ?? i.amount), 0);
   const mobileInvoices = [...allItems]
     .sort((a, b) => (b.documentDate ?? b.createdAt).localeCompare(a.documentDate ?? a.createdAt))
     .slice(0, 6)
@@ -64,9 +51,9 @@ export default async function FinancesPage() {
       <MobileFinances
         toCollect={mobileToCollect}
         toCollectCount={mobileToCollectCount}
-        expenses={totals.outgoing}
-        expensesCount={expenseItems.length}
-        result={totals.incoming - totals.outgoing}
+        expenses={agg.expense.total}
+        expensesCount={agg.expense.count}
+        result={agg.netBalance}
         forecast={mobileForecast}
         invoices={mobileInvoices}
       />
@@ -85,26 +72,26 @@ export default async function FinancesPage() {
     >
       <FinanceOverview
         kpis={{
-          revenuesMonth: totals.incoming,
-          expensesMonth: totals.outgoing,
-          upcomingExpenses,
-          debtsRemaining,
-          overdue: overdue.length,
-          toReview: toReview.length,
-          paidThisMonth: totals.outgoingPaid,
-          remaining: totals.remaining,
+          revenuesMonth: agg.income.total,
+          expensesMonth: agg.expense.total,
+          upcomingExpenses: agg.dueSoon.total,
+          debtsRemaining: agg.debt.total,
+          overdue: agg.overdue.count,
+          toReview: agg.toReview.count,
+          paidThisMonth: agg.expense.total,
+          remaining: agg.debt.total + agg.dueSoon.total + agg.overdue.total,
         }}
         toReview={toReview}
         dueSoon={dueSoon}
         overdue={overdue}
         monthSummary={{
-          revenuesReceived: totals.incomingReceived,
-          revenuesToCollect: Math.max(0, totals.incoming - totals.incomingReceived),
-          expensesPaid: totals.outgoingPaid,
-          upcomingExpenses,
-          debtsRemaining,
-          remaining: totals.remaining,
-          estimatedBalance: totals.incoming - totals.outgoing,
+          revenuesReceived: agg.income.total,
+          revenuesToCollect: 0,
+          expensesPaid: agg.expense.total,
+          upcomingExpenses: agg.dueSoon.total,
+          debtsRemaining: agg.debt.total,
+          remaining: agg.debt.total + agg.dueSoon.total + agg.overdue.total,
+          estimatedBalance: agg.netBalance,
         }}
         correspondents={correspondents}
       />
