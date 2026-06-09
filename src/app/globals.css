@@ -334,3 +334,10 @@ button, a {
 /* Bordures colorées « soft » → discrètes en sombre */
 .dark .border-blue-200, .dark .border-emerald-200, .dark .border-rose-200,
 .dark .border-amber-200, .dark .border-violet-200, .dark .border-sky-200 { border-color: var(--border-strong) !important; }
+
+/* Ouverture du panneau de filtres (Documents) — animation légère. */
+@keyframes gedFilterIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-filter-in { animation: gedFilterIn 0.16s ease-out; }
