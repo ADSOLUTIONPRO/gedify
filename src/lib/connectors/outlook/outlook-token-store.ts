@@ -3,7 +3,7 @@ import "server-only";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
-import { pgStorageActive, jsonFallback, pgReadAll, pgWriteAll } from "@/lib/db/pg-store";
+import { pgStorageActive, jsonFallback, pgReadAll, pgUpsertOne, pgDeleteOne } from "@/lib/db/pg-store";
 import { getMailConnectorDataDir } from "@/lib/mail-connector/storage-paths";
 
 /* Stockage des tokens OAuth Microsoft, chiffrés (AES-256-GCM). Volontairement
@@ -70,8 +70,11 @@ async function readAllJson(): Promise<OutlookTokenRecord[]> {
     const raw = await readFile(getFilePath(), "utf8");
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? (parsed as OutlookTokenRecord[]) : [];
-  } catch {
-    return [];
+  } catch (error) {
+    // ENOENT = store vide ; toute autre erreur doit remonter (sinon une écriture
+    // « tout le tableau » effacerait les comptes existants).
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") return [];
+    throw error;
   }
 }
 
@@ -87,13 +90,31 @@ async function readAll(): Promise<OutlookTokenRecord[]> {
   return readAllJson();
 }
 
-async function writeAll(items: OutlookTokenRecord[]) {
-  if (pgStorageActive()) {
-    await pgWriteAll<OutlookTokenRecord>(TABLE, "id", (t) => t.accountId, items, "metadata");
-    return;
-  }
+async function writeJsonFile(items: OutlookTokenRecord[]) {
   await mkdir(getMailConnectorDataDir(), { recursive: true });
   await writeFile(getFilePath(), JSON.stringify(items, null, 2), "utf8");
+}
+
+/** Écrit/maj UN token, par accountId — sans toucher aux autres comptes. */
+async function writeOne(record: OutlookTokenRecord): Promise<void> {
+  if (pgStorageActive()) {
+    await pgUpsertOne<OutlookTokenRecord>(TABLE, "id", record.accountId, record, "metadata");
+    return;
+  }
+  const all = await readAllJson();
+  const idx = all.findIndex((r) => r.accountId === record.accountId);
+  if (idx >= 0) all[idx] = record; else all.push(record);
+  await writeJsonFile(all);
+}
+
+/** Supprime UN token, par accountId — sans toucher aux autres. */
+async function deleteOne(accountId: string): Promise<void> {
+  if (pgStorageActive()) {
+    await pgDeleteOne(TABLE, "id", accountId);
+    return;
+  }
+  const all = await readAllJson();
+  await writeJsonFile(all.filter((r) => r.accountId !== accountId));
 }
 
 export async function saveOutlookTokens(input: {
@@ -117,9 +138,7 @@ export async function saveOutlookTokens(input: {
     connectedAt: index >= 0 ? all[index].connectedAt : now,
     updatedAt: now,
   };
-  if (index >= 0) all[index] = record;
-  else all.push(record);
-  await writeAll(all);
+  await writeOne(record);
 }
 
 export async function getOutlookRefreshToken(accountId: string): Promise<{
@@ -171,22 +190,19 @@ export async function updateOutlookTokens(
   patch: { accessToken?: string; accessTokenExpiresAt?: number; refreshToken?: string },
 ): Promise<void> {
   const all = await readAll();
-  const index = all.findIndex((entry) => entry.accountId === accountId);
-  if (index < 0) return;
-  all[index] = {
-    ...all[index],
+  const existing = all.find((entry) => entry.accountId === accountId);
+  if (!existing) return;
+  await writeOne({
+    ...existing,
     ...(patch.accessToken != null ? { cachedAccessToken: patch.accessToken } : {}),
     ...(patch.accessTokenExpiresAt != null ? { accessTokenExpiresAt: patch.accessTokenExpiresAt } : {}),
     ...(patch.refreshToken ? { encryptedRefreshToken: encryptToken(patch.refreshToken) } : {}),
     updatedAt: new Date().toISOString(),
-  };
-  await writeAll(all);
+  });
 }
 
 export async function deleteOutlookTokens(accountId: string): Promise<void> {
-  const all = await readAll();
-  const next = all.filter((entry) => entry.accountId !== accountId);
-  await writeAll(next);
+  await deleteOne(accountId);
 }
 
 export type OutlookAccountSummary = {

@@ -5,6 +5,8 @@ import {
   sqliteReadAll,
   sqliteReadByJsonIds,
   sqliteWriteAll,
+  sqliteUpsertOne,
+  sqliteDeleteOne,
   sqliteReadScoped,
   sqliteWriteScoped,
   sqliteReadDocCorrespondents,
@@ -152,6 +154,36 @@ export async function pgWriteAll<T>(
   } finally {
     client.release();
   }
+}
+
+/**
+ * Upsert d'UN SEUL enregistrement, par sa clé — SANS jamais supprimer ni
+ * réécrire les autres lignes. À utiliser pour les collections où chaque ligne
+ * est indépendante (comptes mail, tokens OAuth) : garantit qu'écrire/mettre à
+ * jour un compte ne peut pas affecter les autres (contrairement à `pgWriteAll`
+ * qui remplace l'état complet et SUPPRIME les lignes absentes du tableau).
+ */
+export async function pgUpsertOne<T>(
+  table: string,
+  idCol: string,
+  id: string | number,
+  item: T,
+  blobCol = "raw",
+): Promise<void> {
+  if (sqliteActive()) return sqliteUpsertOne<T>(table, idCol, id, item, blobCol);
+  const pool = await getPool();
+  await pool.query(`CREATE TABLE IF NOT EXISTS "${table}" ("${idCol}" TEXT PRIMARY KEY, "${blobCol}" JSONB)`);
+  await pool.query(
+    `INSERT INTO "${table}"("${idCol}", "${blobCol}") VALUES($1, $2) ON CONFLICT("${idCol}") DO UPDATE SET "${blobCol}" = EXCLUDED."${blobCol}"`,
+    [id, JSON.stringify(item)],
+  );
+}
+
+/** Supprime UNE SEULE ligne par sa clé — sans toucher aux autres. */
+export async function pgDeleteOne(table: string, idCol: string, id: string | number): Promise<void> {
+  if (sqliteActive()) return sqliteDeleteOne(table, idCol, id);
+  const pool = await getPool();
+  await pool.query(`DELETE FROM "${table}" WHERE "${idCol}" = $1`, [id]);
 }
 
 /* ────────────────────────────────────────────────────────────────────────

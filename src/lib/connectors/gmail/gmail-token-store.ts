@@ -3,10 +3,11 @@ import "server-only";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
-import { pgStorageActive, jsonFallback, pgReadAll, pgWriteAll } from "@/lib/db/pg-store";
+import { pgStorageActive, jsonFallback, pgReadAll, pgUpsertOne, pgDeleteOne } from "@/lib/db/pg-store";
 import { getMailConnectorDataDir } from "@/lib/mail-connector/storage-paths";
 
 const FILE = "gmail-tokens.json";
+const TABLE = "mail_oauth_tokens";
 const ALG = "aes-256-gcm";
 const IV_LEN = 12;
 
@@ -64,8 +65,12 @@ async function readAllJson(): Promise<GmailTokenRecord[]> {
     const raw = await readFile(getFilePath(), "utf8");
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? (parsed as GmailTokenRecord[]) : [];
-  } catch {
-    return [];
+  } catch (error) {
+    // ENOENT = store vide (légitime). Toute AUTRE erreur (I/O, JSON corrompu) doit
+    // remonter : renvoyer [] ferait croire qu'il n'y a aucun token et une écriture
+    // « tout le tableau » effacerait les comptes existants.
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") return [];
+    throw error;
   }
 }
 
@@ -108,13 +113,31 @@ export async function listGmailTokensPublic(): Promise<GmailTokenPublic[]> {
   }));
 }
 
-async function writeAll(items: GmailTokenRecord[]) {
-  if (pgStorageActive()) {
-    await pgWriteAll<GmailTokenRecord>("mail_oauth_tokens", "id", (t) => t.accountId, items, "metadata");
-    return;
-  }
+async function writeJsonFile(items: GmailTokenRecord[]) {
   await mkdir(getMailConnectorDataDir(), { recursive: true });
   await writeFile(getFilePath(), JSON.stringify(items, null, 2), "utf8");
+}
+
+/** Écrit/maj UN token, par accountId — sans jamais toucher aux autres comptes. */
+async function writeOne(record: GmailTokenRecord): Promise<void> {
+  if (pgStorageActive()) {
+    await pgUpsertOne<GmailTokenRecord>(TABLE, "id", record.accountId, record, "metadata");
+    return;
+  }
+  const all = await readAllJson();
+  const idx = all.findIndex((r) => r.accountId === record.accountId);
+  if (idx >= 0) all[idx] = record; else all.push(record);
+  await writeJsonFile(all);
+}
+
+/** Supprime UN token, par accountId — sans toucher aux autres. */
+async function deleteOne(accountId: string): Promise<void> {
+  if (pgStorageActive()) {
+    await pgDeleteOne(TABLE, "id", accountId);
+    return;
+  }
+  const all = await readAllJson();
+  await writeJsonFile(all.filter((r) => r.accountId !== accountId));
 }
 
 export async function saveGmailTokens(input: {
@@ -138,9 +161,7 @@ export async function saveGmailTokens(input: {
     connectedAt: index >= 0 ? all[index].connectedAt : now,
     updatedAt: now,
   };
-  if (index >= 0) all[index] = record;
-  else all.push(record);
-  await writeAll(all);
+  await writeOne(record);
 }
 
 export async function getGmailRefreshToken(accountId: string): Promise<{
@@ -185,15 +206,14 @@ export async function updateCachedAccessToken(
   expiresAt: number,
 ): Promise<void> {
   const all = await readAll();
-  const index = all.findIndex((entry) => entry.accountId === accountId);
-  if (index < 0) return;
-  all[index] = {
-    ...all[index],
+  const existing = all.find((entry) => entry.accountId === accountId);
+  if (!existing) return;
+  await writeOne({
+    ...existing,
     cachedAccessToken: accessToken,
     accessTokenExpiresAt: expiresAt,
     updatedAt: new Date().toISOString(),
-  };
-  await writeAll(all);
+  });
 }
 
 export async function getCachedAccessToken(accountId: string): Promise<string | null> {
@@ -205,9 +225,7 @@ export async function getCachedAccessToken(accountId: string): Promise<string | 
 }
 
 export async function deleteGmailTokens(accountId: string): Promise<void> {
-  const all = await readAll();
-  const next = all.filter((entry) => entry.accountId !== accountId);
-  await writeAll(next);
+  await deleteOne(accountId);
 }
 
 export type GmailAccountSummary = {

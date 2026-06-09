@@ -3,7 +3,7 @@ import "server-only";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { pgStorageActive, jsonFallback, pgReadAll, pgWriteAll } from "@/lib/db/pg-store";
+import { pgStorageActive, jsonFallback, pgReadAll, pgUpsertOne, pgDeleteOne } from "@/lib/db/pg-store";
 import {
   decryptPassword,
   encryptPassword,
@@ -32,8 +32,11 @@ async function readAllJson(): Promise<MailAccount[]> {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     return parsed as MailAccount[];
-  } catch {
-    return [];
+  } catch (error) {
+    // ENOENT = aucune boîte (légitime). Toute autre erreur doit remonter : sinon
+    // une écriture « tout le tableau » supprimerait des comptes existants.
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") return [];
+    throw error;
   }
 }
 
@@ -49,13 +52,31 @@ async function readAll(): Promise<MailAccount[]> {
   return readAllJson();
 }
 
-async function writeAll(accounts: MailAccount[]) {
-  if (pgStorageActive()) {
-    await pgWriteAll<MailAccount>("mail_accounts", "id", (a) => a.id, accounts, "metadata");
-    return;
-  }
+async function writeJsonFile(accounts: MailAccount[]) {
   await ensureDir();
   await writeFile(getFilePath(), JSON.stringify(accounts, null, 2), "utf8");
+}
+
+/** Écrit/maj UN compte, par id — sans jamais toucher aux autres boîtes. */
+async function writeOne(account: MailAccount): Promise<void> {
+  if (pgStorageActive()) {
+    await pgUpsertOne<MailAccount>("mail_accounts", "id", account.id, account, "metadata");
+    return;
+  }
+  const all = await readAllJson();
+  const idx = all.findIndex((a) => a.id === account.id);
+  if (idx >= 0) all[idx] = account; else all.push(account);
+  await writeJsonFile(all);
+}
+
+/** Supprime UN compte, par id — sans toucher aux autres. */
+async function deleteOne(id: string): Promise<void> {
+  if (pgStorageActive()) {
+    await pgDeleteOne("mail_accounts", "id", id);
+    return;
+  }
+  const all = await readAllJson();
+  await writeJsonFile(all.filter((a) => a.id !== id));
 }
 
 function publicAccount(account: MailAccount): MailAccount {
@@ -195,9 +216,8 @@ export async function createAccount(input: MailAccountInput): Promise<MailAccoun
     updatedAt: now,
   };
 
-  const all = await readAll();
-  all.push(account);
-  await writeAll(all);
+  // Écriture par ligne : créer une boîte ne touche JAMAIS aux autres comptes.
+  await writeOne(account);
   return publicAccount(account);
 }
 
@@ -240,22 +260,24 @@ export async function updateAccount(
     updatedAt: new Date().toISOString(),
   };
 
-  all[index] = updated;
-  // Boîte par défaut exclusive : une seule à la fois.
+  // Écriture par ligne : on n'écrit QUE le compte modifié (jamais tout le tableau).
+  await writeOne(updated);
+  // Boîte par défaut exclusive : on retire le drapeau de l'ANCIENNE boîte par
+  // défaut uniquement (une écriture ciblée), sans toucher aux autres comptes.
   if (updated.isDefault) {
-    for (let i = 0; i < all.length; i++) {
-      if (i !== index && all[i].isDefault) all[i] = { ...all[i], isDefault: false };
+    for (const other of all) {
+      if (other.id !== id && other.isDefault) {
+        await writeOne({ ...other, isDefault: false, updatedAt: new Date().toISOString() });
+      }
     }
   }
-  await writeAll(all);
   return publicAccount(updated);
 }
 
 export async function deleteAccount(id: string): Promise<boolean> {
-  const all = await readAll();
-  const next = all.filter((entry) => entry.id !== id);
-  if (next.length === all.length) return false;
-  await writeAll(next);
+  const exists = (await readAll()).some((entry) => entry.id === id);
+  if (!exists) return false;
+  await deleteOne(id);
   return true;
 }
 
@@ -264,18 +286,17 @@ export async function recordAccountSyncResult(
   result: { ok: boolean; errorMessage?: string },
 ): Promise<void> {
   const all = await readAll();
-  const index = all.findIndex((entry) => entry.id === id);
-  if (index < 0) return;
+  const existing = all.find((entry) => entry.id === id);
+  if (!existing) return;
 
   const now = new Date().toISOString();
-  const updated = {
-    ...all[index],
+  // Écriture par ligne : enregistrer le résultat de synchro d'UNE boîte ne doit
+  // jamais réécrire (ni risquer de supprimer) les autres comptes.
+  await writeOne({
+    ...existing,
     lastSyncAt: now,
-    lastSuccessAt: result.ok ? now : all[index].lastSuccessAt,
+    lastSuccessAt: result.ok ? now : existing.lastSuccessAt,
     lastError: result.ok ? null : result.errorMessage ?? "Erreur inconnue",
     updatedAt: now,
-  };
-
-  all[index] = updated;
-  await writeAll(all);
+  });
 }

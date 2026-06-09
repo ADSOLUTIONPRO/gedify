@@ -53,6 +53,22 @@ export function sqliteReadAll<T>(table: string, idCol = "id", blobCol = "raw"): 
   return rows.map((r) => JSON.parse(String(r.blob)) as T);
 }
 
+/** Upsert d'UNE seule ligne — ne touche jamais aux autres (isolation par ligne). */
+export function sqliteUpsertOne<T>(table: string, idCol: string, id: string | number, item: T, blobCol = "raw"): void {
+  const db = getSqlite();
+  ensureTable(db, table, idCol, [blobCol]);
+  db.prepare(
+    `INSERT INTO "${table}"("${idCol}", "${blobCol}") VALUES(?, ?) ON CONFLICT("${idCol}") DO UPDATE SET "${blobCol}" = excluded."${blobCol}"`,
+  ).run(bind(id), JSON.stringify(item));
+}
+
+/** Suppression d'UNE seule ligne — ne touche jamais aux autres. */
+export function sqliteDeleteOne(table: string, idCol: string, id: string | number): void {
+  const db = getSqlite();
+  if (!tableExists(db, table)) return;
+  db.prepare(`DELETE FROM "${table}" WHERE "${idCol}" = ?`).run(bind(id));
+}
+
 export function sqliteReadByJsonIds<T>(
   table: string,
   jsonKey: string,
