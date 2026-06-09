@@ -67,7 +67,7 @@ export function MessagerieShell({ children, email, counts }: Props) {
   const TOOLS: NavDef[] = [
     { href: "/messagerie/pieces-jointes", icon: Paperclip, label: "Pièces jointes", count: counts?.attachments ?? null },
     { href: "/messagerie/expediteurs-masques", icon: EyeOff, label: "Expéditeurs masqués", count: counts?.hidden ?? null },
-    { href: "/messagerie/parametres", icon: Settings, label: "Paramètres des Emails" },
+    { href: "/messagerie/parametres-emails", icon: Settings, label: "Paramètres des Emails" },
   ];
 
   return (
@@ -116,7 +116,7 @@ export function MessagerieShell({ children, email, counts }: Props) {
               </div>
             </>
           ) : (
-            <Link href="/messagerie/parametres" className="flex items-center gap-2 text-[13px] font-semibold" style={{ color: RED }}>
+            <Link href="/messagerie/parametres-emails" className="flex items-center gap-2 text-[13px] font-semibold" style={{ color: RED }}>
               <Mail className="h-4 w-4" strokeWidth={1.75} /> Connecter une boîte mail →
             </Link>
           )}

@@ -238,7 +238,7 @@ function navTarget(action: ProposedAction): string {
     case "document": return id ? `/documents/${id}` : "/documents";
     case "folder": return id ? `/organiser/dossiers/${id}` : "/organiser/dossiers";
     case "finances": return "/finances";
-    case "mails": return "/emails";
+    case "mails": return "/messagerie/inbox";
     case "reminders": return "/rappels";
     default: return "/documents";
   }

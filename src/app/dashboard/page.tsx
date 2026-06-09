@@ -137,7 +137,7 @@ export default async function DashboardPage() {
                 <QuickAccessCard href="/a-traiter" icon={Inbox} tone="amber" title="À traiter" description="Corriger les classements." />
                 <QuickAccessCard href="/ia" icon={Sparkles} tone="violet" title="Analyser avec IA" description="Résumer et proposer." />
                 <QuickAccessCard href="/dossiers" icon={FolderKanban} tone="blue" title="Dossiers / Projets" description="Regrouper par affaire." />
-                <QuickAccessCard href="/emails" icon={Upload} tone="emerald" title="Mails" description="Connecter progressivement." />
+                <QuickAccessCard href="/messagerie/inbox" icon={Upload} tone="emerald" title="Mails" description="Connecter progressivement." />
               </QuickAccessGrid>
             </CompactCard>
           </div>

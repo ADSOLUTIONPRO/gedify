@@ -134,7 +134,7 @@ export default async function AdministrationPage() {
             </Card>
 
             {/* Services connectés */}
-            <Card icon={Database} title="Services connectés" cta={{ href: "/emails", label: "Gérer" }}>
+            <Card icon={Database} title="Services connectés" cta={{ href: "/messagerie/parametres-emails", label: "Gérer" }}>
               <div className="grid grid-cols-2 gap-2 py-1 sm:grid-cols-3">
                 {services.map((s) => (
                   <div key={s.label} className="relative rounded-xl border p-2.5 text-center" style={{ borderColor: "var(--border-soft)", background: "var(--surface)" }}>

@@ -78,7 +78,7 @@ export function ContactsSyncAllButton() {
             <p className="mt-0.5 text-[11.5px] font-semibold" style={{ color: "#B91C1C" }}>Emails : {emailErr.message}</p>
           ) : null}
           {needsReconnect ? (
-            <Link href="/emails" className="mt-1 inline-block text-[11.5px] font-bold underline" style={{ color: "var(--accent)" }}>
+            <Link href="/messagerie/parametres-emails" className="mt-1 inline-block text-[11.5px] font-bold underline" style={{ color: "var(--accent)" }}>
               Reconnecter le compte Google →
             </Link>
           ) : null}

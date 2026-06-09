@@ -63,7 +63,7 @@ export default async function MiseEnPlacePage() {
             <div className="space-y-3 text-sm leading-6 text-slate-600">
               <p>Connectez une seule boîte, prévisualisez les imports, puis ajoutez les règles.</p>
               <p>Évitez Spam, Corbeille, Achats et Promotions au démarrage.</p>
-              <Button href="/emails" variant="secondary" size="sm" icon={Mail}>
+              <Button href="/messagerie/parametres-emails" variant="secondary" size="sm" icon={Mail}>
                 Configurer les mails
               </Button>
             </div>

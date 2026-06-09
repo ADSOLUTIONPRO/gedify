@@ -158,7 +158,7 @@ export function AdministrationSettings(props: AdminSettingsProps) {
             <Status label="Comptes connectés" value={`${counts.gmailAccounts}`} />
             <Status label="Signatures" value={`${counts.signatures}`} />
             <Status label="Expéditeurs masqués" value={counts.hiddenSenders != null ? `${counts.hiddenSenders}` : "—"} />
-            <Manage row links={[{ href: "/emails", label: "Configurer les emails" }, { href: "/emails#signatures", label: "Éditer la signature" }, { href: "/parametres/notifications", label: "Notifications détaillées" }]} />
+            <Manage row links={[{ href: "/messagerie/parametres-emails", label: "Configurer les emails" }, { href: "/messagerie/parametres-emails#signatures", label: "Éditer la signature" }, { href: "/parametres/notifications", label: "Notifications détaillées" }]} />
           </Section>
 
           {/* 5. GED & documents */}
@@ -200,7 +200,7 @@ export function AdministrationSettings(props: AdminSettingsProps) {
             <Status label="ONLYOFFICE" value={office.configured ? "Connecté" : "À configurer"} tone={office.configured ? "green" : "orange"} />
             <Status label="Serveur" value={office.url ?? "Non défini"} />
             <Status label="Comptes mail connectés" value={`${counts.gmailAccounts}`} />
-            <Manage row links={[{ href: "/redaction", label: "Office" }, { href: "/emails", label: "Connecteurs" }]} />
+            <Manage row links={[{ href: "/redaction", label: "Office" }, { href: "/messagerie/parametres-emails", label: "Connecteurs" }]} />
           </Section>
 
           {/* 11. Sauvegarde */}
