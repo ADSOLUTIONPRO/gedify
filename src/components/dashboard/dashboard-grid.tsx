@@ -32,7 +32,7 @@ import {
 type Visibility = Record<WidgetKey, boolean>;
 
 const ORDER_KEY = "ged-dashboard-order";
-const DEFAULT_GRID_ORDER: GridWidgetKey[] = ["epingles", "favoris", "documents", "messagerie", "finances", "ia", "calendrier", "contacts", "rappels", "administration"];
+const DEFAULT_GRID_ORDER: GridWidgetKey[] = ["quick-actions", "epingles", "favoris", "documents", "messagerie", "finances", "ia", "calendrier", "contacts", "rappels", "administration"];
 
 const EURO = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
 
@@ -75,6 +75,8 @@ function renderGridWidget(
   dragHandleProps: React.HTMLAttributes<HTMLDivElement>,
 ) {
   switch (key) {
+    case "quick-actions":
+      return <QuickActionsCard />;
     case "epingles":
       return (
         <section className="flex h-full flex-col rounded-2xl border bg-white p-4" style={{ borderColor: "var(--border)" }}>
@@ -278,7 +280,7 @@ export function DashboardGrid({ data, userName }: { data: DashboardData; userNam
   }
 
   const gridVisible = order.filter((k) => visible[k]);
-  const nothingVisible = !visible["quick-actions"] && gridVisible.length === 0;
+  const nothingVisible = gridVisible.length === 0;
 
   return (
     <div className="space-y-4">
@@ -366,10 +368,9 @@ export function DashboardGrid({ data, userName }: { data: DashboardData; userNam
         </div>
       ) : (
         <>
-          {/* Grille de widgets (gauche) + Actions rapides en rail (droite) */}
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_320px]">
-            {/* Grille widgets : 1 col → 2 col (sm) → 3 col (xl) */}
-            {gridVisible.length > 0 ? (
+          {/* Grille UNIQUE et personnalisable : tout bloc (Actions rapides incluses)
+              est déplaçable ; la largeur s'adapte (1 col → 2 → 3). */}
+          {gridVisible.length > 0 ? (
               <div id="widgets" className="grid scroll-mt-24 grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-3 2xl:gap-5">
               {gridVisible.map((key, idx) => {
                 const label = DASHBOARD_WIDGETS.find((w) => w.key === key)?.label ?? key;
@@ -377,11 +378,12 @@ export function DashboardGrid({ data, userName }: { data: DashboardData; userNam
                 return (
                   <div
                     key={key}
+                    id={key === "quick-actions" ? "actions-rapides" : undefined}
                     draggable={reorgMode}
                     onDragStart={() => onDragStart(key)}
                     onDragOver={(e) => onDragOver(e, key)}
                     onDrop={onDrop}
-                    className={`${spanFull} ${reorgMode ? "relative cursor-grab rounded-2xl outline-2 outline-dashed outline-blue-200" : "relative"}`}
+                    className={`scroll-mt-24 ${spanFull} ${reorgMode ? "relative cursor-grab rounded-2xl outline-2 outline-dashed outline-blue-200" : "relative"}`}
                   >
                     {renderGridWidget(
                       key,
@@ -428,17 +430,7 @@ export function DashboardGrid({ data, userName }: { data: DashboardData; userNam
                 );
               })}
               </div>
-            ) : (
-              <div className="hidden lg:block" />
-            )}
-
-            {/* Rail droit : Actions rapides */}
-            {visible["quick-actions"] && (
-              <aside id="actions-rapides" className="scroll-mt-24 lg:sticky lg:top-6 lg:self-start">
-                <QuickActionsCard />
-              </aside>
-            )}
-          </div>
+            ) : null}
         </>
       )}
 

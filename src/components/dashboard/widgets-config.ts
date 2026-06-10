@@ -35,7 +35,7 @@ export const DASHBOARD_WIDGETS: WidgetDef[] = [
 ];
 
 /** Widgets de la grille de cartes (sous la ligne « Vue d'ensemble / Actions »). */
-export type GridWidgetKey = "epingles" | "favoris" | "documents" | "messagerie" | "finances" | "ia" | "calendrier" | "contacts" | "rappels" | "administration";
+export type GridWidgetKey = "quick-actions" | "epingles" | "favoris" | "documents" | "messagerie" | "finances" | "ia" | "calendrier" | "contacts" | "rappels" | "administration";
 export const GRID_WIDGETS: { key: GridWidgetKey; spaceId: string }[] = [
   { key: "documents", spaceId: "documents" },
   { key: "messagerie", spaceId: "messagerie" },
