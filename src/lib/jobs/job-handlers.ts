@@ -4,12 +4,12 @@ import path from "node:path";
 import {
   mutateList,
   readStore,
-  readOriginal,
   saveThumbnail,
   savePreview,
   STORE,
   type EngineDocument,
 } from "@/lib/engine/stores";
+import { getDocumentForJob, getOriginalForJob } from "@/lib/engine/document-storage";
 import { extractText } from "@/lib/engine/ocr";
 import { normalizeOcrText } from "@/lib/engine/normalize-ocr-text";
 import { ocrMetaFields } from "@/lib/engine/ocr-meta";
@@ -51,20 +51,21 @@ async function patchDoc(documentId: number, patch: Partial<EngineDocument>): Pro
 
 /** Re-OCR RÉEL d'un document (corrige le no-op historique). */
 async function runOcr(documentId: number, fromImport = false): Promise<void> {
-  const doc = await loadDoc(documentId);
-  if (!doc) throw new Error("document introuvable");
-  const orig = await readOriginal(doc.storedFilename);
-  if (!orig) throw new Error("fichier original introuvable");
+  // Grâce courte : tolère la course import→job (fiche/binaire pas encore visibles).
+  const doc = await getDocumentForJob(documentId);
+  const orig = await getOriginalForJob(doc);
 
   const startedIso = new Date().toISOString();
   await patchDoc(documentId, { ocr_status: "processing", ocr_started_at: startedIso });
-  // Timeout dur : un PDF qui fige pdf.js/Tesseract ne doit JAMAIS bloquer la file.
+  // Filet de sécurité dur AU-DESSUS des échéances internes (par page + document) :
+  // l'OCR renvoie un texte PARTIEL au lieu de tout perdre au 1ᵉ dépassement.
   const r = await withTimeout(
     extractText(orig, mimeOf(doc), extOf(doc)),
     STEP_TIMEOUTS.ocr(),
     `OCR doc#${documentId}`,
   );
   const text = normalizeOcrText(r.text);
+  // Texte présent (même partiel) → "ready" : l'indexation et l'IA peuvent travailler.
   const ocrStatus: EngineDocument["ocr_status"] = text.trim() ? "ready" : "skipped";
   await patchDoc(documentId, {
     content: text,
@@ -157,10 +158,9 @@ async function runAi(documentId: number): Promise<void> {
 }
 
 async function runThumbnail(documentId: number): Promise<void> {
-  const doc = await loadDoc(documentId);
-  if (!doc) throw new Error("document introuvable");
-  const orig = await readOriginal(doc.storedFilename);
-  if (!orig) throw new Error("fichier original introuvable");
+  // Grâce courte : corrige « document introuvable » juste après l'import (course).
+  const doc = await getDocumentForJob(documentId);
+  const orig = await getOriginalForJob(doc);
   dlog(`import documentId=${documentId} source=${mimeOf(doc) || extOf(doc)}`);
   const thumb = await withTimeout(
     makeThumbnail(orig, mimeOf(doc), extOf(doc)),
@@ -190,10 +190,9 @@ async function runThumbnail(documentId: number): Promise<void> {
 }
 
 async function runPreview(documentId: number): Promise<void> {
-  const doc = await loadDoc(documentId);
-  if (!doc) throw new Error("document introuvable");
-  const orig = await readOriginal(doc.storedFilename);
-  if (!orig) throw new Error("fichier original introuvable");
+  // Grâce courte : corrige « document introuvable » juste après l'import (course).
+  const doc = await getDocumentForJob(documentId);
+  const orig = await getOriginalForJob(doc);
   const preview = await withTimeout(
     makePreview(orig, mimeOf(doc), extOf(doc)),
     STEP_TIMEOUTS.preview(),

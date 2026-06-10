@@ -43,5 +43,7 @@ export function ocrMetaFields(r: ExtractResult, startedAt: string): Partial<Engi
     ocr_quality: ocrQuality(r.text, r.confidence),
     ocr_started_at: startedAt,
     ocr_finished_at: new Date().toISOString(),
+    ocr_partial: r.partial ?? false,
+    ocr_pages_done: typeof r.pagesProcessed === "number" ? r.pagesProcessed : null,
   };
 }

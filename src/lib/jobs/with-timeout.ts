@@ -43,8 +43,15 @@ function secs(envKey: string, def: number): number {
 /* Timeouts par étape (ms), configurables en SECONDES via variables d'env.
    Valeurs par défaut alignées sur le cahier des charges import. */
 export const STEP_TIMEOUTS = {
-  /** Extraction texte + rendu pages + OCR Tesseract (étape la plus lourde). */
-  ocr: () => secs("OCR_TIMEOUT_SECONDS", 180),
+  /**
+   * FILET de sécurité ABSOLU autour de l'extraction d'un document : l'OCR gère en
+   * interne ses propres échéances (par page = OCR_PAGE_TIMEOUT_SECONDS, document =
+   * OCR_DOCUMENT_TIMEOUT_SECONDS) et renvoie un texte PARTIEL au dépassement. Ce
+   * filet est volontairement PLUS LONG que l'échéance document (+60 s de marge)
+   * pour laisser la sortie partielle se produire — il ne se déclenche qu'en cas de
+   * blocage dur passé au travers des bornes par page.
+   */
+  ocr: () => secs("OCR_DOCUMENT_TIMEOUT_SECONDS", 900) + 60_000,
   /** Génération de la miniature (rendu 1ʳᵉ page PDF / resize image). */
   thumbnail: () => secs("THUMBNAIL_TIMEOUT_SECONDS", 90),
   /** Génération de l'aperçu. */

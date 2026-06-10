@@ -317,6 +317,10 @@ export type DocumentDerivedStatuses = {
   ocr_started_at?: string | null;
   ocr_finished_at?: string | null;
   ocr_attempts?: number | null;
+  /** OCR interrompu avant la fin (échéance/timeout) → texte partiel exploitable. */
+  ocr_partial?: boolean | null;
+  /** Pages OCRisées avec succès sur le total tenté (diagnostic Santé). */
+  ocr_pages_done?: number | null;
 };
 
 /* ── Modèle interne d'un document (sur-ensemble de PaperlessDocument) ────── */

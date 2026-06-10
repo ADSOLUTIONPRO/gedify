@@ -22,6 +22,12 @@ export type ExtractResult = {
   confidence: number | null;
   /** D'où vient le texte : texte natif du PDF, OCR Tesseract, fichier texte, ou indisponible. */
   source: OcrSource;
+  /** OCR interrompu avant la fin (échéance document ou pages figées) → texte PARTIEL. */
+  partial?: boolean;
+  /** Pages réellement OCRisées avec succès. */
+  pagesProcessed?: number;
+  /** Pages tentées (min(numPages, OCR_MAX_PAGES)). */
+  pagesTotal?: number;
 };
 
 const IMAGE_EXT = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tif", ".tiff"];
@@ -30,6 +36,30 @@ const TEXT_EXT = [".txt", ".md", ".csv", ".log", ".json", ".xml", ".html", ".htm
 const OCR_MAX_PAGES = Math.max(1, parseInt(process.env.OCR_MAX_PAGES ?? "30", 10) || 30);
 const OCR_DPI = Math.max(150, parseInt(process.env.OCR_DPI ?? "300", 10) || 300);
 const OCR_CONCURRENCY = Math.max(1, Math.min(4, parseInt(process.env.OCR_CONCURRENCY ?? "2", 10) || 2));
+
+/* Échéances OCR (configurables en SECONDES). Une page figée ne doit JAMAIS
+   emporter tout le document : on borne CHAQUE page, et on s'arrête proprement à
+   l'échéance globale en conservant le texte des pages déjà traitées (PARTIEL). */
+function envSecs(key: string, def: number): number {
+  const n = Number(process.env[key]);
+  return (Number.isFinite(n) && n > 0 ? n : def) * 1000;
+}
+const OCR_PAGE_TIMEOUT_MS = envSecs("OCR_PAGE_TIMEOUT_SECONDS", 120);
+const OCR_DOCUMENT_TIMEOUT_MS = envSecs("OCR_DOCUMENT_TIMEOUT_SECONDS", 900);
+
+/** Borne une promesse de page : rejette `page_timeout` au dépassement (le travail
+ *  Tesseract sous-jacent peut continuer en fond, la file n'est jamais bloquée). */
+function withPageTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  if (!(ms > 0) || !Number.isFinite(ms)) return p;
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error("page_timeout")), ms);
+    (t as { unref?: () => void }).unref?.();
+    p.then(
+      (v) => { clearTimeout(t); resolve(v); },
+      (e) => { clearTimeout(t); reject(e); },
+    );
+  });
+}
 
 function safeUtf8(buf: Buffer): string {
   try {
@@ -168,51 +198,97 @@ function avgConfidence(results: OcrResult[]): number | null {
   return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
 }
 
-/* ── OCR d'un PDF scanné : rendu 300 DPI + OCR parallèle ─────────────────── */
-async function ocrPdf(doc: PdfDoc): Promise<OcrResult> {
-  const max = Math.min(doc.numPages, OCR_MAX_PAGES);
-  const jobs: Promise<OcrResult>[] = [];
-  for (let i = 1; i <= max; i++) {
-    const png = await renderPdfPageToPng(doc, i, { dpi: OCR_DPI, maxDim: 3500 });
-    jobs.push(png ? ocrImage(png) : Promise.resolve({ text: "", confidence: null }));
+type OcrPdfResult = OcrResult & { partial: boolean; pagesProcessed: number; pagesTotal: number };
+
+/* ── OCR d'un PDF scanné : rendu 300 DPI, PAGE PAR PAGE ──────────────────────
+   Chaque page est bornée par OCR_PAGE_TIMEOUT (une page corrompue/figée est
+   IGNORÉE, pas fatale) et l'ensemble par une ÉCHÉANCE document : au-delà, on
+   renvoie le texte des pages déjà OCRisées (résultat PARTIEL, jamais perdu).
+   Fini le « tout-ou-rien » du Promise.all global qui jetait tout au 1ᵉ timeout. */
+async function ocrPdf(doc: PdfDoc, deadline: number): Promise<OcrPdfResult> {
+  const total = Math.min(doc.numPages, OCR_MAX_PAGES);
+  const results: OcrResult[] = [];
+  let processed = 0;
+  let partial = false;
+
+  for (let i = 1; i <= total; i++) {
+    // Budget restant avant l'échéance globale du document.
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) { partial = true; break; }
+    const pageBudget = Math.min(OCR_PAGE_TIMEOUT_MS, remaining);
+    try {
+      const png = await withPageTimeout(renderPdfPageToPng(doc, i, { dpi: OCR_DPI, maxDim: 3500 }), pageBudget);
+      if (!png) continue; // page non rendue → ignorée, on continue
+      const r = await withPageTimeout(ocrImage(png), Math.min(OCR_PAGE_TIMEOUT_MS, Math.max(1, deadline - Date.now())));
+      results.push(r);
+      if (r.text.trim()) processed += 1;
+    } catch (e) {
+      // page figée / rendu en échec → ignorée ; le document continue.
+      partial = true;
+      console.warn(`[engine/ocr] page ${i}/${total} ignorée : ${e instanceof Error ? e.message : e}`);
+    }
   }
-  const results = await Promise.all(jobs);
-  return { text: results.map((r) => r.text).join("\n").trim(), confidence: avgConfidence(results) };
+
+  return {
+    text: results.map((r) => r.text).join("\n").trim(),
+    confidence: avgConfidence(results),
+    partial,
+    pagesProcessed: processed,
+    pagesTotal: total,
+  };
 }
 
-async function extractPdf(buf: Buffer): Promise<ExtractResult> {
+async function extractPdf(buf: Buffer, deadline: number): Promise<ExtractResult> {
   const doc = await loadPdf(buf);
   if (!doc) return { text: "", pageCount: null, confidence: null, source: "unavailable" };
   const pageCount = doc.numPages;
+  // 1) Détection du TEXTE NATIF d'abord (rapide, sans OCR) : un PDF déjà
+  //    « textuel » n'est jamais OCRisé inutilement.
   let text = await extractPdfText(doc);
   let confidence: number | null = null;
   let source: OcrSource = text.replace(/\s+/g, "").length > 0 ? "native_pdf_text" : "unavailable";
-  // Couche texte absente/maigre (scan) → OCR de secours.
+  let partial = false;
+  let pagesProcessed: number | undefined;
+  let pagesTotal: number | undefined;
+  // 2) Couche texte absente/maigre (scan) → OCR de secours page par page.
   const sparse = text.replace(/\s+/g, "").length < pageCount * 16;
   if (sparse) {
-    const ocr = await ocrPdf(doc);
+    const ocr = await ocrPdf(doc, deadline);
     if (ocr.text.length > text.length) {
       text = ocr.text;
       confidence = ocr.confidence;
       source = "ocr_engine";
     }
+    partial = ocr.partial;
+    pagesProcessed = ocr.pagesProcessed;
+    pagesTotal = ocr.pagesTotal;
   }
   await doc.destroy?.().catch(() => {});
-  return { text, pageCount, confidence, source };
+  return { text, pageCount, confidence, source, partial, pagesProcessed, pagesTotal };
 }
 
 export async function extractText(buf: Buffer, mime: string, ext: string): Promise<ExtractResult> {
   const lower = ext.toLowerCase();
+  // Échéance globale de l'extraction du document : au-delà, on renvoie ce qui a
+  // pu être OCRisé (résultat partiel) plutôt que de tout perdre.
+  const deadline = Date.now() + OCR_DOCUMENT_TIMEOUT_MS;
   try {
     if (mime.startsWith("text/") || TEXT_EXT.includes(lower)) {
       return { text: safeUtf8(buf), pageCount: null, confidence: null, source: "text_file" };
     }
     if (mime === "application/pdf" || lower === ".pdf") {
-      return await extractPdf(buf);
+      return await extractPdf(buf, deadline);
     }
     if (mime.startsWith("image/") || IMAGE_EXT.includes(lower)) {
-      const r = await ocrImage(buf);
-      return { text: r.text, pageCount: 1, confidence: r.confidence, source: "ocr_engine" };
+      // Image unique : bornée par le timeout page (≤ échéance document).
+      const budget = Math.min(OCR_PAGE_TIMEOUT_MS, Math.max(1, deadline - Date.now()));
+      try {
+        const r = await withPageTimeout(ocrImage(buf), budget);
+        return { text: r.text, pageCount: 1, confidence: r.confidence, source: "ocr_engine", pagesProcessed: r.text.trim() ? 1 : 0, pagesTotal: 1 };
+      } catch (e) {
+        console.warn("[engine/ocr] OCR image expiré :", e instanceof Error ? e.message : e);
+        return { text: "", pageCount: 1, confidence: null, source: "ocr_engine", partial: true, pagesProcessed: 0, pagesTotal: 1 };
+      }
     }
   } catch (e) {
     console.error("[engine/ocr] extraction échouée :", e instanceof Error ? e.message : e);
