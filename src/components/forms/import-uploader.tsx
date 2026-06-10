@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, Clock, FileText, Loader2, Sparkles, TriangleAlert, Upload, XCircle } from "lucide-react";
+import { IMPORT_ACCEPT } from "@/lib/documents/import-formats";
 
 type ImportResult = {
   ok: boolean;
@@ -172,7 +173,7 @@ export function ImportUploader() {
           ref={inputRef}
           type="file"
           multiple
-          accept=".pdf,.png,.jpg,.jpeg,.tiff,.docx,.xlsx,.txt"
+          accept={IMPORT_ACCEPT}
           className="hidden"
           onChange={(e) => { if (e.target.files) void uploadFiles(e.target.files); }}
         />

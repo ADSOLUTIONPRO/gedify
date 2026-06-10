@@ -77,7 +77,7 @@ export function GlobalDropImport() {
               <UploadCloud className="h-8 w-8" strokeWidth={1.75} aria-hidden="true" />
             </span>
             <p className="text-[17px] font-extrabold" style={{ color: "var(--text-main)" }}>Déposez pour importer</p>
-            <p className="text-[13px]" style={{ color: "var(--text-muted)" }}>L&apos;import démarre automatiquement · PDF, images, DOCX, XLSX, TXT</p>
+            <p className="text-[13px]" style={{ color: "var(--text-muted)" }}>L&apos;import démarre automatiquement · tous formats (PDF, Word, Excel, images…)</p>
           </div>
         </div>
       ) : null}

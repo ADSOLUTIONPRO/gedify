@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { IMPORT_ACCEPT, validateImportFile } from "@/lib/documents/import-formats";
 
 /* ────────────────────────────────────────────────────────────────────────
    Moteur d'upload « dans un dossier Organiser ». Réutilise le pipeline global
@@ -11,9 +12,9 @@ import { useRouter } from "next/navigation";
    Partagé par la modale d'import et l'overlay de glisser-déposer.
    ──────────────────────────────────────────────────────────────────────── */
 
-export const FOLDER_IMPORT_ACCEPT = ".pdf,.png,.jpg,.jpeg,.tiff,.tif,.docx,.xlsx,.txt";
-const ALLOWED_EXT = new Set(["pdf", "png", "jpg", "jpeg", "tiff", "tif", "docx", "xlsx", "txt"]);
-const MAX_BYTES = 100 * 1024 * 1024; // 100 Mo
+// Conserve le nom historique tout en s'appuyant sur la politique centralisée
+// « tout type de document » (cf. import-formats).
+export const FOLDER_IMPORT_ACCEPT = IMPORT_ACCEPT;
 const POLL_MS = 3000;
 
 export type FolderUploadStatus = "pending" | "invalid" | "uploading" | "success" | "error";
@@ -50,13 +51,7 @@ type ImportResponse = {
 
 type StatusRow = { id: number; found: boolean; label?: string; done?: boolean; error?: string | null; currentStep?: string };
 
-function validate(file: File): { ok: true } | { ok: false; reason: string } {
-  const ext = file.name.includes(".") ? file.name.split(".").pop()!.toLowerCase() : "";
-  if (file.size === 0) return { ok: false, reason: "Fichier vide" };
-  if (!ALLOWED_EXT.has(ext)) return { ok: false, reason: "Format non pris en charge" };
-  if (file.size > MAX_BYTES) return { ok: false, reason: "Fichier trop volumineux (max 100 Mo)" };
-  return { ok: true };
-}
+const validate = validateImportFile;
 
 export function useFolderUpload({ folderId = "", onImported }: { folderId?: string; onImported?: () => void }) {
   const router = useRouter();
@@ -96,7 +91,7 @@ export function useFolderUpload({ folderId = "", onImported }: { folderId?: stri
   const startUpload = useCallback(async (target?: FolderUploadItem[]) => {
     const queue = (target ?? items).filter((i) => i.status === "pending");
     if (queue.length === 0) return;
-    let anyLinked = false;
+    let anySuccess = false;
 
     for (const it of queue) {
       patch(it.key, { status: "uploading" });
@@ -110,7 +105,7 @@ export function useFolderUpload({ folderId = "", onImported }: { folderId?: stri
         if (!res.ok || data.ok === false || data.status === "failed") {
           throw new Error(data.error ?? data.message ?? "Import refusé.");
         }
-        if (data.folderLinked) anyLinked = true;
+        anySuccess = true;
         patch(it.key, {
           status: "success",
           documentId: data.documentId ?? null,
@@ -124,9 +119,10 @@ export function useFolderUpload({ folderId = "", onImported }: { folderId?: stri
       }
     }
 
-    // Le document est lié côté serveur → rafraîchir la liste du dossier (RSC,
-    // sans rechargement complet ni perte de scroll).
-    if (anyLinked) {
+    // Dès qu'un document est créé → rafraîchir l'affichage AUTOMATIQUEMENT (liste
+    // des documents et page du dossier sont des composants serveur : router.refresh
+    // les recharge sans rechargement complet ni perte de scroll).
+    if (anySuccess) {
       router.refresh();
       onImported?.();
     }

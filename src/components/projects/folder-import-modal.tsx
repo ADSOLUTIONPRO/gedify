@@ -104,7 +104,7 @@ export function FolderImportModal({
               <Upload className="h-6 w-6" strokeWidth={1.5} aria-hidden="true" />
             </span>
             <p className="text-[14px] font-bold" style={{ color: "var(--text-main)" }}>Glissez vos fichiers ici</p>
-            <p className="mt-1 text-[12px]" style={{ color: "var(--text-muted)" }}>PDF, images, DOCX, XLSX, TXT</p>
+            <p className="mt-1 text-[12px]" style={{ color: "var(--text-muted)" }}>Tous formats : PDF, Word, Excel, PowerPoint, images, texte…</p>
             <button type="button" onClick={() => inputRef.current?.click()} className="mt-4 inline-flex h-9 items-center gap-2 rounded-xl px-4 text-[13px] font-bold text-white transition hover:opacity-90" style={{ background: "var(--accent)" }}>
               Parcourir les fichiers
             </button>
