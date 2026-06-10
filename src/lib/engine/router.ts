@@ -22,6 +22,7 @@ import { dlog } from "./desktop-log";
 import { loadDocCounts, loadNameMaps, mimeFromExt, serializeDocument } from "./helpers";
 import { makeThumbnail } from "./thumbnails";
 import { consume, type ConsumeInput } from "./consume";
+import { normalizeOcrText } from "./normalize-ocr-text";
 import { contentDisposition } from "@/lib/api-utils";
 import { ENGINE_VERSION, getRemoteVersion, getStatistics, getSystemStatus } from "./status";
 import { createUser, deleteUser, listUsers, primaryProfile, publicUser, updateUser } from "./users";
@@ -265,7 +266,7 @@ async function patchDocument(id: number, body: Record<string, unknown>): Promise
 function applyDocumentPatch(d: EngineDocument, body: Record<string, unknown>): EngineDocument {
   const next: EngineDocument = { ...d, modified: new Date().toISOString() };
   if ("title" in body && typeof body.title === "string") next.title = body.title;
-  if ("content" in body && typeof body.content === "string") next.content = body.content;
+  if ("content" in body && typeof body.content === "string") next.content = normalizeOcrText(body.content);
   if ("correspondent" in body) next.correspondent = toIdOrNull(body.correspondent);
   if ("document_type" in body) next.document_type = toIdOrNull(body.document_type);
   if ("storage_path" in body) next.storage_path = toIdOrNull(body.storage_path);

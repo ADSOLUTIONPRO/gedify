@@ -11,6 +11,7 @@ import {
   type EngineDocument,
 } from "@/lib/engine/stores";
 import { extractText } from "@/lib/engine/ocr";
+import { normalizeOcrText } from "@/lib/engine/normalize-ocr-text";
 import { ocrMetaFields } from "@/lib/engine/ocr-meta";
 import { makeThumbnail } from "@/lib/engine/thumbnails";
 import { makePreview } from "@/lib/engine/previews";
@@ -63,7 +64,7 @@ async function runOcr(documentId: number, fromImport = false): Promise<void> {
     STEP_TIMEOUTS.ocr(),
     `OCR doc#${documentId}`,
   );
-  const text = r.text;
+  const text = normalizeOcrText(r.text);
   const ocrStatus: EngineDocument["ocr_status"] = text.trim() ? "ready" : "skipped";
   await patchDoc(documentId, {
     content: text,

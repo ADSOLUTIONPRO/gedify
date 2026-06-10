@@ -15,6 +15,7 @@ import {
   type EngineDocument,
 } from "./stores";
 import { extractText } from "./ocr";
+import { normalizeOcrText } from "./normalize-ocr-text";
 import { ocrMetaFields } from "./ocr-meta";
 import { makeThumbnail } from "./thumbnails";
 import { makePreview } from "./previews";
@@ -152,7 +153,7 @@ export async function consume(input: ConsumeInput): Promise<PaperlessTask> {
       }
       // OCR inline (la seule étape lourde — bloque la réponse, mode legacy).
       const r = await extractText(input.buffer, mime, ext);
-      text = r.text;
+      text = normalizeOcrText(r.text);
       pageCount = r.pageCount;
       ocrMeta = ocrMetaFields(r, ocrStartIso);
     }
