@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, FolderTree as FolderTreeIcon, LayoutGrid, Table2 } from "lucide-react";
+import { FolderTree as FolderTreeIcon, LayoutGrid, Table2 } from "lucide-react";
 import { ErrorState } from "@/components/ui/error-state";
 import { ViewToggle } from "@/components/ui/view-toggle";
 import { SpaceLayout } from "@/components/layout/space-layout";
@@ -115,9 +115,6 @@ export default async function OrganiserDossiersPage({ searchParams }: { searchPa
                 />
                 {/* Import direct dans le dossier ouvert (bouton + glisser-déposer). */}
                 <FolderImportButton folderId={selected.id} folderName={selected.name} />
-                <Link href={`/dossiers/${selected.id}`} className="inline-flex h-9 items-center gap-1.5 rounded-xl border px-3 text-[12.5px] font-bold transition hover:bg-[var(--bg-card-soft)]" style={{ borderColor: "var(--border-strong)", color: "var(--text-main)" }}>
-                  Ouvrir le dossier <ArrowRight className="h-4 w-4" strokeWidth={2} />
-                </Link>
               </div>
             </header>
 
