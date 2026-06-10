@@ -8,7 +8,6 @@ import { getBulkActionsMatrix } from "@/lib/documents/document-actions-matrix";
 import { DocumentBulkEditPanel } from "@/components/documents/document-bulk-edit-panel";
 import { DocumentAddToFolderPanel } from "@/components/documents/document-add-to-folder-panel";
 import { DocumentEmptyState } from "@/components/documents/document-empty-state";
-import { DocumentFilters, type DocumentFilterValues } from "@/components/documents/document-filters";
 import { DocumentList } from "@/components/documents/document-list";
 import { DocumentThumbnailCard } from "@/components/documents/document-thumbnail-card";
 import { DocumentPreviewPanel } from "@/components/documents/document-preview-panel";
@@ -31,6 +30,7 @@ import { fetchCurrentUser } from "@/lib/documents/document-quick-edit";
 import { ANALYSIS_ACTIONS, logAiAction, runAiAction, type AiActionId, type AiActionResult } from "@/lib/documents/document-ai";
 import { CheckSquare, Sparkles, Square } from "lucide-react";
 
+
 type Option = { id: number | string; name: string };
 
 type DocumentSpaceProps = {
@@ -40,19 +40,15 @@ type DocumentSpaceProps = {
   /** Query des filtres pour /api/documents/ids (sélection de la TOTALITÉ). */
   selectAllQuery?: string;
   view: "grid" | "table" | "thumbnail";
-  filterValues: DocumentFilterValues;
+  /** Taxonomies pour le panneau d'édition groupée. */
   correspondents: Option[];
   types: Option[];
   tags: Option[];
-  hidden: Record<string, string>;
-  resetHref: string;
   footer?: ReactNode;
   emptyTitle: string;
   emptyDescription: string;
   showImport: boolean;
   paperlessUrl: string | null;
-  /** Cible des filtres (défaut /documents). Permet de rester dans un dossier. */
-  basePath?: string;
   /** "unarchive" sur la page Archives (action Désarchiver) ; sinon "archive". */
   archiveMode?: "archive" | "unarchive";
 };
@@ -88,18 +84,14 @@ export function DocumentSpace({
   totalCount,
   selectAllQuery,
   view,
-  filterValues,
   correspondents,
   types,
   tags,
-  hidden,
-  resetHref,
   footer,
   emptyTitle,
   emptyDescription,
   showImport,
   paperlessUrl,
-  basePath,
   archiveMode = "archive",
 }: DocumentSpaceProps) {
   const router = useRouter();
@@ -431,69 +423,57 @@ export function DocumentSpace({
       <div className="flex gap-6">
         {/* Colonne gauche : filtres + actions + liste (le panneau détail démarre tout en haut) */}
         <div className="min-w-0 flex-1 space-y-4">
-          {/* Même ligne : « Tout sélectionner » (+ infos / analyse IA) à gauche,
-              bouton « Filtres » aligné à droite. */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          {/* Ligne sélection : « Tout sélectionner » + infos ; « Analyser avec IA »
+              n'apparaît QUE si au moins un document est sélectionné. */}
+          {docs.length > 0 ? (
             <div className="flex flex-wrap items-center gap-2.5">
-              {docs.length > 0 ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={toggleAll}
-                    title="Tout sélectionner — astuce : Maj + clic sur une case pour sélectionner une plage"
-                    className="inline-flex h-9 items-center gap-1.5 rounded-xl border px-3 text-[12.5px] font-bold transition hover:bg-[var(--bg-card-soft)]"
-                    style={{ borderColor: "var(--border-strong)", color: "var(--gedify-navy)" }}
-                  >
-                    {allSelected || allMatchingSelected ? <CheckSquare className="h-4 w-4" strokeWidth={2} aria-hidden="true" /> : <Square className="h-4 w-4" strokeWidth={2} aria-hidden="true" />}
-                    {allSelected || allMatchingSelected ? "Tout désélectionner" : "Tout sélectionner"}
-                    {selectedIds.size > 0 ? (
-                      <span className="rounded-full px-1.5 text-[11px] font-bold" style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>{selectedIds.size}</span>
-                    ) : null}
-                  </button>
-                  <span className="text-[12.5px] font-semibold" style={{ color: "var(--text-muted)" }}>
-                    {totalCount.toLocaleString("fr-FR")} document{totalCount > 1 ? "s" : ""}
-                  </span>
-                  {canSelectAllMatching ? (
-                    <button
-                      type="button"
-                      onClick={() => void selectAllMatching()}
-                      disabled={selectingAll}
-                      className="inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-[12.5px] font-bold text-white transition hover:opacity-90 disabled:opacity-60"
-                      style={{ background: "var(--accent)" }}
-                    >
-                      {selectingAll ? "Sélection…" : `Sélectionner les ${totalCount.toLocaleString("fr-FR")} documents`}
-                    </button>
-                  ) : allMatchingSelected ? (
-                    <span
-                      className="inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-[12.5px] font-bold"
-                      style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
-                    >
-                      Toute la liste sélectionnée ({totalCount.toLocaleString("fr-FR")})
-                    </span>
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={openBulkAnalyze}
-                    className="inline-flex h-9 items-center gap-1.5 rounded-xl px-3.5 text-[12.5px] font-bold text-white transition hover:opacity-90"
-                    style={{ background: "var(--accent)" }}
-                  >
-                    <Sparkles className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-                    {selectedIds.size > 0 ? `Analyser la sélection (${selectedIds.size})` : "Tout analyser avec IA"}
-                  </button>
-                </>
+              <button
+                type="button"
+                onClick={toggleAll}
+                title="Tout sélectionner — astuce : Maj + clic sur une case pour sélectionner une plage"
+                className="inline-flex h-9 items-center gap-1.5 rounded-xl border px-3 text-[12.5px] font-bold transition hover:bg-[var(--bg-card-soft)]"
+                style={{ borderColor: "var(--border-strong)", color: "var(--gedify-navy)" }}
+              >
+                {allSelected || allMatchingSelected ? <CheckSquare className="h-4 w-4" strokeWidth={2} aria-hidden="true" /> : <Square className="h-4 w-4" strokeWidth={2} aria-hidden="true" />}
+                {allSelected || allMatchingSelected ? "Tout désélectionner" : "Tout sélectionner"}
+                {selectedIds.size > 0 ? (
+                  <span className="rounded-full px-1.5 text-[11px] font-bold" style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>{selectedIds.size}</span>
+                ) : null}
+              </button>
+              <span className="text-[12.5px] font-semibold" style={{ color: "var(--text-muted)" }}>
+                {totalCount.toLocaleString("fr-FR")} document{totalCount > 1 ? "s" : ""}
+              </span>
+              {canSelectAllMatching ? (
+                <button
+                  type="button"
+                  onClick={() => void selectAllMatching()}
+                  disabled={selectingAll}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-[12.5px] font-bold text-white transition hover:opacity-90 disabled:opacity-60"
+                  style={{ background: "var(--accent)" }}
+                >
+                  {selectingAll ? "Sélection…" : `Sélectionner les ${totalCount.toLocaleString("fr-FR")} documents`}
+                </button>
+              ) : allMatchingSelected ? (
+                <span
+                  className="inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-[12.5px] font-bold"
+                  style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
+                >
+                  Toute la liste sélectionnée ({totalCount.toLocaleString("fr-FR")})
+                </span>
+              ) : null}
+              {selectedIds.size > 0 ? (
+                <button
+                  type="button"
+                  onClick={openBulkAnalyze}
+                  className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-xl px-3.5 text-[12.5px] font-bold text-white transition hover:opacity-90"
+                  style={{ background: "var(--accent)" }}
+                >
+                  <Sparkles className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+                  Analyser avec IA ({selectedIds.size})
+                </button>
               ) : null}
             </div>
-
-            <DocumentFilters
-              values={filterValues}
-              correspondents={correspondents}
-              types={types}
-              tags={tags}
-              hidden={hidden}
-              resetHref={resetHref}
-              basePath={basePath}
-            />
-          </div>
+          ) : null}
 
           <DocumentBulkActions
             count={selectedIds.size}

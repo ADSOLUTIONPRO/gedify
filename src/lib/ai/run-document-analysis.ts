@@ -10,6 +10,7 @@ import { fastAnalyzeDocument } from "@/lib/ai/fast-document-analysis";
 import { callOllamaEnrichment } from "@/lib/ai/ollama-enrichment";
 import { getLatestAnalysisForDocument, upsertAnalysis } from "@/lib/ai/ai-analysis-store";
 import { autoCreateFinancialItemsFromAnalysis } from "@/lib/ai/auto-create-financial-items";
+import { getGedifyFeatureFlags } from "@/lib/settings/feature-flags";
 import { bulkUpsertFromSynthesis } from "@/lib/ai/detected-info-store";
 import { synthesizeDetectedInfos } from "@/lib/ai/detected-info-utils";
 import { validateAIAnalysisConsistency } from "@/lib/ai/rules/validate-analysis-consistency";
@@ -162,11 +163,16 @@ async function finalizeAnalysis(
     console.error(`[AI_APPLY] resolve failed docId=${documentId}: ${error instanceof Error ? error.message : error}`);
   }
 
-  // Budget (depuis financialImpact) — comportement existant, capturé pour la popup.
+  // Budget (depuis financialImpact). Respecte le réglage admin : si le
+  // « rattachement automatique au budget » est désactivé, l'IA n'analyse/ne crée
+  // AUCUNE ligne budgétaire, quel que soit l'appelant.
   if (opts.createFinancialItems) {
     try {
-      const budget = await autoCreateFinancialItemsFromAnalysis(working, { documentTitle: document.title ?? null });
-      applied.budgetCreated = budget.created.length;
+      const { autoBudgetClassificationEnabled } = await getGedifyFeatureFlags();
+      if (autoBudgetClassificationEnabled) {
+        const budget = await autoCreateFinancialItemsFromAnalysis(working, { documentTitle: document.title ?? null });
+        applied.budgetCreated = budget.created.length;
+      }
     } catch (error) {
       console.error(`[AI_APPLY] budget failed docId=${documentId}: ${error instanceof Error ? error.message : error}`);
     }

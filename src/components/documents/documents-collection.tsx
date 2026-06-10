@@ -6,6 +6,7 @@ import { Pagination } from "@/components/ui/pagination";
 import { ViewToggle } from "@/components/ui/view-toggle";
 import { SpaceLayout } from "@/components/layout/space-layout";
 import { DocumentSpace } from "@/components/documents/document-space";
+import { DocumentFilters } from "@/components/documents/document-filters";
 import { PageSizeSelector } from "@/components/documents/page-size-selector";
 import { SaveViewButton } from "@/components/documents/save-view-button";
 import type { DocumentFilterValues } from "@/components/documents/document-filters";
@@ -249,6 +250,15 @@ export async function DocumentsCollection({
                   return `${basePath}?${usp.toString()}`;
                 }}
               />
+              <DocumentFilters
+                values={data.filterValues}
+                correspondents={data.correspondents}
+                types={data.types}
+                tags={data.tags}
+                hidden={data.hidden}
+                resetHref={resetHref}
+                basePath={basePath}
+              />
             </>
           }
         >
@@ -257,18 +267,14 @@ export async function DocumentsCollection({
             totalCount={data.totalCount}
             selectAllQuery={data.etat || data.postFiltered ? undefined : data.selectAllQuery}
             view={data.view}
-            filterValues={data.filterValues}
             correspondents={data.correspondents}
             types={data.types}
             tags={data.tags}
-            hidden={data.hidden}
-            resetHref={resetHref}
             footer={footer}
             emptyTitle={data.message.title}
             emptyDescription={data.message.description}
             showImport={data.message.showImport}
             paperlessUrl={data.paperlessUrl}
-            basePath={basePath}
             archiveMode={scope === "archives" ? "unarchive" : "archive"}
           />
         </SpaceLayout>

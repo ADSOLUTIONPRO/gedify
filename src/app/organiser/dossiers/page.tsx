@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { FolderTree as FolderTreeIcon, LayoutGrid, Table2 } from "lucide-react";
 import { ErrorState } from "@/components/ui/error-state";
 import { ViewToggle } from "@/components/ui/view-toggle";
 import { SpaceLayout } from "@/components/layout/space-layout";
 import { DocumentSpace } from "@/components/documents/document-space";
-import type { DocumentFilterValues } from "@/components/documents/document-filters";
+import { DocumentFilters, type DocumentFilterValues } from "@/components/documents/document-filters";
 import { listProjectFolders } from "@/lib/projects/project-store";
 import { computeFolderPath, indexFoldersById } from "@/lib/projects/project-utils";
 import { FolderPinButton } from "@/components/dashboard/folder-pin-button";
@@ -115,6 +114,15 @@ export default async function OrganiserDossiersPage({ searchParams }: { searchPa
                 />
                 {/* Import direct dans le dossier ouvert (bouton + glisser-déposer). */}
                 <FolderImportButton folderId={selected.id} folderName={selected.name} />
+                <DocumentFilters
+                  values={filterValues}
+                  correspondents={correspondents.map((c) => ({ id: c.id, name: c.name }))}
+                  types={types.map((t) => ({ id: t.id, name: t.name }))}
+                  tags={tags.map((t) => ({ id: t.id, name: t.name }))}
+                  hidden={hidden}
+                  resetHref={resetHref}
+                  basePath="/organiser/dossiers"
+                />
               </div>
             </header>
 
@@ -125,18 +133,14 @@ export default async function OrganiserDossiersPage({ searchParams }: { searchPa
                 docs={visibleDocs}
                 totalCount={visibleDocs.length}
                 view={view}
-                filterValues={filterValues}
                 correspondents={correspondents.map((c) => ({ id: c.id, name: c.name }))}
                 types={types.map((t) => ({ id: t.id, name: t.name }))}
                 tags={tags.map((t) => ({ id: t.id, name: t.name }))}
-                hidden={hidden}
-                resetHref={resetHref}
                 footer={null}
                 emptyTitle={linkedIds.length === 0 ? "Dossier vide" : "Aucun document ne correspond"}
                 emptyDescription={linkedIds.length === 0 ? "Glissez des fichiers ici ou utilisez « Importer dans ce dossier » pour ajouter des documents." : "Ajustez les filtres."}
                 showImport={false}
                 paperlessUrl={paperlessUrl}
-                basePath="/organiser/dossiers"
               />
             </div>
           </>
