@@ -1,14 +1,10 @@
 "use client";
 
-import { Pin } from "lucide-react";
+import { Star } from "lucide-react";
 import { useFavorites } from "@/components/documents/favorites-provider";
 
-/**
- * Bouton « Épingler » un document (par utilisateur). Les documents épinglés
- * apparaissent dans le widget « Documents épinglés » du tableau de bord.
- * N'ouvre/ne sélectionne jamais la carte. (Conserve le nom historique du
- * composant et le store « favorites » comme support technique.)
- */
+/** Étoile « favori » (par utilisateur), DISTINCTE de l'épingle. N'ouvre/ne
+ *  sélectionne jamais la carte. */
 export function DocumentFavoriteStar({ documentId, className }: { documentId: number; className?: string }) {
   const fav = useFavorites();
   if (!fav) return null;
@@ -18,12 +14,12 @@ export function DocumentFavoriteStar({ documentId, className }: { documentId: nu
       type="button"
       onClick={(e) => { e.stopPropagation(); e.preventDefault(); fav.toggle(documentId); }}
       aria-pressed={active}
-      aria-label={active ? "Détacher du tableau de bord" : "Épingler au tableau de bord"}
-      title={active ? "Détacher" : "Épingler"}
+      aria-label={active ? "Retirer des favoris" : "Ajouter aux favoris"}
+      title={active ? "Retirer des favoris" : "Ajouter aux favoris"}
       className={className ?? "flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-white/90 shadow-sm transition hover:bg-white"}
-      style={{ color: active ? "var(--accent)" : "var(--text-hint)" }}
+      style={{ color: active ? "#F59E0B" : "var(--text-hint)" }}
     >
-      <Pin className="h-4 w-4" strokeWidth={2} fill={active ? "currentColor" : "none"} aria-hidden="true" />
+      <Star className="h-4 w-4" strokeWidth={2} fill={active ? "currentColor" : "none"} aria-hidden="true" />
     </button>
   );
 }

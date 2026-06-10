@@ -8,6 +8,7 @@ import { STATUS_META, type DocumentVM } from "@/components/documents/types";
 import { DocumentStatusBadges } from "@/components/documents/document-status-badges";
 import { DocumentActionMenu, type DocActionHandlers } from "@/components/documents/document-action-menu";
 import { DocumentFavoriteStar } from "@/components/documents/document-favorite-star";
+import { DocumentPinButton } from "@/components/documents/document-pin-button";
 import { DocumentHoverPreview } from "@/components/documents/document-hover-preview";
 import { GedifyErrorHint } from "@/components/ui/gedify-error-hint";
 
@@ -69,7 +70,7 @@ export function DocumentThumbnailCard({ doc, checked, active, onToggle, onActiva
     >
       {/* Miniature à gauche (aperçu moyen au survol) */}
       <DocumentHoverPreview documentId={doc.id} title={doc.displayTitle} className="group/thumb relative h-[116px] w-[88px] shrink-0 overflow-hidden bg-[#F4F0E8]">
-        <label className="absolute left-1.5 top-1.5 z-10 flex items-center" onClick={(e) => e.stopPropagation()}>
+        <label className={`absolute left-1.5 top-1.5 z-10 flex items-center transition-opacity ${checked ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-within:opacity-100"}`} onClick={(e) => e.stopPropagation()}>
           <input
             type="checkbox"
             checked={checked}
@@ -112,7 +113,8 @@ export function DocumentThumbnailCard({ doc, checked, active, onToggle, onActiva
           <span className="min-w-0 flex-1 truncate text-[14px] font-bold" style={{ color: "var(--gedify-navy)" }} title={doc.displayTitle}>
             {doc.displayTitle}
           </span>
-          <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+          <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
+            <DocumentPinButton documentId={doc.id} />
             <DocumentFavoriteStar documentId={doc.id} />
           </div>
         </div>

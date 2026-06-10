@@ -22,7 +22,7 @@ export function FavoritesCarouselWidget() {
 
   const load = useCallback(async () => {
     try {
-      const favRes = await fetch("/api/documents/favorites", { credentials: "include", cache: "no-store" });
+      const favRes = await fetch("/api/documents/pins", { credentials: "include", cache: "no-store" });
       const fav = (await favRes.json()) as { ids?: number[] };
       const ids = fav.ids ?? [];
       if (ids.length === 0) { setDocs([]); return; }

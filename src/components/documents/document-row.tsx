@@ -7,6 +7,7 @@ import { STATUS_META, formatAmount, type DocumentVM } from "@/components/documen
 import { DocumentStatusBadges } from "@/components/documents/document-status-badges";
 import { DocumentActionMenu, type DocActionHandlers } from "@/components/documents/document-action-menu";
 import { DocumentFavoriteStar } from "@/components/documents/document-favorite-star";
+import { DocumentPinButton } from "@/components/documents/document-pin-button";
 import { DocumentHoverPreview } from "@/components/documents/document-hover-preview";
 
 type DocumentRowProps = {
@@ -58,9 +59,10 @@ export function DocumentRow({ doc, checked, active, onToggle, onActivate, action
         />
       </label>
 
-      {/* Favori */}
-      <span className="flex items-center" onClick={(e) => e.stopPropagation()}>
-        <DocumentFavoriteStar documentId={doc.id} className="flex h-7 w-7 items-center justify-center rounded-lg transition hover:bg-[var(--bg-card-soft)]" />
+      {/* Épingle + favori */}
+      <span className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+        <DocumentPinButton documentId={doc.id} className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg transition hover:bg-[var(--bg-card-soft)]" />
+        <DocumentFavoriteStar documentId={doc.id} className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg transition hover:bg-[var(--bg-card-soft)]" />
       </span>
 
       {/* Miniature (aperçu moyen au survol) */}

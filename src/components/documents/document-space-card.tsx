@@ -8,6 +8,7 @@ import { STATUS_META, formatAmount, type DocumentVM } from "@/components/documen
 import { DocumentStatusBadges } from "@/components/documents/document-status-badges";
 import { type DocActionHandlers } from "@/components/documents/document-action-menu";
 import { DocumentFavoriteStar } from "@/components/documents/document-favorite-star";
+import { DocumentPinButton } from "@/components/documents/document-pin-button";
 import { DocumentHoverPreview } from "@/components/documents/document-hover-preview";
 import { GedifyErrorHint } from "@/components/ui/gedify-error-hint";
 
@@ -68,7 +69,7 @@ export function DocumentSpaceCard({ doc, checked, active, onToggle, onActivate, 
         boxShadow: active ? "0 0 0 1.5px var(--accent), var(--shadow-card)" : "var(--shadow-card)",
       }}
     >
-      <label className="absolute left-2 top-2 z-10 flex items-center" onClick={(e) => e.stopPropagation()}>
+      <label className={`absolute left-2 top-2 z-10 flex items-center transition-opacity ${checked ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-within:opacity-100"}`} onClick={(e) => e.stopPropagation()}>
         <input
           type="checkbox"
           checked={checked}
@@ -79,7 +80,8 @@ export function DocumentSpaceCard({ doc, checked, active, onToggle, onActivate, 
         />
       </label>
 
-      <div className="absolute right-2 top-2 z-20" onClick={(e) => e.stopPropagation()}>
+      <div className="absolute right-2 top-2 z-20 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+        <DocumentPinButton documentId={doc.id} />
         <DocumentFavoriteStar documentId={doc.id} />
       </div>
 
