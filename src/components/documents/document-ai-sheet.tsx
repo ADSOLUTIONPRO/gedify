@@ -22,6 +22,7 @@ import {
 import { AutocompleteInput, type AutocompleteSuggestion } from "@/components/ui/autocomplete-input";
 import { OcrAbsentModal } from "@/components/documents/ocr-absent-modal";
 import { FolderPickerField } from "@/components/folders/folder-picker-field";
+import { DocumentLinks } from "@/components/documents/document-links";
 import { FolderPickerModal, type FolderSelection } from "@/components/folders/folder-picker-modal";
 import { CreateCalendarItemModal } from "@/components/calendar/create-calendar-item-modal";
 import { DocumentFavoriteToggle } from "@/components/documents/document-favorite-toggle";
@@ -550,6 +551,9 @@ export function DocumentAiSheet({ doc, onClose, onApplied }: { doc: DocumentVM; 
               </div>
             )
           ) : null}
+
+          {/* Documents liés */}
+          <DocumentLinks documentId={doc.id} />
         </div>
 
         {/* Barre d'actions selon l'état */}

@@ -28,6 +28,7 @@ import { SignDocumentButton } from "@/components/documents/sign-document-button"
 import { DocumentTagsEditor } from "@/components/documents/document-tags-editor";
 import { DocumentNotesEditor } from "@/components/documents/document-notes-editor";
 import { DocumentReminders } from "@/components/documents/document-reminders";
+import { DocumentLinks } from "@/components/documents/document-links";
 import { DocumentBudgetLine } from "@/components/documents/document-budget-line";
 import { DocumentCalendarCard } from "@/components/documents/document-calendar-card";
 import {
@@ -407,6 +408,9 @@ function QuickPanel({ doc, user }: { doc: DocumentVM; user: string | null }) {
             <DocumentCalendarCard documentId={doc.id} docTitle={title} detectedDates={doc.ai?.dates ?? []} />
           </div>
         </div>
+
+        {/* ── Section 7 — Documents liés ── */}
+        <DocumentLinks documentId={doc.id} />
       </div>
 
       {fiche ? <DocumentAiSheet doc={doc} onClose={() => setFiche(false)} onApplied={() => router.refresh()} /> : null}

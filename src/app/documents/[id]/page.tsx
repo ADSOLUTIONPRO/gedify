@@ -42,6 +42,7 @@ import { OcrViewerButton } from "@/components/documents/ocr-viewer-button";
 import { DocumentOcrInfo } from "@/components/documents/document-ocr-info";
 import { DocumentNotesEditor } from "@/components/documents/document-notes-editor";
 import { DocumentLinkedActions } from "@/components/documents/document-linked-actions";
+import { DocumentLinks } from "@/components/documents/document-links";
 import { DocumentHistory } from "@/components/documents/document-history";
 import { compactText, formatDate, formatDateTime } from "@/lib/format";
 import {
@@ -390,6 +391,8 @@ export default async function DocumentDetailPage({ params }: DocumentPageProps) 
             />
 
             <DocumentLinkedActions documentId={Number(document.id)} />
+
+            <DocumentLinks documentId={Number(document.id)} />
 
             <RightRailCard title="Notes" icon={Notebook} iconTone="violet">
               <DocumentNotesEditor documentId={Number(document.id)} />
