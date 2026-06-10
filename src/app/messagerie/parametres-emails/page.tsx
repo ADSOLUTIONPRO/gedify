@@ -4,6 +4,7 @@ import { buildMailAccountVMs } from "@/lib/messaging/mail-account-vm";
 import { listSignatures } from "@/lib/messaging/email-signature-store";
 import { getGmailOAuthConfig } from "@/lib/connectors/gmail/oauth";
 import { getOutlookOAuthConfig } from "@/lib/connectors/outlook/oauth";
+import { GoogleSyncSetupCard } from "@/components/messaging/settings/google-sync-setup-card";
 import type { SignatureVM } from "@/components/messaging/settings/types";
 import type { PageSearchParams } from "@/lib/page-params";
 import { firstParam } from "@/lib/page-params";
@@ -49,7 +50,7 @@ export default async function MessagerieParametresEmailsPage({ searchParams }: {
   const microsoftOAuthAvailable = getOutlookOAuthConfig() != null;
 
   return (
-    <div className="mx-auto w-full max-w-6xl p-4 lg:p-6">
+    <div className="mx-auto w-full max-w-6xl space-y-4 p-4 lg:p-6">
       <MailAccountsSettings
         accounts={accounts}
         signatures={signatureVMs}
@@ -57,6 +58,7 @@ export default async function MessagerieParametresEmailsPage({ searchParams }: {
         googleOAuthAvailable={googleOAuthAvailable}
         microsoftOAuthAvailable={microsoftOAuthAvailable}
       />
+      <GoogleSyncSetupCard configured={googleOAuthAvailable} />
     </div>
   );
 }
