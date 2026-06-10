@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type DragEvent } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { FileText, FolderInput, Loader2, Upload, X } from "lucide-react";
 import { ImportFileList } from "@/components/documents/import-file-list";
@@ -29,6 +30,11 @@ export function FolderImportModal({
   const title = hasFolder ? `Importer dans « ${folderName} »` : "Importer des documents";
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+  // Monté côté client : permet le portail vers <body> (échappe au containing
+  // block créé par le backdrop-filter de la topbar, qui « piégeait » le fixed).
+  const [mounted, setMounted] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { setMounted(true); }, []);
   const { items, stageFiles, startUpload, uploadFiles, removeItem, uploading, pendingCount, hasResults } = useFolderUpload({ folderId });
 
   useEffect(() => {
@@ -55,7 +61,9 @@ export function FolderImportModal({
 
   const successItems = items.filter((i) => i.status === "success");
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <div className="fixed inset-0 z-[90] flex items-center justify-center p-3 sm:p-5" role="dialog" aria-modal="true" aria-label={title}>
       <button type="button" aria-label="Fermer" onClick={() => { if (!uploading) onClose(); }} className="absolute inset-0 bg-slate-950/55 backdrop-blur-sm" />
       <div className="relative z-10 flex max-h-[92vh] w-full max-w-xl flex-col overflow-hidden rounded-3xl shadow-2xl" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
@@ -145,6 +153,7 @@ export function FolderImportModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
