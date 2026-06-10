@@ -58,9 +58,25 @@ async function collect(): Promise<GedNotification[]> {
 
   try {
     const jobs = await listJobs();
-    for (const j of jobs.filter((x) => x.status === "failed").slice(0, 25)) {
+    // DÉDUP : une seule notification par (document, type d'étape). Les ré-essais et
+    // les ré-OCR créent plusieurs jobs échoués pour le même document — on ne garde
+    // que le PLUS RÉCENT par couple documentId:type (fini les notifs en double).
+    const latestByDocType = new Map<string, (typeof jobs)[number]>();
+    for (const j of jobs) {
+      if (j.status !== "failed") continue;
+      const key = `${j.documentId}:${j.type}`;
+      const at = j.finishedAt ?? j.createdAt;
+      const prev = latestByDocType.get(key);
+      const prevAt = prev ? (prev.finishedAt ?? prev.createdAt) : "";
+      if (!prev || at > prevAt) latestByDocType.set(key, j);
+    }
+    const failed = [...latestByDocType.values()]
+      .sort((a, b) => (b.finishedAt ?? b.createdAt).localeCompare(a.finishedAt ?? a.createdAt))
+      .slice(0, 25);
+    for (const j of failed) {
       out.push({
-        id: `job-${j.id}`,
+        // id stable par document+type : « lu/effacé » reste cohérent entre ré-essais.
+        id: `job-${j.documentId}-${j.type}`,
         type: "job",
         title: `Échec ${j.type}`,
         detail: `Document #${j.documentId}${j.lastError ? " — " + j.lastError.slice(0, 90) : ""}`,
