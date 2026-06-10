@@ -1,6 +1,13 @@
 import "server-only";
 
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  createHmac,
+  randomBytes,
+  timingSafeEqual,
+} from "node:crypto";
 
 /* ────────────────────────────────────────────────────────────────────────
    OAuth2 Microsoft (Outlook.com / Hotmail / Live / Microsoft 365 / Exchange
@@ -27,12 +34,27 @@ export const DEFAULT_OUTLOOK_SCOPES = [
 
 export type OutlookOAuthConfig = {
   clientId: string;
-  clientSecret: string;
-  redirectUri: string;
+  /** Secret confidentiel (mode direct). Absent en mode relais (client public + PKCE). */
+  clientSecret: string | null;
+  /** URI de redirection de CETTE instance (mode direct, enregistrée dans son app). */
+  redirectUri: string | null;
+  /**
+   * URL du RELAIS OAuth (mode multi-tenant) : une URL de callback UNIQUE, hébergée
+   * par l'éditeur et enregistrée une seule fois dans l'app Azure partagée. Quand
+   * elle est définie, l'instance l'utilise comme redirect_uri auprès de Microsoft,
+   * encode SON propre callback dans le `state`, et échange le code par PKCE (sans
+   * secret). Voir docs/oauth-relay.
+   */
+  relayUrl: string | null;
   tenant: string;
   scopes: string[];
   stateSecret: string;
 };
+
+/** Mode relais multi-tenant actif (un seul enregistrement Azure pour N instances). */
+export function isOutlookRelayMode(config: OutlookOAuthConfig): boolean {
+  return Boolean(config.relayUrl);
+}
 
 function authBase(tenant: string): string {
   return `https://login.microsoftonline.com/${encodeURIComponent(tenant)}/oauth2/v2.0`;
@@ -40,20 +62,63 @@ function authBase(tenant: string): string {
 
 export function getOutlookOAuthConfig(): OutlookOAuthConfig | null {
   const clientId = process.env.MICROSOFT_CLIENT_ID;
-  const clientSecret = process.env.MICROSOFT_CLIENT_SECRET;
-  const redirectUri = process.env.MICROSOFT_REDIRECT_URI;
+  const clientSecret = process.env.MICROSOFT_CLIENT_SECRET || null;
+  const redirectUri = process.env.MICROSOFT_REDIRECT_URI || null;
+  const relayUrl = process.env.MICROSOFT_RELAY_URL?.trim() || null;
   const stateSecret =
     process.env.MICROSOFT_OAUTH_STATE_SECRET ?? process.env.CONNECTOR_SECRET_KEY;
   // « common » accepte comptes personnels ET professionnels ; « consumers »
   // pour le grand public uniquement. Surclassable par MICROSOFT_TENANT.
   const tenant = process.env.MICROSOFT_TENANT ?? "common";
   const scopesEnv = process.env.MICROSOFT_SCOPES;
-  if (!clientId || !clientSecret || !redirectUri || !stateSecret) return null;
+  // Il faut au minimum le client + un secret d'état, ET une destination de
+  // redirection : soit un relais (multi-tenant), soit un redirect direct.
+  if (!clientId || !stateSecret) return null;
+  if (!relayUrl && !redirectUri) return null;
+  // Mode direct (sans relais) : un secret confidentiel est requis.
+  if (!relayUrl && !clientSecret) return null;
   const scopes = scopesEnv ? scopesEnv.split(/\s+/).filter(Boolean) : DEFAULT_OUTLOOK_SCOPES.slice();
   for (const required of DEFAULT_OUTLOOK_SCOPES) {
     if (!scopes.includes(required)) scopes.push(required);
   }
-  return { clientId, clientSecret, redirectUri, tenant, scopes, stateSecret };
+  return { clientId, clientSecret, redirectUri, relayUrl, tenant, scopes, stateSecret };
+}
+
+/* ── PKCE (RFC 7636) ─────────────────────────────────────────────────────────
+   Le code_verifier est SECRET : il prouve que c'est bien l'instance qui a initié
+   le flux qui réclame les tokens. On le chiffre (AES-256-GCM) pour le transporter
+   dans le `state` (aller-retour via Microsoft + relais) sans jamais l'exposer, ce
+   qui évite tout stockage serveur et survit à un redémarrage du conteneur. */
+function b64url(buf: Buffer): string {
+  return buf.toString("base64url");
+}
+export function createPkce(): { verifier: string; challenge: string } {
+  const verifier = b64url(randomBytes(48));
+  const challenge = b64url(createHash("sha256").update(verifier).digest());
+  return { verifier, challenge };
+}
+
+function pkceKey(stateSecret: string): Buffer {
+  return createHash("sha256").update(stateSecret).digest();
+}
+export function encryptVerifier(verifier: string, stateSecret: string): string {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", pkceKey(stateSecret), iv);
+  const ct = Buffer.concat([cipher.update(verifier, "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return `${iv.toString("base64url")}.${tag.toString("base64url")}.${ct.toString("base64url")}`;
+}
+export function decryptVerifier(encoded: string, stateSecret: string): string | null {
+  try {
+    const [ivB64, tagB64, ctB64] = encoded.split(".");
+    if (!ivB64 || !tagB64 || !ctB64) return null;
+    const decipher = createDecipheriv("aes-256-gcm", pkceKey(stateSecret), Buffer.from(ivB64, "base64url"));
+    decipher.setAuthTag(Buffer.from(tagB64, "base64url"));
+    const plain = Buffer.concat([decipher.update(Buffer.from(ctB64, "base64url")), decipher.final()]);
+    return plain.toString("utf8");
+  } catch {
+    return null;
+  }
 }
 
 /* ── State CSRF signé (HMAC), identique au connecteur Gmail ─────────────── */
@@ -93,10 +158,21 @@ export function verifyState(
   }
 }
 
-export function buildAuthorizationUrl(config: OutlookOAuthConfig, state: string): string {
+/** redirect_uri EFFECTIF : le relais (multi-tenant) s'il est défini, sinon le
+ *  redirect direct de l'instance. Doit être IDENTIQUE à l'autorisation ET à
+ *  l'échange de token (exigence Microsoft). */
+export function effectiveRedirectUri(config: OutlookOAuthConfig): string {
+  return (config.relayUrl ?? config.redirectUri)!;
+}
+
+export function buildAuthorizationUrl(
+  config: OutlookOAuthConfig,
+  state: string,
+  opts: { codeChallenge?: string } = {},
+): string {
   const params = new URLSearchParams({
     client_id: config.clientId,
-    redirect_uri: config.redirectUri,
+    redirect_uri: effectiveRedirectUri(config),
     response_type: "code",
     response_mode: "query",
     scope: config.scopes.join(" "),
@@ -104,6 +180,10 @@ export function buildAuthorizationUrl(config: OutlookOAuthConfig, state: string)
     prompt: "select_account",
     state,
   });
+  if (opts.codeChallenge) {
+    params.set("code_challenge", opts.codeChallenge);
+    params.set("code_challenge_method", "S256");
+  }
   return `${authBase(config.tenant)}/authorize?${params.toString()}`;
 }
 
@@ -119,15 +199,18 @@ export type MicrosoftTokenResponse = {
 export async function exchangeCodeForTokens(
   config: OutlookOAuthConfig,
   code: string,
+  opts: { codeVerifier?: string } = {},
 ): Promise<MicrosoftTokenResponse> {
   const body = new URLSearchParams({
     code,
     client_id: config.clientId,
-    client_secret: config.clientSecret,
-    redirect_uri: config.redirectUri,
+    redirect_uri: effectiveRedirectUri(config),
     grant_type: "authorization_code",
     scope: config.scopes.join(" "),
   });
+  // Client confidentiel (mode direct) → secret ; client public (relais) → PKCE.
+  if (config.clientSecret) body.set("client_secret", config.clientSecret);
+  if (opts.codeVerifier) body.set("code_verifier", opts.codeVerifier);
   const response = await fetch(`${authBase(config.tenant)}/token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -164,11 +247,12 @@ export async function refreshAccessToken(
 ): Promise<MicrosoftTokenResponse> {
   const body = new URLSearchParams({
     client_id: config.clientId,
-    client_secret: config.clientSecret,
     refresh_token: refreshToken,
     grant_type: "refresh_token",
     scope: config.scopes.join(" "),
   });
+  // Client public (relais/PKCE) → rafraîchissement sans secret.
+  if (config.clientSecret) body.set("client_secret", config.clientSecret);
   const response = await fetch(`${authBase(config.tenant)}/token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },

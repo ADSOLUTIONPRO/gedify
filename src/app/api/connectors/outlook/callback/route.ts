@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { jsonError } from "@/lib/api-utils";
 import {
+  decryptVerifier,
   emailFromIdToken,
   exchangeCodeForTokens,
   getOutlookOAuthConfig,
@@ -52,7 +53,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const tokens = await exchangeCodeForTokens(config, code);
+    // PKCE : récupère le vérifieur (chiffré dans le state) pour l'échange. En mode
+    // relais (client public), c'est lui qui authentifie la requête à la place du secret.
+    const pkce = typeof decoded.pkce === "string" ? decoded.pkce : null;
+    const codeVerifier = pkce ? decryptVerifier(pkce, config.stateSecret) ?? undefined : undefined;
+    const tokens = await exchangeCodeForTokens(config, code, { codeVerifier });
     if (!tokens.refresh_token) {
       return redirectToError(
         "Microsoft n'a pas renvoyé de refresh_token. Vérifiez que la portée « offline_access » est autorisée puis relancez.",
