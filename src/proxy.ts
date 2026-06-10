@@ -28,6 +28,11 @@ const PUBLIC_PREFIXES = [
   // Déclencheur planifié : sécurisé par CRON_SECRET dans la route elle-même,
   // pas par la session (appelé par un planificateur externe).
   "/api/cron/",
+  // Relais OAuth Microsoft (multi-tenant) : appelé par le navigateur d'un client
+  // SANS session sur cette instance (redirection Microsoft → relais → instance du
+  // client). Sécurisé par le `state` signé + le flag MICROSOFT_RELAY_ENABLED dans
+  // la route elle-même. Doit donc rester PUBLIC.
+  "/api/connectors/outlook/relay",
   "/_next/",
   "/favicon",
 ];
