@@ -15,7 +15,7 @@ import { DocumentPreviewPanel } from "@/components/documents/document-preview-pa
 import { DocumentSpaceCard } from "@/components/documents/document-space-card";
 import { FavoritesProvider } from "@/components/documents/favorites-provider";
 import { PinsProvider } from "@/components/documents/pins-provider";
-import type { DocActionHandlers } from "@/components/documents/document-action-menu";
+import type { DocActionHandlers } from "@/components/documents/types";
 import { DocumentLightbox } from "@/components/documents/document-lightbox";
 import { DocumentAiSheet } from "@/components/documents/document-ai-sheet";
 import { DocumentAiResultDialog } from "@/components/documents/document-ai-result-dialog";

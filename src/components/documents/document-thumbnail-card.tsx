@@ -6,7 +6,7 @@ import { Eye, FolderOpen, Loader2, Search, Shapes, Users } from "lucide-react";
 import { StatusPill } from "@/components/ui/status-pill";
 import { STATUS_META, type DocumentVM } from "@/components/documents/types";
 import { DocumentStatusBadges } from "@/components/documents/document-status-badges";
-import { DocumentActionMenu, type DocActionHandlers } from "@/components/documents/document-action-menu";
+import type { DocActionHandlers } from "@/components/documents/types";
 import { DocumentFavoriteStar } from "@/components/documents/document-favorite-star";
 import { DocumentPinButton } from "@/components/documents/document-pin-button";
 import { DocumentHoverPreview } from "@/components/documents/document-hover-preview";
@@ -35,6 +35,9 @@ export function DocumentThumbnailCard({ doc, checked, active, onToggle, onActiva
 
   const [bust, setBust] = useState(0);
   const [retrying, setRetrying] = useState(false);
+  // Badge d'erreur uniquement si l'image échoue réellement (drapeau serveur
+  // potentiellement obsolète après régénération → faux positifs).
+  const [imgFailed, setImgFailed] = useState(false);
   const thumbSrc = bust ? `${doc.thumbUrl}${doc.thumbUrl.includes("?") ? "&" : "?"}rb=${bust}` : doc.thumbUrl;
   async function retryThumbnail() {
     if (retrying) return;
@@ -81,14 +84,14 @@ export function DocumentThumbnailCard({ doc, checked, active, onToggle, onActiva
           />
         </label>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={thumbSrc} alt="" loading="lazy" className="h-full w-full object-cover object-top" />
+        <img src={thumbSrc} alt="" loading="lazy" onError={() => setImgFailed(true)} onLoad={() => setImgFailed(false)} className="h-full w-full object-cover object-top" />
 
-        {doc.statuses.thumbnailError ? (
-          <div className="absolute right-1.5 top-1.5 z-20" onClick={(e) => e.stopPropagation()}>
+        {imgFailed ? (
+          <div className="absolute bottom-1.5 left-1.5 z-20 rounded-md bg-white/95 px-1 shadow-sm" onClick={(e) => e.stopPropagation()}>
             {retrying ? (
               <Loader2 className="h-4 w-4 animate-spin text-rose-600" />
             ) : (
-              <GedifyErrorHint code={doc.statuses.thumbnailError} label="Vignette" onRetry={() => void retryThumbnail()} retryLabel="Régénérer" />
+              <GedifyErrorHint code={doc.statuses.thumbnailError ?? "thumbnail_missing"} label="Vignette" onRetry={() => void retryThumbnail()} retryLabel="Régénérer" />
             )}
           </div>
         ) : null}
@@ -181,7 +184,6 @@ export function DocumentThumbnailCard({ doc, checked, active, onToggle, onActiva
             <FolderOpen className="h-3.5 w-3.5 shrink-0" strokeWidth={1.85} aria-hidden="true" />
             <span className="truncate">Fiche Doc</span>
           </button>
-          <DocumentActionMenu doc={doc} actions={actions} aiBusy={aiBusy} />
         </div>
       </div>
     </div>

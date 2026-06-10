@@ -5,7 +5,7 @@ import { BadgeTag } from "@/components/ui/badge-tag";
 import { StatusPill } from "@/components/ui/status-pill";
 import { STATUS_META, formatAmount, type DocumentVM } from "@/components/documents/types";
 import { DocumentStatusBadges } from "@/components/documents/document-status-badges";
-import { DocumentActionMenu, type DocActionHandlers } from "@/components/documents/document-action-menu";
+import type { DocActionHandlers } from "@/components/documents/types";
 import { DocumentFavoriteStar } from "@/components/documents/document-favorite-star";
 import { DocumentPinButton } from "@/components/documents/document-pin-button";
 import { DocumentHoverPreview } from "@/components/documents/document-hover-preview";
@@ -146,8 +146,6 @@ export function DocumentRow({ doc, checked, active, onToggle, onActivate, action
         >
           <FileSearch className="h-3.5 w-3.5" strokeWidth={1.85} aria-hidden="true" /> Fiche Doc
         </button>
-
-        <DocumentActionMenu doc={doc} actions={actions} aiBusy={aiBusy} />
       </div>
     </div>
   );

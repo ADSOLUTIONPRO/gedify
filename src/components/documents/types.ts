@@ -7,6 +7,22 @@
  * en amont (override utilisateur > IA > Gedify > nom de fichier > #id).
  */
 
+import type { AiActionId } from "@/lib/documents/document-ai";
+
+/** Jeu d'actions document partagé (analyse, fiche, édition, envoi, suppression…),
+ *  utilisé par les cartes/lignes et la barre d'actions groupées. */
+export type DocActionHandlers = {
+  onView: (doc: DocumentVM) => void;
+  onAi: (doc: DocumentVM, action: AiActionId) => void;
+  onFicheIA: (doc: DocumentVM) => void;
+  onEdit: (doc: DocumentVM) => void;
+  onAddToFolder: (doc: DocumentVM) => void;
+  onSendMail: (doc: DocumentVM) => void;
+  onDownload: (doc: DocumentVM) => void;
+  onArchive: (doc: DocumentVM) => void;
+  onDelete: (doc: DocumentVM) => void;
+};
+
 export type DocumentTagVM = {
   /** Identifiant Gedify (présent quand connu, pour l'édition des tags). */
   id?: number;

@@ -6,7 +6,7 @@ import { Eye, FileSearch, Folder, Loader2, Search } from "lucide-react";
 import { StatusPill } from "@/components/ui/status-pill";
 import { STATUS_META, formatAmount, type DocumentVM } from "@/components/documents/types";
 import { DocumentStatusBadges } from "@/components/documents/document-status-badges";
-import { type DocActionHandlers } from "@/components/documents/document-action-menu";
+import { type DocActionHandlers } from "@/components/documents/types";
 import { DocumentFavoriteStar } from "@/components/documents/document-favorite-star";
 import { DocumentPinButton } from "@/components/documents/document-pin-button";
 import { DocumentHoverPreview } from "@/components/documents/document-hover-preview";
@@ -34,7 +34,10 @@ type DocumentSpaceCardProps = {
 export function DocumentSpaceCard({ doc, checked, active, onToggle, onActivate, onPreview, actions, aiBusy }: DocumentSpaceCardProps) {
   const status = STATUS_META[doc.status];
 
-  // Miniature en erreur (placeholder) : badge GedifyErrorHint + régénération locale.
+  // Miniature en erreur : on n'affiche le badge QUE si l'image échoue réellement
+  // au chargement (le drapeau serveur `thumbnailError` peut être obsolète après
+  // une régénération réussie → faux positifs sur des vignettes valides).
+  const [imgFailed, setImgFailed] = useState(false);
   const [bust, setBust] = useState(0);
   const [retrying, setRetrying] = useState(false);
   const thumbSrc = bust ? `${doc.thumbUrl}${doc.thumbUrl.includes("?") ? "&" : "?"}rb=${bust}` : doc.thumbUrl;
@@ -87,16 +90,17 @@ export function DocumentSpaceCard({ doc, checked, active, onToggle, onActivate, 
 
       <DocumentHoverPreview documentId={doc.id} title={doc.displayTitle} className="group/thumb relative flex h-32 items-center justify-center overflow-hidden bg-[#F4F0E8]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={thumbSrc} alt="" loading="lazy" className="h-full w-full object-cover object-top" />
+        <img src={thumbSrc} alt="" loading="lazy" onError={() => setImgFailed(true)} onLoad={() => setImgFailed(false)} className="h-full w-full object-cover object-top" />
 
-        {/* Miniature non rendue (placeholder) → cause + « Régénérer » */}
-        {doc.statuses.thumbnailError ? (
-          <div className="absolute right-2 top-2 z-20" onClick={(e) => e.stopPropagation()}>
+        {/* Miniature réellement absente (image en échec) → cause + « Régénérer ».
+            Placé en bas à gauche pour ne pas recouvrir l'épingle/le favori. */}
+        {imgFailed ? (
+          <div className="absolute bottom-2 left-2 z-20 rounded-md bg-white/95 px-1 shadow-sm" onClick={(e) => e.stopPropagation()}>
             {retrying ? (
               <Loader2 className="h-4 w-4 animate-spin text-rose-600" />
             ) : (
               <GedifyErrorHint
-                code={doc.statuses.thumbnailError}
+                code={doc.statuses.thumbnailError ?? "thumbnail_missing"}
                 label="Vignette"
                 onRetry={() => void retryThumbnail()}
                 retryLabel="Régénérer"

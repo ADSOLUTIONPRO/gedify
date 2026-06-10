@@ -1,7 +1,7 @@
 "use client";
 
 import { DocumentRow } from "@/components/documents/document-row";
-import type { DocActionHandlers } from "@/components/documents/document-action-menu";
+import type { DocActionHandlers } from "@/components/documents/types";
 import type { DocumentVM } from "@/components/documents/types";
 
 type DocumentListProps = {
