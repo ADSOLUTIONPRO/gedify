@@ -30,7 +30,7 @@ function buildConnectInitial(ic: InitialConnect | undefined, accounts: MailAccou
   return {};
 }
 
-export function MailAccountsSettings({ accounts, signatures, initialConnect }: { accounts: MailAccountVM[]; signatures: SignatureVM[]; initialConnect?: InitialConnect }) {
+export function MailAccountsSettings({ accounts, signatures, initialConnect, googleOAuthAvailable = false, microsoftOAuthAvailable = false }: { accounts: MailAccountVM[]; signatures: SignatureVM[]; initialConnect?: InitialConnect; googleOAuthAvailable?: boolean; microsoftOAuthAvailable?: boolean }) {
   const router = useRouter();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -236,7 +236,7 @@ export function MailAccountsSettings({ accounts, signatures, initialConnect }: {
         </div>
       )}
 
-      {addOpen ? <ConnectMailboxModal initial={modalInitial} onClose={() => setAddOpen(false)} onConnected={() => router.refresh()} /> : null}
+      {addOpen ? <ConnectMailboxModal initial={modalInitial} onClose={() => setAddOpen(false)} onConnected={() => router.refresh()} googleOAuthAvailable={googleOAuthAvailable} microsoftOAuthAvailable={microsoftOAuthAvailable} /> : null}
     </div>
   );
 }

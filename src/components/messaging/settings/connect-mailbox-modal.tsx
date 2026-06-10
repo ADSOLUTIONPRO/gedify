@@ -24,9 +24,9 @@ import type { MailAccountVM } from "./types";
 
 const RETURN_TO = "/messagerie/parametres-emails";
 
-type ProviderKey = "google" | "apple" | "microsoft" | "custom";
+type ProviderKey = "google" | "gmail" | "apple" | "microsoft" | "custom";
 type Security = "tls" | "starttls" | "none";
-type Step = "provider" | "apple" | "custom" | "test" | "options" | "summary" | "success";
+type Step = "provider" | "gmail" | "apple" | "custom" | "test" | "options" | "summary" | "success";
 
 type TestResult = { ok: boolean; code: string; message: string; folders?: string[] };
 
@@ -91,10 +91,17 @@ export function ConnectMailboxModal({
   initial,
   onClose,
   onConnected,
+  googleOAuthAvailable = false,
+  microsoftOAuthAvailable = false,
 }: {
   initial?: ConnectInitial;
   onClose: () => void;
   onConnected?: () => void;
+  /** L'OAuth Google est-il configuré côté serveur (GOOGLE_CLIENT_ID…) ? Si non,
+   *  on n'affiche que le chemin « mot de passe d'application » (IMAP). */
+  googleOAuthAvailable?: boolean;
+  /** L'OAuth Microsoft est-il configuré (MICROSOFT_CLIENT_ID…) ? */
+  microsoftOAuthAvailable?: boolean;
 }) {
   const router = useRouter();
   const oauthAccount = initial?.oauthAccount ?? null;
@@ -145,17 +152,24 @@ export function ConnectMailboxModal({
   /* ── Sélection du fournisseur ─────────────────────────────────────────── */
   function selectProvider(p: ProviderKey) {
     setError(null);
-    if (p === "google" || p === "microsoft") {
-      // OAuth : redirection contrôlée. Au retour, la modale se rouvre à
-      // l'étape « options » (cf. page paramètres → initialConnect).
-      setBusy(true);
-      setProgress(p === "google" ? "Ouverture de Google…" : "Ouverture de Microsoft…");
-      const start = p === "google" ? "/api/connectors/gmail/start" : "/api/connectors/outlook/start";
-      window.location.assign(`${start}?returnTo=${encodeURIComponent(RETURN_TO)}`);
-      return;
-    }
+    // Google → on privilégie le « mot de passe d'application » (IMAP), sans aucune
+    // configuration serveur. L'OAuth Google reste proposé en option si configuré.
+    if (p === "google" || p === "gmail") { setDraft(applyGmail(emptyDraft("gmail"))); setStep("gmail"); return; }
+    // Microsoft (Outlook/Hotmail) : l'auth basique étant désactivée, OAuth est
+    // obligatoire → redirection contrôlée.
+    if (p === "microsoft") { startOAuth("microsoft"); return; }
     if (p === "apple") { setDraft(applyApple(emptyDraft("apple"))); setStep("apple"); return; }
     setDraft(emptyDraft("custom")); setStep("custom");
+  }
+
+  /** Lance le flux OAuth (redirection contrôlée). Au retour, la modale se rouvre
+   *  à l'étape « options » (cf. page paramètres → initialConnect). */
+  function startOAuth(provider: "google" | "microsoft") {
+    setError(null);
+    setBusy(true);
+    setProgress(provider === "google" ? "Ouverture de Google…" : "Ouverture de Microsoft…");
+    const start = provider === "google" ? "/api/connectors/gmail/start" : "/api/connectors/outlook/start";
+    window.location.assign(`${start}?returnTo=${encodeURIComponent(RETURN_TO)}`);
   }
 
   /* ── Autodétection (autre fournisseur) ────────────────────────────────── */
@@ -270,11 +284,13 @@ export function ConnectMailboxModal({
   /* ── Progression visuelle (étapes) ────────────────────────────────────── */
   const flowSteps: Step[] = isOAuth
     ? ["options", "summary", "success"]
-    : draft.provider === "apple"
-      ? ["apple", "test", "options", "summary", "success"]
-      : draft.provider === "custom"
-        ? ["custom", "test", "options", "summary", "success"]
-        : ["provider"];
+    : draft.provider === "gmail"
+      ? ["gmail", "test", "options", "summary", "success"]
+      : draft.provider === "apple"
+        ? ["apple", "test", "options", "summary", "success"]
+        : draft.provider === "custom"
+          ? ["custom", "test", "options", "summary", "success"]
+          : ["provider"];
   const stepIndex = Math.max(0, flowSteps.indexOf(step));
 
   const canTest = Boolean(draft.email && draft.imapHost && draft.password);
@@ -315,7 +331,8 @@ export function ConnectMailboxModal({
             </p>
           ) : null}
 
-          {step === "provider" ? <ProviderStep onSelect={selectProvider} busy={busy} progress={progress} /> : null}
+          {step === "provider" ? <ProviderStep onSelect={selectProvider} busy={busy} progress={progress} microsoftOAuthAvailable={microsoftOAuthAvailable} /> : null}
+          {step === "gmail" ? <GmailStep draft={draft} patch={patch} showPassword={showPassword} setShowPassword={setShowPassword} oauthAvailable={googleOAuthAvailable} onUseOAuth={() => startOAuth("google")} busy={busy} /> : null}
           {step === "apple" ? <AppleStep draft={draft} patch={patch} showPassword={showPassword} setShowPassword={setShowPassword} /> : null}
           {step === "custom" ? <CustomStep draft={draft} patch={patch} showPassword={showPassword} setShowPassword={setShowPassword} autodetect={autodetect} detectMsg={detectMsg} /> : null}
           {step === "test" ? <TestStep imapTest={imapTest} smtpTest={smtpTest} sendEnabled={draft.sendEnabled} busy={busy} progress={progress} /> : null}
@@ -353,14 +370,14 @@ export function ConnectMailboxModal({
 
   /* ── Navigation entre étapes ──────────────────────────────────────────── */
   function goBack() {
-    if (step === "apple" || step === "custom") { setStep("provider"); return; }
-    if (step === "test") { setStep(draft.provider === "apple" ? "apple" : "custom"); return; }
+    if (step === "gmail" || step === "apple" || step === "custom") { setStep("provider"); return; }
+    if (step === "test") { setStep(draft.provider === "gmail" ? "gmail" : draft.provider === "apple" ? "apple" : "custom"); return; }
     if (step === "options") { setStep(isOAuth ? "options" : "test"); return; }
     if (step === "summary") { setStep("options"); return; }
   }
 
   async function goNext() {
-    if (step === "apple" || step === "custom") {
+    if (step === "gmail" || step === "apple" || step === "custom") {
       if (!draft.email || !draft.password || !draft.imapHost) { setError("Renseignez l'adresse, le mot de passe et le serveur IMAP."); return; }
       setStep("test");
       await runTests();
@@ -386,8 +403,14 @@ function applyApple(d: Draft): Draft {
   return { ...d, provider: "apple", name: "iCloud", imapHost: "imap.mail.me.com", imapPort: 993, imapSecurity: "tls", smtpHost: "smtp.mail.me.com", smtpPort: 587, smtpSecurity: "starttls" };
 }
 
+/* ── Préréglage Gmail (mot de passe d'application, IMAP) ─────────────────── */
+function applyGmail(d: Draft): Draft {
+  return { ...d, provider: "gmail", name: "Gmail", imapHost: "imap.gmail.com", imapPort: 993, imapSecurity: "tls", smtpHost: "smtp.gmail.com", smtpPort: 587, smtpSecurity: "starttls" };
+}
+
 function stepTitle(step: Step, provider: ProviderKey): string {
   if (step === "provider") return "Ajouter une boîte mail";
+  if (step === "gmail") return "Connexion Gmail";
   if (step === "apple") return "Connexion Apple / iCloud";
   if (step === "custom") return "Configurer un fournisseur";
   if (step === "test") return "Vérification de la connexion";
@@ -398,8 +421,8 @@ function stepTitle(step: Step, provider: ProviderKey): string {
 }
 
 function PrimaryButton({ step, busy, canTest, sendEnabled, onNext }: { step: Step; busy: boolean; canTest: boolean; sendEnabled: boolean; onNext: () => void }) {
-  const label = step === "summary" ? "Connecter la boîte" : step === "test" ? "Continuer" : step === "apple" || step === "custom" ? "Tester et continuer" : "Continuer";
-  const disabled = busy || ((step === "apple" || step === "custom") && !canTest);
+  const label = step === "summary" ? "Connecter la boîte" : step === "test" ? "Continuer" : step === "gmail" || step === "apple" || step === "custom" ? "Tester et continuer" : "Continuer";
+  const disabled = busy || ((step === "gmail" || step === "apple" || step === "custom") && !canTest);
   void sendEnabled;
   return (
     <button type="button" onClick={onNext} disabled={disabled} className="inline-flex h-10 items-center gap-1.5 rounded-xl px-4 text-[13px] font-bold text-white transition hover:opacity-90 disabled:opacity-50" style={{ background: "var(--accent)" }}>
@@ -411,7 +434,7 @@ function PrimaryButton({ step, busy, canTest, sendEnabled, onNext }: { step: Ste
 }
 
 /* ── Étape 1 : choix du fournisseur ─────────────────────────────────────── */
-function ProviderStep({ onSelect, busy, progress }: { onSelect: (p: ProviderKey) => void; busy: boolean; progress: string | null }) {
+function ProviderStep({ onSelect, busy, progress, microsoftOAuthAvailable }: { onSelect: (p: ProviderKey) => void; busy: boolean; progress: string | null; microsoftOAuthAvailable: boolean }) {
   return (
     <div>
       <p className="mb-4 text-[12.5px]" style={{ color: "var(--text-muted)" }}>Choisissez le fournisseur de votre adresse email.</p>
@@ -421,9 +444,9 @@ function ProviderStep({ onSelect, busy, progress }: { onSelect: (p: ProviderKey)
         </p>
       ) : null}
       <div className="space-y-2.5">
-        <ProviderChoice onClick={() => onSelect("google")} disabled={busy} title="Continuer avec Google" sub="Gmail et Google Workspace" badge="G" badgeColor="#EA4335" />
+        <ProviderChoice onClick={() => onSelect("gmail")} disabled={busy} title="Continuer avec Google" sub="Gmail et Google Workspace · mot de passe d'application" badge="G" badgeColor="#EA4335" />
         <ProviderChoice onClick={() => onSelect("apple")} disabled={busy} title="Continuer avec Apple / iCloud" sub="iCloud Mail, me.com et mac.com" icon={Mail} badgeColor="#0F172A" />
-        <ProviderChoice onClick={() => onSelect("microsoft")} disabled={busy} title="Continuer avec Microsoft" sub="Outlook, Hotmail, Live et Microsoft 365" badge="⊞" badgeColor="#0078D4" />
+        <ProviderChoice onClick={() => onSelect("microsoft")} disabled={busy} title="Continuer avec Microsoft" sub={microsoftOAuthAvailable ? "Outlook, Hotmail, Live et Microsoft 365" : "Outlook, Hotmail, Live — connexion sécurisée (OAuth)"} badge="⊞" badgeColor="#0078D4" />
         <ProviderChoice onClick={() => onSelect("custom")} disabled={busy} title="Configurer un autre fournisseur" sub="Yahoo, La Poste ou serveur IMAP / SMTP" icon={Settings2} badgeColor="#64748B" />
       </div>
     </div>
@@ -442,6 +465,37 @@ function ProviderChoice({ onClick, disabled, title, sub, icon: Icon, badge, badg
       </span>
       <ChevronRight className="h-4 w-4 shrink-0" strokeWidth={2} style={{ color: "var(--text-hint)" }} aria-hidden="true" />
     </button>
+  );
+}
+
+/* ── Étape Gmail (mot de passe d'application, IMAP) ──────────────────────── */
+function GmailStep({ draft, patch, showPassword, setShowPassword, oauthAvailable, onUseOAuth, busy }: { draft: Draft; patch: (p: Partial<Draft>) => void; showPassword: boolean; setShowPassword: (v: boolean) => void; oauthAvailable: boolean; onUseOAuth: () => void; busy: boolean }) {
+  return (
+    <div className="space-y-3.5">
+      <div className="flex items-start gap-2.5 rounded-xl border px-3 py-2.5" style={{ borderColor: "var(--border)", background: "var(--bg-card-soft)" }}>
+        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" style={{ color: "var(--accent)" }} strokeWidth={1.85} />
+        <p className="text-[12px] leading-snug" style={{ color: "var(--text-muted)" }}>
+          Google demande un <strong>mot de passe d&apos;application</strong> (et non votre mot de passe Gmail). Activez d&apos;abord la validation en 2&nbsp;étapes, puis créez-en un sur <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer" className="font-semibold underline" style={{ color: "var(--accent)" }}>myaccount.google.com/apppasswords</a>. Aucune configuration serveur n&apos;est nécessaire.
+        </p>
+      </div>
+      <Field label="Adresse Gmail" required>
+        <input type="email" value={draft.email} onChange={(e) => patch({ email: e.target.value, name: draft.name || "Gmail" })} placeholder="prenom@gmail.com" className={inputCls} style={{ borderColor: "var(--border-strong)" }} autoFocus />
+      </Field>
+      <Field label="Mot de passe d'application" required>
+        <PasswordInput value={draft.password} onChange={(v) => patch({ password: v })} show={showPassword} toggle={() => setShowPassword(!showPassword)} placeholder="xxxx xxxx xxxx xxxx" />
+      </Field>
+      <Field label="Nom affiché de l'expéditeur">
+        <input value={draft.displayName} onChange={(e) => patch({ displayName: e.target.value })} placeholder="Votre nom" className={inputCls} style={{ borderColor: "var(--border-strong)" }} />
+      </Field>
+      <p className="text-[11.5px]" style={{ color: "var(--text-hint)" }}>
+        Serveurs préremplis : IMAP imap.gmail.com:993 (SSL/TLS) · SMTP smtp.gmail.com:587 (STARTTLS).
+      </p>
+      {oauthAvailable ? (
+        <button type="button" onClick={onUseOAuth} disabled={busy} className="inline-flex items-center gap-1.5 text-[12px] font-semibold underline disabled:opacity-50" style={{ color: "var(--accent)" }}>
+          Préférez-vous l&apos;authentification Google (OAuth) ? Se connecter avec Google
+        </button>
+      ) : null}
+    </div>
   );
 }
 
@@ -600,7 +654,7 @@ function OptionsStep({ draft, patch, folders, oauthEmail }: { draft: Draft; patc
 
 /* ── Étape Résumé ───────────────────────────────────────────────────────── */
 function SummaryStep({ draft, reception, send, progress }: { draft: Draft; reception: string; send: string; progress: string | null }) {
-  const providerLabel = draft.provider === "google" ? "Google" : draft.provider === "microsoft" ? "Microsoft" : draft.provider === "apple" ? "Apple / iCloud" : "Autre fournisseur";
+  const providerLabel = draft.provider === "google" ? "Google" : draft.provider === "gmail" ? "Gmail (mot de passe d'application)" : draft.provider === "microsoft" ? "Microsoft" : draft.provider === "apple" ? "Apple / iCloud" : "Autre fournisseur";
   const freq = draft.syncIntervalMinutes === 0 ? "Manuelle" : `Toutes les ${draft.syncIntervalMinutes} min`;
   return (
     <div className="space-y-2.5">

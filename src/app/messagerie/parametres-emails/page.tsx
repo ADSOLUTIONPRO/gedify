@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { MailAccountsSettings, type InitialConnect } from "@/components/messaging/settings/mail-accounts-settings";
 import { buildMailAccountVMs } from "@/lib/messaging/mail-account-vm";
 import { listSignatures } from "@/lib/messaging/email-signature-store";
+import { getGmailOAuthConfig } from "@/lib/connectors/gmail/oauth";
+import { getOutlookOAuthConfig } from "@/lib/connectors/outlook/oauth";
 import type { SignatureVM } from "@/components/messaging/settings/types";
 import type { PageSearchParams } from "@/lib/page-params";
 import { firstParam } from "@/lib/page-params";
@@ -42,10 +44,19 @@ export default async function MessagerieParametresEmailsPage({ searchParams }: {
     listSignatures(),
   ]);
   const signatureVMs: SignatureVM[] = signatures.map((s) => ({ id: s.id, name: s.name, html: s.html, isDefault: s.isDefault, mailbox: s.mailbox }));
+  // OAuth configuré côté serveur ? → la modale affiche/masque les options OAuth.
+  const googleOAuthAvailable = getGmailOAuthConfig() != null;
+  const microsoftOAuthAvailable = getOutlookOAuthConfig() != null;
 
   return (
     <div className="mx-auto w-full max-w-6xl p-4 lg:p-6">
-      <MailAccountsSettings accounts={accounts} signatures={signatureVMs} initialConnect={initialConnect} />
+      <MailAccountsSettings
+        accounts={accounts}
+        signatures={signatureVMs}
+        initialConnect={initialConnect}
+        googleOAuthAvailable={googleOAuthAvailable}
+        microsoftOAuthAvailable={microsoftOAuthAvailable}
+      />
     </div>
   );
 }
