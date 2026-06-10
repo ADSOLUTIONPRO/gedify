@@ -371,7 +371,7 @@ export function DashboardGrid({ data, userName }: { data: DashboardData; userNam
           {/* Grille UNIQUE et personnalisable : tout bloc (Actions rapides incluses)
               est déplaçable ; la largeur s'adapte (1 col → 2 → 3). */}
           {gridVisible.length > 0 ? (
-              <div id="widgets" className="grid scroll-mt-24 grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-3 2xl:gap-5">
+              <div id="widgets" className="grid scroll-mt-24 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 2xl:gap-5">
               {gridVisible.map((key, idx) => {
                 const label = DASHBOARD_WIDGETS.find((w) => w.key === key)?.label ?? key;
                 const spanFull = key === "favoris" ? "sm:col-span-2 2xl:col-span-3" : "";
