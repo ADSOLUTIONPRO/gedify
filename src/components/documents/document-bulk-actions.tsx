@@ -6,7 +6,6 @@ import {
   Archive,
   Bot,
   Download,
-  Edit3,
   ExternalLink,
   FileSearch,
   FolderPlus,
@@ -22,7 +21,6 @@ type DocumentBulkActionsProps = {
   count: number;
   onClear: () => void;
   onDownload: () => void;
-  onEdit: () => void;
   onAddToFolder: () => void;
   onSendByMail: () => void;
   onArchive: () => void;
@@ -46,7 +44,7 @@ const menuItemClass =
 
 /**
  * Barre d'actions groupées.
- * Toujours visibles : Détails (1 doc) · Télécharger · Envoyer par mail · Modifier · Supprimer.
+ * Toujours visibles : Détails (1 doc) · Télécharger · Envoyer par mail · Supprimer.
  * Le menu ··· regroupe le reste (dossier, IA, OCR, miniature, archiver, ouvrir).
  * Les actions « 1 document » (Détails / Ouvrir) sont masquées en sélection multiple.
  * Télécharger : un seul doc = fichier ; plusieurs = ZIP (géré par onDownload).
@@ -55,7 +53,6 @@ export function DocumentBulkActions({
   count,
   onClear,
   onDownload,
-  onEdit,
   onAddToFolder,
   onSendByMail,
   onArchive,
@@ -112,11 +109,6 @@ export function DocumentBulkActions({
       <button type="button" onClick={onSendByMail} className={actionClass} style={{ borderColor: "var(--border)", color: "var(--text-main)" }}>
         <Mail className="h-4 w-4" strokeWidth={1.75} />
         Envoyer par mail
-      </button>
-
-      <button type="button" onClick={onEdit} className={actionClass} style={{ borderColor: "var(--blue-600)", color: "var(--blue-600)", background: "rgba(11,92,255,0.06)" }}>
-        <Edit3 className="h-4 w-4" strokeWidth={1.75} />
-        Modifier
       </button>
 
       <button type="button" onClick={onDelete} className={actionClass} style={{ borderColor: "rgba(239,68,68,0.35)", color: "#DC2626" }}>

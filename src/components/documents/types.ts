@@ -14,11 +14,15 @@ import type { AiActionId } from "@/lib/documents/document-ai";
 export type DocActionHandlers = {
   onView: (doc: DocumentVM) => void;
   onAi: (doc: DocumentVM, action: AiActionId) => void;
+  /** Ouvre la Fiche Doc (éditeur) — bouton « Éditer ». */
   onFicheIA: (doc: DocumentVM) => void;
-  onEdit: (doc: DocumentVM) => void;
   onAddToFolder: (doc: DocumentVM) => void;
   onSendMail: (doc: DocumentVM) => void;
   onDownload: (doc: DocumentVM) => void;
+  /** Relance l'OCR du document. */
+  onRedoOcr: (doc: DocumentVM) => void;
+  /** Régénère miniature + aperçu du document. */
+  onRegenerateThumbnail: (doc: DocumentVM) => void;
   onArchive: (doc: DocumentVM) => void;
   onDelete: (doc: DocumentVM) => void;
 };

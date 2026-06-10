@@ -13,6 +13,7 @@ type DocumentListProps = {
   onActivate: (id: number) => void;
   actions: DocActionHandlers;
   aiBusyId: number | null;
+  archiveMode?: "archive" | "unarchive";
 };
 
 /**
@@ -29,6 +30,7 @@ export function DocumentList({
   onActivate,
   actions,
   aiBusyId,
+  archiveMode,
 }: DocumentListProps) {
   const allChecked = docs.length > 0 && docs.every((d) => selectedIds.has(d.id));
 
@@ -58,6 +60,7 @@ export function DocumentList({
             onActivate={onActivate}
             actions={actions}
             aiBusy={aiBusyId === doc.id}
+            archiveMode={archiveMode}
           />
         ))}
       </div>

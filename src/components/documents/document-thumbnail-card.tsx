@@ -10,6 +10,7 @@ import type { DocActionHandlers } from "@/components/documents/types";
 import { DocumentFavoriteStar } from "@/components/documents/document-favorite-star";
 import { DocumentPinButton } from "@/components/documents/document-pin-button";
 import { DocumentHoverPreview } from "@/components/documents/document-hover-preview";
+import { DocumentKebabMenu } from "@/components/documents/document-kebab-menu";
 import { GedifyErrorHint } from "@/components/ui/gedify-error-hint";
 
 type DocumentThumbnailCardProps = {
@@ -21,6 +22,7 @@ type DocumentThumbnailCardProps = {
   onPreview: (doc: DocumentVM) => void;
   actions: DocActionHandlers;
   aiBusy: boolean;
+  archiveMode?: "archive" | "unarchive";
 };
 
 /**
@@ -30,7 +32,7 @@ type DocumentThumbnailCardProps = {
  * mêmes handlers et mêmes actions que les vues Grille et Liste (aucune logique
  * métier dupliquée — uniquement un rendu différent).
  */
-export function DocumentThumbnailCard({ doc, checked, active, onToggle, onActivate, onPreview, actions, aiBusy }: DocumentThumbnailCardProps) {
+export function DocumentThumbnailCard({ doc, checked, active, onToggle, onActivate, onPreview, actions, aiBusy, archiveMode }: DocumentThumbnailCardProps) {
   const status = STATUS_META[doc.status];
 
   const [bust, setBust] = useState(0);
@@ -161,7 +163,7 @@ export function DocumentThumbnailCard({ doc, checked, active, onToggle, onActiva
           <DocumentStatusBadges statuses={doc.statuses} busy={aiBusy} onRetryAi={() => actions.onAi(doc, "analyse")} />
         </div>
 
-        {/* Actions : Ouvrir / Fiche Doc / menu « … » */}
+        {/* Actions : Ouvrir / Éditer (Fiche Doc) / menu « … » */}
         <div className="mt-auto flex items-center gap-1.5 pt-2.5" onClick={(e) => e.stopPropagation()}>
           <Link
             href={`/documents/${doc.id}`}
@@ -176,14 +178,15 @@ export function DocumentThumbnailCard({ doc, checked, active, onToggle, onActiva
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); actions.onFicheIA(doc); }}
-            aria-label="Fiche Doc"
-            title="Fiche Doc"
+            aria-label="Éditer"
+            title="Éditer"
             className="inline-flex h-8 items-center justify-center gap-1 rounded-lg border px-2.5 text-[11px] font-bold transition hover:bg-[var(--bg-card-soft)]"
             style={{ background: "var(--surface)", color: "var(--text-main)", borderColor: "var(--border-strong)" }}
           >
             <FolderOpen className="h-3.5 w-3.5 shrink-0" strokeWidth={1.85} aria-hidden="true" />
-            <span className="truncate">Fiche Doc</span>
+            <span className="truncate">Éditer</span>
           </button>
+          <DocumentKebabMenu doc={doc} actions={actions} archiveMode={archiveMode} />
         </div>
       </div>
     </div>

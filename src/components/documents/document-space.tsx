@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { ResponsiveDetailPanel } from "@/components/layout/responsive-detail-panel";
 import { DocumentBulkActions } from "@/components/documents/document-bulk-actions";
 import { getBulkActionsMatrix } from "@/lib/documents/document-actions-matrix";
-import { DocumentBulkEditPanel } from "@/components/documents/document-bulk-edit-panel";
 import { DocumentAddToFolderPanel } from "@/components/documents/document-add-to-folder-panel";
 import { DocumentEmptyState } from "@/components/documents/document-empty-state";
 import { DocumentList } from "@/components/documents/document-list";
@@ -84,9 +83,6 @@ export function DocumentSpace({
   totalCount,
   selectAllQuery,
   view,
-  correspondents,
-  types,
-  tags,
   footer,
   emptyTitle,
   emptyDescription,
@@ -107,7 +103,6 @@ export function DocumentSpace({
   // Ancre pour la sélection par plage (Maj + clic sur une case).
   const lastIndexRef = useRef<number | null>(null);
   const [activeId, setActiveId] = useState<number | null>(docs[0]?.id ?? null);
-  const [showBulkEdit, setShowBulkEdit] = useState(false);
   const [showAddToFolder, setShowAddToFolder] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -351,16 +346,43 @@ export function DocumentSpace({
     router.refresh();
   }
 
-  // Jeu d'actions document unique, partagé carte / ligne / sidebar.
+  /** Action document unique avec retour visuel (toast) + rafraîchissement. */
+  async function singleAction(d: DocumentVM, doing: string, done: string, urls: string[], body?: Record<string, unknown>) {
+    setToast(doing);
+    for (const url of urls) {
+      await fetch(url, {
+        method: "POST",
+        credentials: "include",
+        ...(body ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {}),
+      }).catch(() => {});
+    }
+    setToast(done);
+    window.setTimeout(() => setToast(null), 4000);
+    router.refresh();
+  }
+
+  // Jeu d'actions document unique, partagé carte / ligne / sidebar / menu « … ».
   const docActions: DocActionHandlers = {
     onView: (d) => router.push(d.detailHref),
     onAi: handleAiAction,
     onFicheIA: (d) => setAiSheetDoc(d),
-    onEdit: (d) => { setSingleActionDoc(d); setShowBulkEdit(true); },
     onAddToFolder: (d) => { setSingleActionDoc(d); setShowAddToFolder(true); },
     onSendMail: (d) => openComposer({ subject: `Document : ${d.displayTitle}`, attachments: [{ documentId: d.id, name: d.displayTitle }] }),
     onDownload: (d) => window.open(d.downloadUrl, "_blank", "noopener"),
-    onArchive: (d) => router.push(d.detailHref),
+    onRedoOcr: (d) => void singleAction(d, "Relance de l'OCR…", "OCR relancé — traitement en arrière-plan", [`/api/documents/${d.id}/redo-ocr`]),
+    onRegenerateThumbnail: (d) =>
+      void singleAction(d, "Régénération de la miniature et de l'aperçu…", "Miniature + aperçu régénérés", [
+        `/api/documents/${d.id}/regenerate-thumbnail`,
+        `/api/documents/${d.id}/regenerate-preview`,
+      ]).then(() => setThumbBust((prev) => ({ ...prev, [d.id]: Date.now() }))),
+    onArchive: (d) =>
+      void singleAction(
+        d,
+        archiveMode === "unarchive" ? "Désarchivage…" : "Archivage…",
+        archiveMode === "unarchive" ? "Document désarchivé" : "Document archivé",
+        [`/api/documents/${d.id}/archive`],
+        { archived: archiveMode !== "unarchive" },
+      ),
     onDelete: (d) => setDocToDelete(d),
   };
 
@@ -389,6 +411,7 @@ export function DocumentSpace({
           onPreview={setPreviewDoc}
           actions={docActions}
           aiBusy={aiBusyId === doc.id}
+          archiveMode={archiveMode}
         />
       ))}
     </div>
@@ -411,6 +434,7 @@ export function DocumentSpace({
           onPreview={setPreviewDoc}
           actions={docActions}
           aiBusy={aiBusyId === doc.id}
+          archiveMode={archiveMode}
         />
       ))}
       </div>
@@ -479,7 +503,6 @@ export function DocumentSpace({
             count={selectedIds.size}
             onClear={clearSelection}
             onDownload={downloadSelection}
-            onEdit={() => setShowBulkEdit(true)}
             onAddToFolder={() => setShowAddToFolder(true)}
             onSendByMail={sendByMail}
             onArchive={() => void archiveSelection()}
@@ -513,6 +536,7 @@ export function DocumentSpace({
                     onActivate={setActiveId}
                     actions={docActions}
                     aiBusyId={aiBusyId}
+                    archiveMode={archiveMode}
                   />
                 </div>
                 <div className="p-3 md:hidden">{cards}</div>
@@ -532,23 +556,6 @@ export function DocumentSpace({
           </ResponsiveDetailPanel>
         ) : null}
       </div>
-
-      {/* Panneau d'édition groupée */}
-      {showBulkEdit && (
-        <DocumentBulkEditPanel
-          selectedDocs={singleActionDoc ? [singleActionDoc] : selectedDocs.length > 0 ? selectedDocs : activeDoc ? [activeDoc] : []}
-          correspondents={correspondents}
-          types={types}
-          tags={tags}
-          onClose={() => { setShowBulkEdit(false); setSingleActionDoc(null); }}
-          onSuccess={() => {
-            setShowBulkEdit(false);
-            setSingleActionDoc(null);
-            clearSelection();
-            router.refresh();
-          }}
-        />
-      )}
 
       {/* Ajouter à un dossier / projet */}
       {showAddToFolder && (

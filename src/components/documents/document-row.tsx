@@ -9,6 +9,7 @@ import type { DocActionHandlers } from "@/components/documents/types";
 import { DocumentFavoriteStar } from "@/components/documents/document-favorite-star";
 import { DocumentPinButton } from "@/components/documents/document-pin-button";
 import { DocumentHoverPreview } from "@/components/documents/document-hover-preview";
+import { DocumentKebabMenu } from "@/components/documents/document-kebab-menu";
 
 type DocumentRowProps = {
   doc: DocumentVM;
@@ -18,6 +19,7 @@ type DocumentRowProps = {
   onActivate: (id: number) => void;
   actions: DocActionHandlers;
   aiBusy: boolean;
+  archiveMode?: "archive" | "unarchive";
 };
 
 /**
@@ -25,7 +27,7 @@ type DocumentRowProps = {
  * type, date, nom de fichier, tags, statut, badges OCR/IA et les MÊMES actions que
  * la carte (Analyse IA, Fiche Doc, menu « … » complet). Cliquer la ligne ouvre l'aperçu.
  */
-export function DocumentRow({ doc, checked, active, onToggle, onActivate, actions, aiBusy }: DocumentRowProps) {
+export function DocumentRow({ doc, checked, active, onToggle, onActivate, actions, aiBusy, archiveMode }: DocumentRowProps) {
   const status = STATUS_META[doc.status];
 
   return (
@@ -136,16 +138,19 @@ export function DocumentRow({ doc, checked, active, onToggle, onActivate, action
           <span className="hidden lg:inline">Analyse IA</span>
         </button>
 
-        {/* Fiche Doc : lg+ uniquement */}
+        {/* Éditer (Fiche Doc) : lg+ uniquement */}
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); actions.onFicheIA(doc); }}
-          title="Fiche Doc"
+          title="Éditer"
           className="hidden h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[12px] font-bold transition hover:bg-[var(--bg-card-soft)] lg:inline-flex"
           style={{ borderColor: "var(--border-strong)", color: "var(--text-main)" }}
         >
-          <FileSearch className="h-3.5 w-3.5" strokeWidth={1.85} aria-hidden="true" /> Fiche Doc
+          <FileSearch className="h-3.5 w-3.5" strokeWidth={1.85} aria-hidden="true" /> Éditer
         </button>
+
+        {/* Menu « … » (8 actions) */}
+        <DocumentKebabMenu doc={doc} actions={actions} archiveMode={archiveMode} />
       </div>
     </div>
   );

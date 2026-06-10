@@ -10,6 +10,7 @@ import { type DocActionHandlers } from "@/components/documents/types";
 import { DocumentFavoriteStar } from "@/components/documents/document-favorite-star";
 import { DocumentPinButton } from "@/components/documents/document-pin-button";
 import { DocumentHoverPreview } from "@/components/documents/document-hover-preview";
+import { DocumentKebabMenu } from "@/components/documents/document-kebab-menu";
 import { GedifyErrorHint } from "@/components/ui/gedify-error-hint";
 
 type DocumentSpaceCardProps = {
@@ -24,6 +25,7 @@ type DocumentSpaceCardProps = {
   actions: DocActionHandlers;
   /** Une action IA est en cours pour ce document. */
   aiBusy: boolean;
+  archiveMode?: "archive" | "unarchive";
 };
 
 /**
@@ -31,7 +33,7 @@ type DocumentSpaceCardProps = {
  * le titre métier, avec correspondant, type, date, tags et statut. Les actions
  * (analyse, fiche IA, menu complet) sont partagées avec la vue Liste.
  */
-export function DocumentSpaceCard({ doc, checked, active, onToggle, onActivate, onPreview, actions, aiBusy }: DocumentSpaceCardProps) {
+export function DocumentSpaceCard({ doc, checked, active, onToggle, onActivate, onPreview, actions, aiBusy, archiveMode }: DocumentSpaceCardProps) {
   const status = STATUS_META[doc.status];
 
   // Miniature en erreur : on n'affiche le badge QUE si l'image échoue réellement
@@ -191,14 +193,13 @@ export function DocumentSpaceCard({ doc, checked, active, onToggle, onActivate, 
           ) : null}
         </div>
 
-        {/* Actions vignette : Ouvrir (page document) + Fiche Doc. Les actions
-            secondaires individuelles sont centralisées dans la Fiche Doc. */}
-        <div className="mt-3 grid grid-cols-2 gap-1.5 pt-3" style={{ borderTop: "1px solid var(--border-soft)" }} onClick={(e) => e.stopPropagation()}>
+        {/* Actions vignette : Ouvrir (page document) + Éditer (Fiche Doc) + menu « … ». */}
+        <div className="mt-3 flex items-center gap-1.5 pt-3" style={{ borderTop: "1px solid var(--border-soft)" }} onClick={(e) => e.stopPropagation()}>
           <Link
             href={`/documents/${doc.id}`}
             onClick={(e) => e.stopPropagation()}
             aria-label={`Ouvrir le document ${doc.displayTitle}`}
-            className="inline-flex h-8 items-center justify-center gap-1 rounded-lg px-2.5 text-[11px] font-bold text-white transition hover:opacity-90"
+            className="inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-lg px-2.5 text-[11px] font-bold text-white transition hover:opacity-90"
             style={{ background: "var(--accent)" }}
           >
             <Eye className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden="true" />
@@ -207,14 +208,15 @@ export function DocumentSpaceCard({ doc, checked, active, onToggle, onActivate, 
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); actions.onFicheIA(doc); }}
-            aria-label="Fiche Doc"
-            title="Fiche Doc"
-            className="inline-flex h-8 items-center justify-center gap-1 rounded-lg border px-2 text-[11px] font-bold transition hover:bg-[var(--bg-card-soft)]"
+            aria-label="Éditer"
+            title="Éditer"
+            className="inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-lg border px-2 text-[11px] font-bold transition hover:bg-[var(--bg-card-soft)]"
             style={{ background: "var(--surface)", color: "var(--text-main)", borderColor: "var(--border-strong)" }}
           >
             <FileSearch className="h-3.5 w-3.5 shrink-0" strokeWidth={1.85} aria-hidden="true" />
-            <span className="truncate">Fiche Doc</span>
+            <span className="truncate">Éditer</span>
           </button>
+          <DocumentKebabMenu doc={doc} actions={actions} archiveMode={archiveMode} />
         </div>
       </div>
     </div>
