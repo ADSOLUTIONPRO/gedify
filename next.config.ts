@@ -22,6 +22,10 @@ const nextConfig: NextConfig = {
     "@napi-rs/canvas",
     "tesseract.js",
     "pdfjs-dist",
+    // Extraction bureautique (require dynamiques internes : zip, codepages) :
+    // externalisées pour être copiées telles quelles dans la sortie standalone.
+    "mammoth",
+    "xlsx",
   ],
 
   async redirects() {

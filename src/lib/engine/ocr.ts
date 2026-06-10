@@ -5,6 +5,7 @@ import path from "node:path";
 import sharp from "sharp";
 import { getDataDir } from "@/lib/storage/data-dir";
 import { extractPdfText, loadPdf, renderPdfPageToPng, type PdfDoc } from "./pdf";
+import { extractOfficeText, isOfficeText } from "./office-text";
 
 /* ────────────────────────────────────────────────────────────────────────
    Extraction de texte (remplace l'OCR de Paperless), poussée pour la qualité :
@@ -31,7 +32,7 @@ export type ExtractResult = {
 };
 
 const IMAGE_EXT = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tif", ".tiff"];
-const TEXT_EXT = [".txt", ".md", ".csv", ".log", ".json", ".xml", ".html", ".htm"];
+const TEXT_EXT = [".txt", ".md", ".markdown", ".csv", ".tsv", ".log", ".json", ".xml", ".html", ".htm", ".yml", ".yaml"];
 
 const OCR_MAX_PAGES = Math.max(1, parseInt(process.env.OCR_MAX_PAGES ?? "30", 10) || 30);
 const OCR_DPI = Math.max(150, parseInt(process.env.OCR_DPI ?? "300", 10) || 300);
@@ -290,10 +291,15 @@ export async function extractText(buf: Buffer, mime: string, ext: string): Promi
         return { text: "", pageCount: 1, confidence: null, source: "ocr_engine", partial: true, pagesProcessed: 0, pagesTotal: 1 };
       }
     }
+    // Documents bureautiques (Word / tableurs) → texte intégré, lisible & indexable.
+    if (isOfficeText(lower)) {
+      const text = await extractOfficeText(buf, lower);
+      return { text, pageCount: null, confidence: null, source: text ? "text_file" : "unavailable" };
+    }
   } catch (e) {
     console.error("[engine/ocr] extraction échouée :", e instanceof Error ? e.message : e);
   }
-  // docx/xlsx/autres : pas d'extraction pur-JS en v1.
+  // .doc (Word binaire ancien), .pptx et autres : stockés sans couche texte en v1.
   return { text: "", pageCount: null, confidence: null, source: "unavailable" };
 }
 
