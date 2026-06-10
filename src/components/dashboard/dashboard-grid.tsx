@@ -18,6 +18,7 @@ import { StatWidget } from "@/components/dashboard/stat-widget";
 import { ListWidget } from "@/components/dashboard/list-widget";
 import { PinnedFoldersWidget } from "@/components/dashboard/pinned-folders-widget";
 import { FavoritesCarouselWidget } from "@/components/dashboard/favorites-carousel-widget";
+import { DashboardCalendarWidget } from "@/components/dashboard/dashboard-calendar-widget";
 import {
   DASHBOARD_WIDGETS,
   DASHBOARD_WIDGETS_STORAGE_KEY,
@@ -128,15 +129,7 @@ function renderGridWidget(
         />
       );
     case "calendrier":
-      return (
-        <ListWidget
-          spaceId="calendrier" title="Calendrier"
-          value={data.calendrier.upcoming} label="événements à venir"
-          agenda={data.calendrier.items}
-          ctaLabel="Ouvrir le calendrier" ctaHref="/calendrier"
-          dragHandleProps={dragHandleProps}
-        />
-      );
+      return <DashboardCalendarWidget />;
     case "contacts":
       return (
         <ListWidget
