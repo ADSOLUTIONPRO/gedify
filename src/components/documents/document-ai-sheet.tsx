@@ -351,7 +351,7 @@ export function DocumentAiSheet({ doc, onClose, onApplied }: { doc: DocumentVM; 
   return (
     <div className="fixed inset-0 z-[80] flex items-end justify-center sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label="Fiche Doc du document">
       <button type="button" aria-label="Fermer" onClick={onClose} className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm" />
-      <div className="relative flex max-h-[94vh] w-full max-w-4xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:max-h-[90vh] sm:rounded-2xl" style={{ border: "1px solid var(--border)" }}>
+      <div className="relative flex max-h-[94vh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:max-h-[calc(100vh-48px)] sm:w-[min(1280px,calc(100vw-80px))] sm:rounded-2xl" style={{ border: "1px solid var(--border)" }}>
         {/* En-tête */}
         <div className="flex items-start justify-between gap-3 border-b px-5 py-4" style={{ borderColor: "var(--border-soft)", background: "var(--bg-panel)" }}>
           <div className="flex min-w-0 items-start gap-3">
@@ -426,134 +426,179 @@ export function DocumentAiSheet({ doc, onClose, onApplied }: { doc: DocumentVM; 
             </div>
           ) : null}
 
-          {/* État : vue / édition des suggestions */}
+          {/* État : vue / édition des suggestions (mise en page 2 colonnes,
+              SANS navigation latérale : champs à gauche, Résumé IA + Documents
+              liés à droite). */}
           {(phase === "view" || phase === "applying") ? (
-            !hasAnalysis ? (
-              <div className="rounded-2xl border bg-white py-10 text-center" style={{ borderColor: "var(--border)" }}>
-                <Sparkles className="mx-auto mb-3 h-9 w-9" style={{ color: "var(--text-hint)" }} strokeWidth={1.5} aria-hidden="true" />
-                <p className="text-[14px] font-bold" style={{ color: "var(--text-main)" }}>Aucune analyse IA disponible</p>
-                <p className="mx-auto mt-1 max-w-sm text-[12.5px]" style={{ color: "var(--text-muted)" }}>Lancez une analyse pour générer la fiche IA de ce document.</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {/* Chips d'en-tête */}
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {pct != null ? <ConfidenceChip pct={pct} /> : null}
-                  {sug.ocrLength != null ? <Chip>OCR {sug.ocrLength} car.</Chip> : null}
-                  {sug.budgetLabel ? <Chip accent>Budget : {sug.budgetLabel}</Chip> : null}
-                  {sug.needsReview ? <span className="rounded-full px-2 py-0.5 text-[10.5px] font-bold" style={{ background: "#FFF4E5", color: "#B45309" }}>Suggestions à vérifier</span> : null}
-                  {sug.appliedFields.length > 0 ? <span className="rounded-full px-2 py-0.5 text-[10.5px] font-bold" style={{ background: "#EAF8EF", color: "#15803D" }}>Déjà appliqué : {sug.appliedFields.join(", ")}</span> : null}
+            <div className="space-y-4">
+              {hasAnalysis ? (
+                <>
+                  {/* Chips d'en-tête */}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {pct != null ? <ConfidenceChip pct={pct} /> : null}
+                    {sug.ocrLength != null ? <Chip>OCR {sug.ocrLength} car.</Chip> : null}
+                    {sug.budgetLabel ? <Chip accent>Budget : {sug.budgetLabel}</Chip> : null}
+                    {sug.needsReview ? <span className="rounded-full px-2 py-0.5 text-[10.5px] font-bold" style={{ background: "#FFF4E5", color: "#B45309" }}>Suggestions à vérifier</span> : null}
+                    {sug.appliedFields.length > 0 ? <span className="rounded-full px-2 py-0.5 text-[10.5px] font-bold" style={{ background: "#EAF8EF", color: "#15803D" }}>Déjà appliqué : {sug.appliedFields.join(", ")}</span> : null}
+                  </div>
+                  <SourceBanner source={sug.source} similarityPct={sug.similarityPct} matchedTemplate={sug.matchedTemplate} />
+                </>
+              ) : null}
+
+              <div className="grid grid-cols-1 gap-4 lg:[grid-template-columns:minmax(0,1fr)_380px]">
+                {/* ── Colonne gauche : champs éditables ── */}
+                <div className="min-w-0 space-y-4">
+                  {!hasAnalysis ? (
+                    <div className="rounded-2xl border bg-white py-10 text-center" style={{ borderColor: "var(--border)" }}>
+                      <Sparkles className="mx-auto mb-3 h-9 w-9" style={{ color: "var(--text-hint)" }} strokeWidth={1.5} aria-hidden="true" />
+                      <p className="text-[14px] font-bold" style={{ color: "var(--text-main)" }}>Aucune analyse IA disponible</p>
+                      <p className="mx-auto mt-1 max-w-sm text-[12.5px]" style={{ color: "var(--text-muted)" }}>Lancez une analyse pour générer la fiche IA de ce document.</p>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Identification */}
+                      <FicheSection icon={FileText} title="Identification du document">
+                        <Field label="Titre" full>
+                          <input className={inputCls} style={{ borderColor: "var(--border)" }} value={sug.title} onChange={(e) => setSug({ ...sug, title: e.target.value })} />
+                        </Field>
+                        <FicheGrid>
+                          <Field label="Correspondant">
+                            <AutocompleteInput endpoint="/api/autocomplete/correspondents" value={sug.correspondent} allowCreate placeholder="Correspondant…"
+                              onChange={(v, s?: AutocompleteSuggestion) => setSug({ ...sug, correspondent: s ? s.label : v })} onCreate={(n) => setSug({ ...sug, correspondent: n })} />
+                          </Field>
+                          <Field label="Type de document">
+                            <AutocompleteInput endpoint="/api/autocomplete/document-types" value={sug.type} allowCreate placeholder="Type…"
+                              onChange={(v, s?: AutocompleteSuggestion) => setSug({ ...sug, type: s ? s.label : v })} onCreate={(n) => setSug({ ...sug, type: n })} />
+                          </Field>
+                        </FicheGrid>
+                        <DocumentSecondaryCorrespondents documentId={doc.id} suggestions={sug.secondaryCorrespondents} />
+                      </FicheSection>
+
+                      {/* Classement */}
+                      <FicheSection icon={FolderTree} title="Classement automatique">
+                        <Field label="Dossier / projet">
+                          <FolderPickerField
+                            value={folderSel}
+                            allowCreate
+                            onChange={(v) => { setFolderSel(v); setSug((s) => ({ ...s, folder: v ? v.name : "" })); }}
+                          />
+                          {!folderSel && sug.folder ? (
+                            <p className="mt-1 text-[11px]" style={{ color: "var(--text-muted)" }}>
+                              Suggestion IA : <span className="font-semibold" style={{ color: "var(--text-main)" }}>{sug.folder}</span> — cliquez « Parcourir… » pour choisir le dossier exact.
+                            </p>
+                          ) : null}
+                        </Field>
+                        <div>
+                          <span className="mb-1 block text-[11px] font-bold" style={{ color: "var(--text-main)" }}>Tags</span>
+                          <div className="mb-1.5 flex flex-wrap gap-1">
+                            {sug.tags.map((t) => (
+                              <span key={t} className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>
+                                {t}<button type="button" onClick={() => removeTag(t)} aria-label={`Retirer ${t}`}><X className="h-3 w-3" strokeWidth={2.5} /></button>
+                              </span>
+                            ))}
+                          </div>
+                          <AutocompleteInput endpoint="/api/autocomplete/tags" value={tagQuery} allowCreate placeholder="Ajouter un tag…"
+                            onChange={(v, s?: AutocompleteSuggestion) => { if (s) addTag(s.label); else setTagQuery(v); }} onCreate={(n) => addTag(n)} />
+                        </div>
+                      </FicheSection>
+
+                      {/* Dates & échéances */}
+                      <FicheSection icon={CalendarClock} title="Dates & échéances">
+                        <FicheGrid>
+                          <Field label="Date du document"><input type="date" className={inputCls} style={{ borderColor: "var(--border)" }} value={toDateInputValue(sug.dateISO)} onChange={(e) => setSug({ ...sug, dateISO: e.target.value })} /></Field>
+                          <Field label="Échéance"><input type="date" className={inputCls} style={{ borderColor: "var(--border)" }} value={toDateInputValue(sug.dueISO)} onChange={(e) => setSug({ ...sug, dueISO: e.target.value })} /></Field>
+                          {sug.amountLabel ? <Field label="Montant principal détecté"><div className="flex h-9 items-center text-[13px] font-bold" style={{ color: "var(--text-main)" }}>{sug.amountLabel}</div></Field> : null}
+                        </FicheGrid>
+                        {(() => {
+                          const others = sug.allDates.filter((d) => d.iso && d.iso !== sug.dateISO && d.iso !== sug.dueISO);
+                          if (others.length === 0) return null;
+                          return (
+                            <div className="rounded-lg border p-2" style={{ borderColor: "var(--border)", background: "#FCFAF7" }}>
+                              <p className="mb-1 text-[10.5px] font-bold uppercase tracking-wide" style={{ color: "var(--text-hint)" }}>Autres dates détectées</p>
+                              <ul className="flex flex-wrap gap-1.5">
+                                {others.map((d, i) => (
+                                  <li key={`${d.iso}-${i}`} className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: "#EEF2F7", color: "#475569" }} title={d.label}>
+                                    {toDateInputValue(d.iso).split("-").reverse().join("/")} · {d.label}
+                                  </li>
+                                ))}
+                              </ul>
+                              <p className="mt-1 text-[10.5px]" style={{ color: "var(--text-hint)" }}>Non utilisées comme date du document.</p>
+                            </div>
+                          );
+                        })()}
+                      </FicheSection>
+
+                      {/* Budget & répartition des montants */}
+                      <FicheSection icon={Wallet} title="Budget — répartition des montants">
+                        <p className="-mt-1 mb-2 text-[11.5px]" style={{ color: "var(--text-muted)" }}>
+                          Répartissez les montants détectés (principal, TVA, frais, intérêts, reste dû…). Chaque ligne « incluse » crée une entrée budget à valider.
+                        </p>
+                        <AmountBreakdownEditor
+                          documentId={doc.id}
+                          seeds={sug.seeds}
+                          defaultDate={toDateInputValue(sug.dueISO || sug.dateISO)}
+                          defaultCorrespondent={sug.correspondent}
+                          onCreated={() => { onApplied?.(); router.refresh(); }}
+                        />
+                      </FicheSection>
+
+                      {/* Points à vérifier */}
+                      {sug.warnings.length > 0 ? (
+                        <FicheSection icon={AlertTriangle} title="Points à vérifier" tone="warning">
+                          <ul className="space-y-1 text-[12px]" style={{ color: "#92400E" }}>
+                            {sug.warnings.map((w, i) => <li key={`${w.code}-${i}`} className="flex gap-1.5"><span aria-hidden="true">•</span><span>{w.message}</span></li>)}
+                          </ul>
+                        </FicheSection>
+                      ) : null}
+                    </>
+                  )}
                 </div>
 
-                <SourceBanner source={sug.source} similarityPct={sug.similarityPct} matchedTemplate={sug.matchedTemplate} />
-
-                {/* Section 1 — Identification */}
-                <FicheSection icon={FileText} title="Identification du document">
-                  <Field label="Titre" full>
-                    <input className={inputCls} style={{ borderColor: "var(--border)" }} value={sug.title} onChange={(e) => setSug({ ...sug, title: e.target.value })} />
-                  </Field>
-                  <FicheGrid>
-                    <Field label="Correspondant">
-                      <AutocompleteInput endpoint="/api/autocomplete/correspondents" value={sug.correspondent} allowCreate placeholder="Correspondant…"
-                        onChange={(v, s?: AutocompleteSuggestion) => setSug({ ...sug, correspondent: s ? s.label : v })} onCreate={(n) => setSug({ ...sug, correspondent: n })} />
-                    </Field>
-                    <Field label="Type de document">
-                      <AutocompleteInput endpoint="/api/autocomplete/document-types" value={sug.type} allowCreate placeholder="Type…"
-                        onChange={(v, s?: AutocompleteSuggestion) => setSug({ ...sug, type: s ? s.label : v })} onCreate={(n) => setSug({ ...sug, type: n })} />
-                    </Field>
-                  </FicheGrid>
-                  <DocumentSecondaryCorrespondents documentId={doc.id} suggestions={sug.secondaryCorrespondents} />
-                </FicheSection>
-
-                {/* Section 2 — Classement */}
-                <FicheSection icon={FolderTree} title="Classement automatique">
-                  <Field label="Dossier / projet">
-                    <FolderPickerField
-                      value={folderSel}
-                      allowCreate
-                      onChange={(v) => { setFolderSel(v); setSug((s) => ({ ...s, folder: v ? v.name : "" })); }}
-                    />
-                    {!folderSel && sug.folder ? (
-                      <p className="mt-1 text-[11px]" style={{ color: "var(--text-muted)" }}>
-                        Suggestion IA : <span className="font-semibold" style={{ color: "var(--text-main)" }}>{sug.folder}</span> — cliquez « Parcourir… » pour choisir le dossier exact.
-                      </p>
-                    ) : null}
-                  </Field>
-                  <div>
-                    <span className="mb-1 block text-[11px] font-bold" style={{ color: "var(--text-main)" }}>Tags</span>
-                    <div className="mb-1.5 flex flex-wrap gap-1">
-                      {sug.tags.map((t) => (
-                        <span key={t} className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>
-                          {t}<button type="button" onClick={() => removeTag(t)} aria-label={`Retirer ${t}`}><X className="h-3 w-3" strokeWidth={2.5} /></button>
-                        </span>
-                      ))}
-                    </div>
-                    <AutocompleteInput endpoint="/api/autocomplete/tags" value={tagQuery} allowCreate placeholder="Ajouter un tag…"
-                      onChange={(v, s?: AutocompleteSuggestion) => { if (s) addTag(s.label); else setTagQuery(v); }} onCreate={(n) => addTag(n)} />
-                  </div>
-                </FicheSection>
-
-                {/* Section 3 — Dates & échéances */}
-                <FicheSection icon={CalendarClock} title="Dates & échéances">
-                  <FicheGrid>
-                    <Field label="Date du document"><input type="date" className={inputCls} style={{ borderColor: "var(--border)" }} value={toDateInputValue(sug.dateISO)} onChange={(e) => setSug({ ...sug, dateISO: e.target.value })} /></Field>
-                    <Field label="Échéance"><input type="date" className={inputCls} style={{ borderColor: "var(--border)" }} value={toDateInputValue(sug.dueISO)} onChange={(e) => setSug({ ...sug, dueISO: e.target.value })} /></Field>
-                    {sug.amountLabel ? <Field label="Montant principal détecté"><div className="flex h-9 items-center text-[13px] font-bold" style={{ color: "var(--text-main)" }}>{sug.amountLabel}</div></Field> : null}
-                  </FicheGrid>
-                  {(() => {
-                    const others = sug.allDates.filter((d) => d.iso && d.iso !== sug.dateISO && d.iso !== sug.dueISO);
-                    if (others.length === 0) return null;
-                    return (
-                      <div className="rounded-lg border p-2" style={{ borderColor: "var(--border)", background: "#FCFAF7" }}>
-                        <p className="mb-1 text-[10.5px] font-bold uppercase tracking-wide" style={{ color: "var(--text-hint)" }}>Autres dates détectées</p>
-                        <ul className="flex flex-wrap gap-1.5">
-                          {others.map((d, i) => (
-                            <li key={`${d.iso}-${i}`} className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: "#EEF2F7", color: "#475569" }} title={d.label}>
-                              {toDateInputValue(d.iso).split("-").reverse().join("/")} · {d.label}
-                            </li>
-                          ))}
-                        </ul>
-                        <p className="mt-1 text-[10.5px]" style={{ color: "var(--text-hint)" }}>Non utilisées comme date du document.</p>
+                {/* ── Colonne droite : Résumé IA + Documents liés ── */}
+                <div className="min-w-0 space-y-4">
+                  {hasAnalysis ? (
+                    <section className="rounded-[18px] bg-white p-4" style={{ boxShadow: "var(--shadow-card)" }}>
+                      <div className="mb-2.5 flex items-center gap-1.5">
+                        <Sparkles className="h-4 w-4" strokeWidth={2} style={{ color: "var(--gedify-navy)" }} aria-hidden="true" />
+                        <p className="text-[11px] font-extrabold uppercase tracking-[0.08em]" style={{ color: "var(--gedify-navy)" }}>Résumé IA</p>
+                        <button
+                          type="button"
+                          onClick={() => void copySummary()}
+                          disabled={!sug.summary}
+                          aria-label="Copier le résumé"
+                          title="Copier le résumé"
+                          className="ml-auto flex h-7 w-7 items-center justify-center rounded-lg transition hover:bg-[var(--bg-card-soft)] disabled:opacity-40"
+                          style={{ color: "var(--text-muted)" }}
+                        >
+                          {copied ? <Check className="h-4 w-4" strokeWidth={2} /> : <Copy className="h-4 w-4" strokeWidth={1.85} />}
+                        </button>
                       </div>
-                    );
-                  })()}
-                </FicheSection>
+                      <textarea
+                        rows={9}
+                        className="w-full resize-none rounded-xl border px-3 py-2 text-[13px] leading-[1.6] outline-none focus:border-[var(--accent)]"
+                        style={{ borderColor: "var(--border)", maxHeight: "46vh" }}
+                        value={sug.summary}
+                        onChange={(e) => setSug({ ...sug, summary: e.target.value })}
+                        placeholder="Aucun résumé. Cliquez « Régénérer le résumé »."
+                        aria-label="Résumé IA"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void launch()}
+                        disabled={busy}
+                        className="mt-2.5 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-[20px] border-[1.5px] px-3.5 text-[12.5px] font-bold transition hover:bg-[#FCFAF7] disabled:opacity-40"
+                        style={{ borderColor: "var(--border-strong)", color: "var(--text-main)" }}
+                      >
+                        <RefreshCw className="h-4 w-4" strokeWidth={2} aria-hidden="true" /> Régénérer le résumé
+                      </button>
+                    </section>
+                  ) : null}
 
-                {/* Section 4 — Budget & répartition des montants */}
-                <FicheSection icon={Wallet} title="Budget — répartition des montants">
-                  <p className="-mt-1 mb-2 text-[11.5px]" style={{ color: "var(--text-muted)" }}>
-                    Répartissez les montants détectés (principal, TVA, frais, intérêts, reste dû…). Chaque ligne « incluse » crée une entrée budget à valider.
-                  </p>
-                  <AmountBreakdownEditor
-                    documentId={doc.id}
-                    seeds={sug.seeds}
-                    defaultDate={toDateInputValue(sug.dueISO || sug.dateISO)}
-                    defaultCorrespondent={sug.correspondent}
-                    onCreated={() => { onApplied?.(); router.refresh(); }}
-                  />
-                </FicheSection>
-
-                {/* Section 5 — Résumé */}
-                <FicheSection icon={Sparkles} title="Résumé IA">
-                  <Field label="Résumé" full>
-                    <textarea rows={3} className="w-full resize-none rounded-xl border px-3 py-2 text-[13px] outline-none focus:border-[var(--accent)]" style={{ borderColor: "var(--border)" }} value={sug.summary} onChange={(e) => setSug({ ...sug, summary: e.target.value })} />
-                  </Field>
-                </FicheSection>
-
-                {/* Section 6 — Suggestions / corrections */}
-                {sug.warnings.length > 0 ? (
-                  <FicheSection icon={AlertTriangle} title="Points à vérifier" tone="warning">
-                    <ul className="space-y-1 text-[12px]" style={{ color: "#92400E" }}>
-                      {sug.warnings.map((w, i) => <li key={`${w.code}-${i}`} className="flex gap-1.5"><span aria-hidden="true">•</span><span>{w.message}</span></li>)}
-                    </ul>
-                  </FicheSection>
-                ) : null}
+                  <DocumentLinks documentId={doc.id} />
+                </div>
               </div>
-            )
+            </div>
           ) : null}
-
-          {/* Documents liés */}
-          <DocumentLinks documentId={doc.id} />
         </div>
 
         {/* Barre d'actions selon l'état */}
@@ -698,7 +743,7 @@ function FicheSection({ icon: Icon, title, tone, children }: { icon: typeof Spar
 }
 
 function FicheGrid({ children }: { children: React.ReactNode }) {
-  return <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">{children}</div>;
+  return <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{children}</div>;
 }
 
 function Field({ label, children, full }: { label: string; children: React.ReactNode; full?: boolean }) {
