@@ -30,7 +30,7 @@ import type { PaperlessTask } from "@/lib/paperless-types";
 /* ════════════════════════════════════════════════════════════════════════
    Routeur HTTP local « Paperless-compatible ».
    handle(endpoint, options) renvoie un objet Response (JSON ou binaire) avec
-   les mêmes formes que Paperless-ngx, pour que la surcouche fonctionne sans
+   les mêmes formes que Paperless-ngx, pour que Gedify fonctionne sans
    modification. Branché via le shim src/lib/paperless.ts.
    ════════════════════════════════════════════════════════════════════════ */
 
@@ -733,7 +733,7 @@ async function tasksList(query: URLSearchParams): Promise<Response> {
   let tasks = await readStore<PaperlessTask[]>(STORE.tasks, []);
   const taskId = query.get("task_id");
   if (taskId) tasks = tasks.filter((t) => t.task_id === taskId);
-  // La surcouche lit `.results` (cf. paperless-tasks.ts) → forme paginée.
+  // Gedify lit `.results` (cf. paperless-tasks.ts) → forme paginée.
   return json({ count: tasks.length, next: null, previous: null, all: tasks.map((t) => t.id), results: tasks });
 }
 

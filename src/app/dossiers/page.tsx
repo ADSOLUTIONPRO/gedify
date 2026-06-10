@@ -242,7 +242,7 @@ export default async function DossiersPage({
           <StatCard
             label="Dossiers"
             value={projects.length}
-            helper="surcouche Gedify"
+            helper="Gedify"
             icon={FolderKanban}
             tone="blue"
           />

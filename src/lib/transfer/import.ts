@@ -39,7 +39,7 @@ import type { PaperlessDocument, PaperlessNote } from "@/lib/paperless-types";
      - taxonomies + documents écrits DIRECTEMENT dans les stores moteur, en
        PRÉSERVANT les IDs (clé : tous les liens .data référencent ces IDs),
      - fichiers originaux restaurés sous media/originals/<id><ext>,
-     - couche surcouche (.data) restaurée telle quelle.
+     - couche de données (.data) restaurée telle quelle.
 
    Modes : « replace » (table rase puis import — défaut migration) et « merge »
    (upsert par id, dédoublonnage documents par empreinte).
@@ -375,7 +375,7 @@ export async function importFromZip(
   counters.saved_views = Math.max(counters.saved_views ?? 0, maxId(savedViews));
   await writeStore("counters", counters);
 
-  // 4) Couche surcouche (.data)
+  // 4) couche de données (.data)
   const dataFiles = await restoreOverlay(zip);
 
   // 4 bis) Restauration du dump PostgreSQL (mode postgres) : source de vérité des

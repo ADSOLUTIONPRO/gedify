@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
         method: "POST",
         body: { action: "empty", documents: [Number(id)] },
       });
-      // Nettoyage des données liées dans la surcouche
+      // Nettoyage des données liées dans Gedify
       const cleanup = await cleanupDocumentData(Number(id), { forceDeleteValidated: true });
       cleanupTotals.aiAnalyses += cleanup.aiAnalysesDeleted;
       cleanupTotals.detectedInfos += cleanup.detectedInfosDeleted;

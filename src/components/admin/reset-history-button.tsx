@@ -64,7 +64,7 @@ export function ResetHistoryButton() {
   return (
     <div className="flex flex-col gap-3">
       <p className="text-[13px] leading-relaxed" style={{ color: "var(--text-muted)" }}>
-        Cette action supprime uniquement l&apos;historique interne de la surcouche : analyses IA,
+        Cette action supprime uniquement l&apos;historique interne de Gedify : analyses IA,
         suggestions, infos détectées, mémoire de corrections et brouillons non validés. Les
         documents Gedify, fichiers PDF, tags, correspondants et types existants ne seront
         pas supprimés.

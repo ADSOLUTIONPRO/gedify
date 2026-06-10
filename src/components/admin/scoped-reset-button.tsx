@@ -42,7 +42,7 @@ const SCOPE_CONFIG: Record<
     tone: "warning",
   },
   "all-internal": {
-    label: "Réinitialisation complète de la surcouche",
+    label: "Réinitialisation complète de Gedify",
     description:
       "Supprime tout l'historique interne : IA, finances, actions, rappels, suggestions, mémoire. Les documents Gedify, tags, correspondants, types, utilisateurs et paramètres sont conservés.",
     confirmText: "RESET_GED_INTERNAL_DATA",

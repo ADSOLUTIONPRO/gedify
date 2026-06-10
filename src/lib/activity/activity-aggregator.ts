@@ -125,7 +125,7 @@ export function mapPaperlessTasks(rows: PaperlessResource[]): ActivityEvent[] {
   });
 }
 
-/** Mappe les logs du connecteur mail surcouche vers des `ActivityEvent`. */
+/** Mappe les logs du connecteur mail Gedify vers des `ActivityEvent`. */
 export function mapMailLogs(logs: MailSyncLog[]): ActivityEvent[] {
   return logs.map((log) => {
     const status: ActivityStatus =

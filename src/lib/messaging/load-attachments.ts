@@ -27,7 +27,7 @@ export type AttachmentRow = {
   subject: string | null;
   /** Titre du document GED lié (si importé) — pour la recherche par mot-clé. */
   documentTitle: string | null;
-  /** État GED de la pièce jointe (surcouche mail-document-links-store). */
+  /** État GED de la pièce jointe (Gedify mail-document-links-store). */
   status: MailDocumentLinkStatus | "none";
   documentId: number | null;
 };

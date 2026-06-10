@@ -6,7 +6,7 @@ import { getDataDir } from "@/lib/storage/data-dir";
 import { randomUUID } from "node:crypto";
 
 /**
- * Notes GED enrichies d'un document (surcouche au-dessus des notes Paperless
+ * Notes GED enrichies d'un document (Gedify au-dessus des notes Paperless
  * texte-brut) : elles portent une **nature** (appel / rdv / autre), une **date
  * éditable** et un **auteur**. Stockées en JSON local, comme les autres stores
  * GED (cf. mail-document-links-store).

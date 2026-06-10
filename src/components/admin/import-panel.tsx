@@ -72,7 +72,7 @@ export function ImportPanel() {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-[13px] leading-relaxed" style={{ color: "var(--text-muted)" }}>
-        Importe une archive <strong>.zip</strong> Gedify exportée depuis l&apos;ancienne surcouche
+        Importe une archive <strong>.zip</strong> Gedify exportée depuis l&apos;ancienne version
         ou depuis nopp. Les identifiants (documents, taxonomies) sont <strong>préservés</strong> :
         tous les liens internes (analyses, dossiers, finances, courriers) restent valides.
       </p>
@@ -176,7 +176,7 @@ export function ImportPanel() {
             <li>Chemins : <strong>{summary.imported.storage_paths}</strong></li>
             <li>Champs perso : <strong>{summary.imported.custom_fields}</strong></li>
             <li>Vues : <strong>{summary.imported.saved_views}</strong></li>
-            <li>Fichiers surcouche : <strong>{summary.imported.dataFiles}</strong></li>
+            <li>Fichiers de données : <strong>{summary.imported.dataFiles}</strong></li>
           </ul>
           {(summary.skipped.documentsDuplicate > 0 || summary.skipped.documentsMissingFile > 0) ? (
             <p className="mt-2 text-[12px]" style={{ color: "var(--text-muted)" }}>

@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
       body: { action: "empty", documents: ids },
     });
 
-    // 3. Nettoyer les données liées dans la surcouche
+    // 3. Nettoyer les données liées dans Gedify
     const cleanupTotals = { aiAnalyses: 0, detectedInfos: 0, financialItems: 0, actions: 0, reminders: 0 };
     for (const id of ids) {
       const cleanup = await cleanupDocumentData(Number(id), { forceDeleteValidated: true });

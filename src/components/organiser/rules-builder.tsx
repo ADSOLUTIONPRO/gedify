@@ -43,7 +43,7 @@ const ACTIONS = [
  * Constructeur visuel de règles « SI [condition] ALORS [action] ».
  *
  * L'aperçu est construit côté client ; l'enregistrement de règles propres à la
- * surcouche n'est pas encore branché — l'automatisation réelle passe par les
+ * Gedify n'est pas encore branché — l'automatisation réelle passe par les
  * workflows Gedify (lien ci-dessous). Aucune exécution automatique ici.
  */
 export function RulesBuilder({ existing, workflowsHref }: RulesBuilderProps) {

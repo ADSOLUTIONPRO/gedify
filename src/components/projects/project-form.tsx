@@ -197,7 +197,7 @@ export function ProjectForm({
       <FormCard
         icon={FolderPlus}
         title={title}
-        description="Ces informations appartiennent à la surcouche GED AzServer. Les documents restent stockés dans la GED."
+        description="Ces informations appartiennent à la GED AzServer. Les documents restent stockés dans la GED."
       >
         <div className="grid gap-5 lg:grid-cols-2">
           {parentName ? (
@@ -394,7 +394,7 @@ export function ProjectForm({
               <span className="mt-1 block text-sm leading-6 text-blue-800/80">
                 Si activé, GED AzServer crée ou réutilise un tag Gedify nommé “Dossier -{" "}
                 {form.name || "Nom du dossier"}” et l’applique aux documents liés. Sinon, les
-                liaisons restent uniquement dans la surcouche.
+                liaisons restent uniquement dans Gedify.
               </span>
             </span>
           </label>

@@ -23,7 +23,7 @@ export default async function TokensPage() {
         backLink={{ href: "/administration", label: "Administration" }}
         eyebrow="Administration Gedify"
         title="Tokens API"
-        description="Préparation de la gestion des tokens utilisateur Gedify sans exposer le token serveur de la surcouche."
+        description="Préparation de la gestion des tokens utilisateur Gedify sans exposer le token serveur de Gedify."
         actions={
           paperlessUrl ? (
             <a
@@ -67,7 +67,7 @@ export default async function TokensPage() {
         <ErrorState title="Profil Gedify indisponible" message={result.error} />
       ) : (
         <div className="rounded-2xl border border-blue-200/60 bg-blue-50/60 p-5 text-sm leading-6 text-blue-900 backdrop-blur">
-          Gedify expose un endpoint de génération de token utilisateur, mais cette surcouche ne
+          Gedify expose un endpoint de génération de token utilisateur, mais Gedify ne
           l&apos;active pas automatiquement pour éviter toute régénération involontaire. Le token
           présent dans <code className="rounded bg-blue-100 px-1 text-xs font-semibold">.env.local</code> n&apos;est jamais affiché ni renvoyé au client.
         </div>

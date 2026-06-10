@@ -134,7 +134,7 @@ async function loadImapThreadRecords(selected: string, limit: number): Promise<N
  * Multi-comptes : par défaut (« Toutes les boîtes ») agrège les threads de TOUS
  * les comptes Google connectés (l'échec d'un compte n'impacte pas les autres),
  * fusionnés et triés par date. Un compte précis sélectionné → ce compte seul.
- * Filtre automatiquement les expéditeurs masqués dans la surcouche GED.
+ * Filtre automatiquement les expéditeurs masqués dans Gedify.
  */
 export async function loadThreads(
   query = "in:inbox",

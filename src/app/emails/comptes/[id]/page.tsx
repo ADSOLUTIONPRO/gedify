@@ -320,7 +320,7 @@ export default async function AccountDetailPage({ params }: PageProps) {
       {provider && account.email ? (
         <p className="mt-4 inline-flex items-center gap-1 text-xs text-slate-500">
           <ExternalLink className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
-          Connecteur géré par cette surcouche — distinct de l&apos;import mail natif Gedify.
+          Connecteur géré par Gedify — distinct de l&apos;import mail natif Gedify.
         </p>
       ) : null}
     </main>

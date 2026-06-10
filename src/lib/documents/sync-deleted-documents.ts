@@ -24,7 +24,7 @@ export type SyncReport = {
 };
 
 /**
- * Récupère tous les document IDs connus dans la surcouche, vérifie leur existence
+ * Récupère tous les document IDs connus dans Gedify, vérifie leur existence
  * côté Paperless et nettoie les données liées aux documents introuvables.
  */
 export async function syncDeletedPaperlessDocuments(): Promise<SyncReport> {
@@ -43,7 +43,7 @@ export async function syncDeletedPaperlessDocuments(): Promise<SyncReport> {
     },
   };
 
-  // 1. Collecter tous les IDs connus dans la surcouche
+  // 1. Collecter tous les IDs connus dans Gedify
   const [analyses, detectedInfos, financialItems, actions] = await Promise.all([
     listAnalyses(),
     listDetectedInfos(),

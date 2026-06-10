@@ -393,7 +393,7 @@ export function DashboardGrid({ data, userName }: { data: DashboardData; userNam
                         : { className: "opacity-0 pointer-events-none" },
                     )}
 
-                    {/* Surcouche de réorganisation : drag (desktop) + flèches (tactile) */}
+                    {/* Calque de réorganisation : drag (desktop) + flèches (tactile) */}
                     {reorgMode && (
                       <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 rounded-2xl bg-white/70 backdrop-blur-[1px]">
                         <span className="px-3 text-center text-[12.5px] font-bold" style={{ color: "var(--text-main)" }}>

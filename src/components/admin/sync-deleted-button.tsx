@@ -47,7 +47,7 @@ export function SyncDeletedButton() {
   return (
     <div className="flex flex-col gap-3">
       <p className="text-[13px] leading-relaxed" style={{ color: "var(--text-muted)" }}>
-        Vérifie quels documents présents dans la surcouche n&apos;existent plus dans la GED
+        Vérifie quels documents présents dans Gedify n&apos;existent plus dans la GED
         et supprime leurs données locales (analyses IA, lignes financières, actions, rappels).
       </p>
 

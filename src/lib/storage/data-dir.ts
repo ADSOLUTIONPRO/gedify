@@ -5,7 +5,7 @@ import path from "node:path";
 import { ensureGedStorage } from "./ged-paths";
 
 /**
- * Répertoire de données UNIQUE et PERSISTANT de la surcouche Gedify.
+ * Répertoire de données UNIQUE et PERSISTANT de Gedify.
  *
  * Toutes les données créées depuis l'interface (dossiers/projets, budget, notes,
  * signatures, résultats IA, modèles appris, liens mails/documents…) DOIVENT être

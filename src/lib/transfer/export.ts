@@ -15,10 +15,10 @@ import type { PaperlessDocument, PaperlessListResponse } from "@/lib/paperless-t
    Produit un .zip autoportant contenant TOUTES les données :
      - documents (métadonnées + fichiers originaux),
      - taxonomies (tags, correspondants, types, chemins, champs perso, vues),
-     - couche surcouche (.data : analyses OCR/IA, dossiers, finances, actions,
+     - couche de données (.data : analyses OCR/IA, dossiers, finances, actions,
        writer, liens mail↔doc, réglages mails…).
 
-   Ce fichier est IDENTIQUE entre l'ancienne surcouche (adossée à Paperless) et
+   Ce fichier est IDENTIQUE entre l'ancienne version (adossée à Paperless) et
    l'app autonome nopp : les deux exposent la même API `@/lib/paperless`. Seules
    les constantes APP_NAME / SOURCE_KIND diffèrent d'une copie à l'autre.
    Cf. [[data-persistence-convention]] et [[nopp-autonomous-engine-2026-06]].
@@ -27,7 +27,7 @@ import type { PaperlessDocument, PaperlessListResponse } from "@/lib/paperless-t
 export const EXPORT_FORMAT = "gedify-export";
 export const EXPORT_VERSION = 1;
 
-/** Identité de l'app source (diffère dans la copie ancienne surcouche). */
+/** Identité de l'app source (diffère dans la copie ancienne version). */
 const APP_NAME = "gedify-nopp";
 const SOURCE_KIND: "paperless" | "engine" = "engine";
 
@@ -209,7 +209,7 @@ export async function buildExportZip(options: ExportOptions = {}): Promise<Expor
   zip.file("taxonomies/custom_fields.json", JSON.stringify(custom_fields, null, 2));
   zip.file("taxonomies/saved_views.json", JSON.stringify(saved_views, null, 2));
 
-  // 4) Couche surcouche (.data)
+  // 4) couche de données (.data)
   const dataFiles = await addOverlayTree(zip, getDataDir());
 
   // 4 bis) Dump logique PostgreSQL (mode postgres) — source de vérité des

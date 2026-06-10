@@ -4,7 +4,7 @@ export async function GET() {
   return NextResponse.json({
     available: true,
     generationEndpoint: "/api/profile/generate_auth_token/",
-    note: "La surcouche ne renvoie jamais le token serveur PAPERLESS_TOKEN. La génération volontaire de token utilisateur est préparée mais non activée dans l'interface.",
+    note: "Gedify ne renvoie jamais le token serveur PAPERLESS_TOKEN. La génération volontaire de token utilisateur est préparée mais non activée dans l'interface.",
   });
 }
 

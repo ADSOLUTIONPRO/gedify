@@ -27,7 +27,7 @@ export default async function EmailComptesPage() {
         backLink={{ href: "/emails", label: "Emails" }}
         eyebrow="Connecteurs mail"
         title="Comptes email"
-        description="Liste des boîtes mail surveillées par cette surcouche GED."
+        description="Liste des boîtes mail surveillées par Gedify."
         actions={
           <>
             <GoogleConnectButton returnTo="/emails/comptes" />

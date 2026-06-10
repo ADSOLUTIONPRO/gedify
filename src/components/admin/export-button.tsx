@@ -135,7 +135,7 @@ export function ExportButton() {
             <li>Chemins : <strong>{counts.storage_paths}</strong></li>
             <li>Champs perso : <strong>{counts.custom_fields}</strong></li>
             <li>Vues : <strong>{counts.saved_views}</strong></li>
-            <li>Fichiers surcouche : <strong>{counts.dataFiles}</strong></li>
+            <li>Fichiers de données : <strong>{counts.dataFiles}</strong></li>
           </ul>
         </div>
       ) : null}

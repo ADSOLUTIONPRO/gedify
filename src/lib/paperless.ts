@@ -17,7 +17,7 @@ import { verifyCredentials } from "@/lib/engine/users";
 
 /* ════════════════════════════════════════════════════════════════════════
    VERSION AUTONOME (sans Paperless).
-   Ce module conserve EXACTEMENT la même API publique que la surcouche
+   Ce module conserve EXACTEMENT la même API publique que Gedify
    d'origine, mais route toutes les requêtes vers le moteur documentaire local
    (src/lib/engine). Aucune autre partie de l'app n'a besoin d'être modifiée.
    ════════════════════════════════════════════════════════════════════════ */

@@ -18,7 +18,7 @@ export default function SauvegardePage() {
           { label: "Sauvegarde & migration" },
         ]}
         title="Sauvegarde & migration"
-        description="Importez une archive .zip Gedify (depuis l'ancienne surcouche ou nopp), ou exportez vos données."
+        description="Importez une archive .zip Gedify (depuis l'ancienne version ou nopp), ou exportez vos données."
       />
 
       <SectionCard

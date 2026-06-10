@@ -253,7 +253,7 @@ export default async function StatutPage() {
         <SectionCard
           icon={Mail}
           title="Connecteurs email"
-          description="Module de synchronisation IMAP géré par la surcouche."
+          description="Module de synchronisation IMAP géré par Gedify."
           actions={
             <Link
               href="/messagerie/parametres-emails"
