@@ -1,6 +1,5 @@
 import { Suspense } from "react";
-import Link from "next/link";
-import { LayoutGrid, Plus, Rows3, Table2 } from "lucide-react";
+import { LayoutGrid, Rows3, Table2 } from "lucide-react";
 import { ErrorState } from "@/components/ui/error-state";
 import { MobileDocuments } from "@/components/mobile/mobile-documents";
 import { Pagination } from "@/components/ui/pagination";
@@ -250,9 +249,6 @@ export async function DocumentsCollection({
                   return `${basePath}?${usp.toString()}`;
                 }}
               />
-              <Link href="/import" className="inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-white transition hover:opacity-90" style={{ background: "var(--blue-600)" }}>
-                <Plus className="h-4 w-4" strokeWidth={2} aria-hidden="true" /> Importer
-              </Link>
             </>
           }
         >

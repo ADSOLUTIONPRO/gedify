@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Search, Upload } from "lucide-react";
+import { Search } from "lucide-react";
+import { TopbarImportButton } from "@/components/layout/topbar-import-button";
 import { AdministrationDropdown } from "@/components/navigation/administration-dropdown";
 import { BrandLogo } from "@/components/ui/brand-logo";
 import { MobileSpaceMenu } from "@/components/layout/space-menu-sidebar";
@@ -64,15 +65,8 @@ export async function Topbar() {
 
         {/* Droite */}
         <div className="ml-auto flex items-center gap-1.5">
-          {/* Importer (masqué sur smartphone : accessible via Actions rapides) */}
-          <Link
-            href="/import"
-            className="hidden h-9 items-center gap-2 rounded-[20px] px-4 text-[13px] font-bold text-white transition hover:opacity-90 sm:inline-flex"
-            style={{ background: "var(--accent)" }}
-          >
-            <Upload className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-            <span className="hidden sm:inline">Importer</span>
-          </Link>
+          {/* Importer (popup ; masqué sur smartphone : accessible via Actions rapides) */}
+          <TopbarImportButton />
 
           {/* Administration */}
           <div className="hidden md:block">
