@@ -23,7 +23,7 @@ export type WidgetDef = { key: WidgetKey; label: string };
 export const DASHBOARD_WIDGETS: WidgetDef[] = [
   { key: "quick-actions", label: "Actions rapides" },
   { key: "epingles", label: "Dossiers épinglés" },
-  { key: "favoris", label: "Documents favoris" },
+  { key: "favoris", label: "Documents épinglés" },
   { key: "documents", label: "Documents" },
   { key: "messagerie", label: "Messagerie" },
   { key: "finances", label: "Finances" },

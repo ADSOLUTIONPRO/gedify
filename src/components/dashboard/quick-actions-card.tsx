@@ -66,7 +66,7 @@ export function QuickActionsCard() {
                 key={action.title}
                 type="button"
                 onClick={action.onClick}
-                className={`flex min-w-0 flex-col items-start gap-2 rounded-2xl p-3 text-left transition ${action.ia ? "hover:brightness-105" : "hover:bg-[#FBDFEA]"}`}
+                className={`flex min-w-0 cursor-pointer flex-col items-start gap-2 rounded-2xl p-3 text-left transition hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] ${action.ia ? "hover:brightness-105" : "hover:bg-[#FBDFEA]"}`}
                 style={action.ia
                   ? { background: "linear-gradient(135deg, #F75C8D 0%, #A855F7 54%, #7C3AED 100%)", boxShadow: "0 6px 18px rgba(124,58,237,0.22)" }
                   : { background: "var(--accent-soft)" }}

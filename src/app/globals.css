@@ -15,7 +15,9 @@
   --foreground: #1F2937;
 
   /* ── Borders (discrètes : la délimitation passe d'abord par les surfaces) ── */
-  --border:      #E6DCCD;
+  /* Bordure des encarts/cartes : transparente (plus de liseré beige #E6DCCD).
+     Les champs de saisie utilisent --border-strong, les séparateurs --border-soft. */
+  --border:      transparent;
   --border-soft: #EFE7DA;
   --border-strong: #D8C7B5;
 
