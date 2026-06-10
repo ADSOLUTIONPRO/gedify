@@ -47,7 +47,10 @@ export function ContactDetailView({ contact, onSaved, onDeleted, onHideSender }:
   }
 
   const c = contact;
-  const editable = c.source === "manual";
+  // Tous les contacts (manuels comme synchronisés/agrégés) sont éditables ; seuls
+  // les « correspondants GEDify » (autre entité) ne le sont pas ici. Les éditions
+  // sont préservées lors des synchronisations (cf. API PATCH → manuallyEdited).
+  const editable = c.source !== "correspondent";
   const subtitle = [c.organization, c.source === "correspondent" ? "Correspondant GEDify" : "Contact lié à la GED"].filter(Boolean).join(" · ");
 
   async function save() {

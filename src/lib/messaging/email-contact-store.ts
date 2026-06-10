@@ -77,7 +77,27 @@ export async function bulkUpsertEmailContacts(
   const byId = new Map(all.map((c) => [c.resourceName, c]));
   const now = new Date().toISOString();
   for (const contact of contacts) {
-    byId.set(contact.resourceName, { ...contact, updatedAt: now });
+    const prior = byId.get(contact.resourceName);
+    // Une fiche éditée manuellement n'est JAMAIS écrasée par la synchro : on
+    // conserve les champs saisis par l'utilisateur, et on n'accepte de la synchro
+    // que les métadonnées techniques (compte, suggestions de correspondant).
+    if (prior?.manuallyEdited) {
+      byId.set(contact.resourceName, {
+        ...contact,
+        displayName: prior.displayName,
+        email: prior.email,
+        emails: prior.emails,
+        phone: prior.phone,
+        organization: prior.organization,
+        address: prior.address ?? null,
+        notes: prior.notes ?? null,
+        correspondentId: prior.correspondentId ?? contact.correspondentId,
+        manuallyEdited: true,
+        updatedAt: now,
+      });
+    } else {
+      byId.set(contact.resourceName, { ...contact, updatedAt: now });
+    }
   }
   await writeAll(Array.from(byId.values()));
 }

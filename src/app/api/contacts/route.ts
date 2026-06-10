@@ -8,6 +8,7 @@ import {
   getEmailContact,
 } from "@/lib/messaging/email-contact-store";
 import { getActiveGmailAccount } from "@/lib/messaging/active-gmail-account";
+import { normalizeEmail } from "@/lib/contacts/eligible-contacts";
 import type { EmailContactRecord } from "@/lib/messaging/email-types";
 
 export const runtime = "nodejs";
@@ -78,7 +79,18 @@ export async function POST(req: NextRequest) {
   }
 }
 
-/** PATCH /api/contacts → met à jour un contact existant (par resourceName). */
+/**
+ * PATCH /api/contacts → met à jour un contact.
+ *
+ * `resourceName` peut être :
+ *  - un identifiant de fiche existante (`people/…`, `manual:…`, `email:…`) ;
+ *  - une ADRESSE EMAIL (cas des contacts agrégés « liés à la GED », dont l'id
+ *    EST l'email) : on retrouve alors la fiche par email, ou on crée une fiche
+ *    d'override `email:<email>` (jamais écrasée par la synchro).
+ *
+ * Tout enregistrement édité ici est marqué `manuallyEdited` → ses champs sont
+ * préservés lors des prochaines synchronisations.
+ */
 export async function PATCH(req: NextRequest) {
   try {
     const body = (await req.json().catch(() => ({}))) as {
@@ -91,31 +103,71 @@ export async function PATCH(req: NextRequest) {
       address?: string | null;
       notes?: string | null;
     };
-    const resourceName = (body.resourceName ?? "").trim();
-    if (!resourceName) return NextResponse.json({ error: "resourceName requis." }, { status: 400 });
-    const existing = await getEmailContact(resourceName);
-    if (!existing) return NextResponse.json({ error: "Contact introuvable." }, { status: 404 });
+    const idRaw = (body.resourceName ?? "").trim();
+    if (!idRaw) return NextResponse.json({ error: "Identifiant de contact requis." }, { status: 400 });
+
+    // 1) Fiche existante par resourceName.
+    let existing = await getEmailContact(idRaw);
+
+    // 2) Sinon, l'id est probablement une adresse email (contact agrégé) :
+    //    on tente de retrouver une fiche portant cet email.
+    const idEmail = idRaw.includes("@") ? normalizeEmail(idRaw) : "";
+    if (!existing && idEmail) {
+      const all = await listEmailContacts();
+      existing =
+        all.find((c) => normalizeEmail(c.email) === idEmail || (c.emails ?? []).some((e) => normalizeEmail(e) === idEmail)) ?? null;
+    }
 
     const emails = Array.isArray(body.emails)
       ? body.emails.map((e) => e.trim().toLowerCase()).filter(Boolean)
-      : existing.emails;
+      : existing?.emails ?? (idEmail ? [idEmail] : []);
     const primaryEmail =
       typeof body.email === "string"
         ? (body.email.trim().toLowerCase() || null)
-        : emails[0] ?? existing.email;
+        : emails[0] ?? existing?.email ?? (idEmail || null);
 
-    const next: EmailContactRecord = {
-      ...existing,
-      displayName: typeof body.displayName === "string" && body.displayName.trim() ? body.displayName.trim() : existing.displayName,
+    if (existing) {
+      // Mise à jour de la fiche existante (édition protégée).
+      const next: EmailContactRecord = {
+        ...existing,
+        displayName: typeof body.displayName === "string" && body.displayName.trim() ? body.displayName.trim() : existing.displayName,
+        email: primaryEmail,
+        emails: emails.length ? Array.from(new Set(emails)) : (primaryEmail ? [primaryEmail] : []),
+        phone: body.phone !== undefined ? (typeof body.phone === "string" ? body.phone.trim() || null : null) : existing.phone,
+        organization: body.organization !== undefined ? (typeof body.organization === "string" ? body.organization.trim() || null : null) : existing.organization,
+        address: body.address !== undefined ? (typeof body.address === "string" ? body.address.trim() || null : null) : (existing.address ?? null),
+        notes: body.notes !== undefined ? (typeof body.notes === "string" ? body.notes.trim() || null : null) : (existing.notes ?? null),
+        manuallyEdited: true,
+      };
+      const updated = await upsertEmailContact(next);
+      return NextResponse.json({ ok: true, contact: updated });
+    }
+
+    // 3) Aucune fiche → on crée un override d'édition keyé par email.
+    if (!primaryEmail && emails.length === 0) {
+      return NextResponse.json({ error: "Contact introuvable (email requis pour créer la fiche)." }, { status: 404 });
+    }
+    const account = await getActiveGmailAccount();
+    const created = await upsertEmailContact({
+      resourceName: `email:${primaryEmail ?? emails[0]}`,
+      accountId: account?.accountId ?? "local",
+      accountEmail: account?.email ?? "",
+      displayName: (typeof body.displayName === "string" && body.displayName.trim()) || (primaryEmail ?? emails[0]).split("@")[0],
       email: primaryEmail,
       emails: emails.length ? Array.from(new Set(emails)) : (primaryEmail ? [primaryEmail] : []),
-      phone: body.phone !== undefined ? (typeof body.phone === "string" ? body.phone.trim() || null : null) : existing.phone,
-      organization: body.organization !== undefined ? (typeof body.organization === "string" ? body.organization.trim() || null : null) : existing.organization,
-      address: body.address !== undefined ? (typeof body.address === "string" ? body.address.trim() || null : null) : (existing.address ?? null),
-      notes: body.notes !== undefined ? (typeof body.notes === "string" ? body.notes.trim() || null : null) : (existing.notes ?? null),
-    };
-    const updated = await upsertEmailContact(next);
-    return NextResponse.json({ ok: true, contact: updated });
+      phone: typeof body.phone === "string" ? body.phone.trim() || null : null,
+      organization: typeof body.organization === "string" ? body.organization.trim() || null : null,
+      address: typeof body.address === "string" ? body.address.trim() || null : null,
+      notes: typeof body.notes === "string" ? body.notes.trim() || null : null,
+      source: "manual",
+      correspondentId: null,
+      suggestedCorrespondentId: null,
+      suggestedScore: null,
+      status: "manual",
+      manuallyEdited: true,
+      updatedAt: new Date().toISOString(),
+    });
+    return NextResponse.json({ ok: true, contact: created });
   } catch (error) {
     return jsonError("Mise à jour du contact impossible", error);
   }

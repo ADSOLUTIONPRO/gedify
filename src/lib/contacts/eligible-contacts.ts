@@ -44,7 +44,13 @@ export type EligibleContact = {
   id: string;
   displayName: string;
   email: string;
+  /** Toutes les adresses connues (édition manuelle incluse). */
+  emails: string[];
   company: string | null;
+  /** Champs éditables (proviennent d'une fiche éditée manuellement, si présente). */
+  phone: string | null;
+  address: string | null;
+  notes: string | null;
   source: "email";
   linkedEmailsCount: number;
   linkedGedDocumentsCount: number;
@@ -113,18 +119,32 @@ export async function computeEligibleContacts(opts?: { limitEmails?: number }): 
     docsByMail.set(l.mailId, set);
   }
 
-  // 3) Masquage + enrichissement noms/sociétés depuis le store contacts.
+  // 3) Masquage + enrichissement (nom, société, téléphone, adresse, notes) depuis
+  //    le store contacts. Une fiche éditée manuellement PRIME (ses champs gagnent).
   const hidden = await getHiddenSenderEmails();
-  const recByEmail = new Map<string, { displayName: string; organization: string | null }>();
+  type Rec = { displayName: string; organization: string | null; phone: string | null; address: string | null; notes: string | null; emails: string[]; edited: boolean };
+  const recByEmail = new Map<string, Rec>();
   for (const r of await listEmailContacts()) {
-    for (const e of [r.email, ...(r.emails ?? [])]) {
+    const rec: Rec = {
+      displayName: r.displayName,
+      organization: r.organization,
+      phone: r.phone ?? null,
+      address: r.address ?? null,
+      notes: r.notes ?? null,
+      emails: [r.email, ...(r.emails ?? [])].filter((e): e is string => Boolean(e)),
+      edited: Boolean(r.manuallyEdited),
+    };
+    for (const e of rec.emails) {
       const n = normalizeEmail(e);
-      if (n && !recByEmail.has(n)) recByEmail.set(n, { displayName: r.displayName, organization: r.organization });
+      if (!n) continue;
+      const prior = recByEmail.get(n);
+      // Conserve la première fiche, SAUF si une fiche éditée manuellement existe.
+      if (!prior || (rec.edited && !prior.edited)) recByEmail.set(n, rec);
     }
   }
 
   // 4) Pour chaque email à PJ importée : participants → contacts éligibles.
-  type Agg = { displayName: string; company: string | null; emails: Set<string>; docs: Set<number>; last: string | null };
+  type Agg = { displayName: string; company: string | null; phone: string | null; address: string | null; notes: string | null; addresses: string[]; emails: Set<string>; docs: Set<number>; last: string | null };
   const byContact = new Map<string, Agg>();
   const mailIds = [...docsByMail.keys()].slice(0, opts?.limitEmails ?? 300);
   const selfEmail = normalizeEmail(account.email);
@@ -154,8 +174,20 @@ export async function computeEligibleContacts(opts?: { limitEmails?: number }): 
       if (hidden.has(email)) { report.hiddenSkipped += 1; continue; }
 
       const rec = recByEmail.get(email);
-      const name = p.name || rec?.displayName || email.split("@")[0];
-      const agg = byContact.get(email) ?? { displayName: name, company: rec?.organization ?? null, emails: new Set(), docs: new Set(), last: null };
+      // Le nom édité manuellement prime sur celui de l'en-tête email.
+      const name = (rec?.edited ? rec.displayName : (p.name || rec?.displayName)) || email.split("@")[0];
+      const agg = byContact.get(email) ?? {
+        displayName: name,
+        company: rec?.organization ?? null,
+        phone: rec?.phone ?? null,
+        address: rec?.address ?? null,
+        notes: rec?.notes ?? null,
+        addresses: rec?.emails?.length ? rec.emails.map((e) => normalizeEmail(e)).filter(Boolean) : [email],
+        emails: new Set(),
+        docs: new Set(),
+        last: null,
+      };
+      if (rec?.edited) agg.displayName = rec.displayName; // garde le nom édité même si déjà agrégé
       agg.emails.add(mailId);
       for (const d of docs) agg.docs.add(d);
       if (date && (!agg.last || date > agg.last)) agg.last = date;
@@ -169,7 +201,11 @@ export async function computeEligibleContacts(opts?: { limitEmails?: number }): 
       id: email,
       displayName: a.displayName,
       email,
+      emails: Array.from(new Set(a.addresses.length ? a.addresses : [email])),
       company: a.company,
+      phone: a.phone,
+      address: a.address,
+      notes: a.notes,
       source: "email" as const,
       linkedEmailsCount: a.emails.size,
       linkedGedDocumentsCount: a.docs.size,

@@ -171,6 +171,10 @@ export type EmailContactRecord = {
   suggestedScore: number | null;
   /** Mémoire de matching. */
   status: "linked" | "suggested" | "ignored" | "new" | "manual";
+  /** Vrai si l'utilisateur a édité manuellement la fiche : ses champs (nom,
+   *  téléphone, société, adresse, notes, emails) sont alors PRÉSERVÉS lors des
+   *  prochaines synchronisations (Google/IMAP ne les écrasent plus). */
+  manuallyEdited?: boolean;
   updatedAt: string;
 };
 
