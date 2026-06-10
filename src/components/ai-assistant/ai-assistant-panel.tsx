@@ -122,7 +122,7 @@ export function AiAssistantPanel({
               ) : activeConversationId ? (
                 <><Save className="h-3 w-3" strokeWidth={2} aria-hidden="true" /> Conversation enregistrée</>
               ) : (
-                <>{configured ? "Connecté · OpenAI" : "Moteur IA non configuré"}</>
+                <>{configured ? "Assistant connecté" : "Assistant au repos"}</>
               )}
             </p>
           </div>
