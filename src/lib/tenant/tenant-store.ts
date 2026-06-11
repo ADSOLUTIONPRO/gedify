@@ -1,0 +1,118 @@
+import "server-only";
+
+import { getPool } from "@/lib/db/pg";
+import { postgresActive } from "@/lib/db/pg-store";
+import type { Membership, Tenant, TenantRole, TenantSettings } from "./types";
+
+/* ────────────────────────────────────────────────────────────────────────
+   Stores du socle multi-tenant — Postgres UNIQUEMENT (fonctionnalité SaaS).
+   En mode mono-tenant (MULTI_TENANT désactivé), ces fonctions ne sont jamais
+   appelées (getCurrentTenant renvoie le tenant par défaut sans accès base).
+   Lecture seule ici (Phase 1) ; l'écriture initiale se fait via le script
+   scripts/saas/create-initial-tenant.mjs.
+   ──────────────────────────────────────────────────────────────────────── */
+
+function assertPostgres(): void {
+  if (!postgresActive()) {
+    throw new Error(
+      "Multi-tenant requiert PostgreSQL (DATABASE_URL + mode postgres). Stores tenant indisponibles.",
+    );
+  }
+}
+
+function iso(v: unknown): string | null {
+  if (!v) return null;
+  if (v instanceof Date) return v.toISOString();
+  return String(v);
+}
+
+function rowToTenant(r: Record<string, unknown>): Tenant {
+  return {
+    id: String(r.id),
+    name: (r.name as string | null) ?? null,
+    slug: String(r.slug ?? r.id),
+    plan: (r.plan as string | null) ?? null,
+    status: (r.status as string | null) ?? null,
+    createdAt: iso(r.created_at),
+    updatedAt: iso(r.updated_at),
+  };
+}
+
+function rowToMembership(r: Record<string, unknown>): Membership {
+  return {
+    id: String(r.id),
+    userId: Number(r.user_id),
+    tenantId: String(r.tenant_id),
+    role: (String(r.role) as TenantRole) || "member",
+    createdAt: iso(r.created_at),
+    updatedAt: iso(r.updated_at),
+  };
+}
+
+function rowToSettings(r: Record<string, unknown>): TenantSettings {
+  return {
+    id: String(r.id),
+    tenantId: String(r.tenant_id),
+    maxUsers: r.max_users == null ? null : Number(r.max_users),
+    maxDocuments: r.max_documents == null ? null : Number(r.max_documents),
+    maxStorageMb: r.max_storage_mb == null ? null : Number(r.max_storage_mb),
+    aiEnabled: r.ai_enabled !== false,
+    ocrEnabled: r.ocr_enabled !== false,
+    emailImportEnabled: r.email_import_enabled !== false,
+    onlyofficeEnabled: r.onlyoffice_enabled !== false,
+    createdAt: iso(r.created_at),
+    updatedAt: iso(r.updated_at),
+  };
+}
+
+export async function getTenantById(id: string): Promise<Tenant | null> {
+  assertPostgres();
+  const pool = await getPool();
+  const { rows } = await pool.query("SELECT * FROM tenants WHERE id = $1 LIMIT 1", [id]);
+  return rows.length ? rowToTenant(rows[0]) : null;
+}
+
+export async function getTenantBySlug(slug: string): Promise<Tenant | null> {
+  assertPostgres();
+  const pool = await getPool();
+  const { rows } = await pool.query("SELECT * FROM tenants WHERE slug = $1 LIMIT 1", [slug]);
+  return rows.length ? rowToTenant(rows[0]) : null;
+}
+
+export async function listTenants(): Promise<Tenant[]> {
+  assertPostgres();
+  const pool = await getPool();
+  const { rows } = await pool.query("SELECT * FROM tenants ORDER BY created_at, id");
+  return rows.map(rowToTenant);
+}
+
+/** Adhésions d'un utilisateur (tous tenants confondus). */
+export async function listMembershipsForUser(userId: number): Promise<Membership[]> {
+  assertPostgres();
+  const pool = await getPool();
+  const { rows } = await pool.query(
+    "SELECT * FROM memberships WHERE user_id = $1 ORDER BY created_at, id",
+    [userId],
+  );
+  return rows.map(rowToMembership);
+}
+
+/** Adhésion précise (utilisateur ↔ tenant), ou null. */
+export async function getMembership(userId: number, tenantId: string): Promise<Membership | null> {
+  assertPostgres();
+  const pool = await getPool();
+  const { rows } = await pool.query(
+    "SELECT * FROM memberships WHERE user_id = $1 AND tenant_id = $2 LIMIT 1",
+    [userId, tenantId],
+  );
+  return rows.length ? rowToMembership(rows[0]) : null;
+}
+
+export async function getTenantSettings(tenantId: string): Promise<TenantSettings | null> {
+  assertPostgres();
+  const pool = await getPool();
+  const { rows } = await pool.query("SELECT * FROM tenant_settings WHERE tenant_id = $1 LIMIT 1", [
+    tenantId,
+  ]);
+  return rows.length ? rowToSettings(rows[0]) : null;
+}

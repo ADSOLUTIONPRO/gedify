@@ -29,6 +29,7 @@ const entries = [
   ["scripts/migrate-json.ts", "scripts/gedify-migrate-json.mjs"],
   ["scripts/db-push.ts", "scripts/gedify-db-push.mjs"],
   ["scripts/db-check.ts", "scripts/gedify-db-check.mjs"],
+  ["scripts/saas/create-initial-tenant.ts", "scripts/saas/create-initial-tenant.mjs"],
 ];
 
 for (const [entry, outfile] of entries) {

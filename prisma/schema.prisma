@@ -496,3 +496,55 @@ model Setting {
 
   @@map("settings")
 }
+
+/**
+ * ── Multi-tenant (FONDATION — Phase 1) ─────────────────────────────────────
+ * Tables additives, INACTIVES tant que MULTI_TENANT n'est pas activé (env).
+ * Aucun impact sur main / Synology / local : non utilisées en mode mono-tenant.
+ * On NE branche PAS encore `tenant_id` sur les tables métier (étape ultérieure).
+ */
+
+model Tenant {
+  id        String   @id // slug = id (ex. "azserver-staging")
+  name      String?
+  slug      String   @unique
+  plan      String? // internal | free | pro | enterprise
+  status    String? // active | suspended | archived
+  raw       Json?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("tenants")
+}
+
+model Membership {
+  id        String   @id // `${tenantId}:${userId}`
+  userId    Int      @map("user_id")
+  tenantId  String   @map("tenant_id")
+  role      String // owner | admin | member | viewer
+  raw       Json?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@unique([tenantId, userId])
+  @@index([userId])
+  @@index([tenantId])
+  @@map("memberships")
+}
+
+model TenantSettings {
+  id                 String   @id // = tenantId (une ligne par tenant)
+  tenantId           String   @unique @map("tenant_id")
+  maxUsers           Int?     @map("max_users")
+  maxDocuments       Int?     @map("max_documents")
+  maxStorageMb       Int?     @map("max_storage_mb")
+  aiEnabled          Boolean  @default(true) @map("ai_enabled")
+  ocrEnabled         Boolean  @default(true) @map("ocr_enabled")
+  emailImportEnabled Boolean  @default(true) @map("email_import_enabled")
+  onlyofficeEnabled  Boolean  @default(true) @map("onlyoffice_enabled")
+  raw                Json?
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("tenant_settings")
+}

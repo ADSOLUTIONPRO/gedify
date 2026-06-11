@@ -11,6 +11,7 @@
     "db:migrate": "prisma migrate deploy",
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
+    "saas:init-tenant": "node scripts/saas/create-initial-tenant.mjs",
     "prisma:generate": "prisma generate",
     "prisma:sql": "node scripts/gen-sql.mjs",
     "build:scripts": "node scripts/build-scripts.mjs",
