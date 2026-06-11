@@ -225,6 +225,8 @@ export const SPACE_MENUS: Record<string, SpaceMenu> = {
       { label: "Clients / Espaces", href: "/admin/saas/tenants", icon: LayoutGrid, group: "pilotage" },
       { label: "Créer un client", href: "/admin/saas/create-tenant", icon: UserPlus, group: "pilotage" },
       { label: "Plans & offres", href: "/admin/saas/plans", icon: Sliders, group: "offres" },
+      { label: "Codes promo", href: "/admin/saas/promo-codes", icon: Tags, group: "offres" },
+      { label: "Gratuités offertes", href: "/admin/saas/grants", icon: Star, group: "offres" },
       { label: "Quotas & usages", href: "/admin/saas/usage", icon: Gauge, group: "offres" },
       { label: "Abonnements", href: "/admin/saas/subscriptions", icon: Repeat, group: "offres" },
       { label: "Facturation", href: "/admin/saas/billing", icon: Receipt, group: "offres" },

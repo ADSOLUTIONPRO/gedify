@@ -19,7 +19,12 @@ import { getTenantPlanLimits, getTenantUsage } from "@/lib/saas/quota";
 import { getTenantSubscription, listPaymentEvents, SUBSCRIPTION_STATUSES } from "@/lib/saas/subscriptions";
 import { updateTenantFormAction, updateSettingsFormAction, setStatusFormAction, applyPlanFormAction } from "./actions";
 import { createManualSubscriptionAction, setSubscriptionStatusAction } from "@/app/admin/saas/subscriptions/actions";
-import { Repeat } from "lucide-react";
+import { applyGrantFormAction, revokeGrantFormAction } from "./actions";
+import { getTenantEntitlements } from "@/lib/saas/entitlements";
+import { listTenantGrants, isGrantActive } from "@/lib/saas/grants";
+import { FEATURE_CATEGORIES } from "@/lib/saas/features";
+import { PLAN_IDS } from "@/lib/saas/plans";
+import { Gift, Repeat, Sparkles } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -92,6 +97,10 @@ export default async function SaasTenantDetailPage({
     getTenantUsage(tenantId).catch(() => null),
     getTenantSubscription(tenantId).catch(() => null),
     listPaymentEvents(tenantId).catch(() => []),
+  ]);
+  const [entitlements, grants] = await Promise.all([
+    getTenantEntitlements(tenantId).catch(() => null),
+    listTenantGrants(tenantId).catch(() => []),
   ]);
   const tenantPageUrl = `/admin/saas/tenants/${encodeURIComponent(tenantId)}`;
   const fmtLimit = (used: number | undefined, limit: number | null | undefined) =>
@@ -195,6 +204,92 @@ export default async function SaasTenantDetailPage({
           </button>
         </form>
       </SectionCard>
+
+      <SectionCard icon={Gift} title="Offre manuelle / gratuité (superuser)">
+        {entitlements ? (
+          <p className="mb-3 text-[13px]">
+            Plan effectif : <Mono>{entitlements.planCode}</Mono>{" "}
+            <span className="text-slate-500">(source : {entitlements.source}
+              {entitlements.grantEndsAt ? `, fin ${new Date(entitlements.grantEndsAt).toLocaleDateString("fr-FR")}` : entitlements.source === "grant" ? ", à vie" : ""})</span>
+          </p>
+        ) : null}
+        <form action={applyGrantFormAction} className="flex flex-wrap items-end gap-3">
+          <input type="hidden" name="tenantId" value={tenant.id} />
+          <div className="space-y-1.5">
+            <label className="block text-[12px] font-semibold" style={{ color: "var(--text-main)" }}>Plan offert</label>
+            <select name="planCode" defaultValue="pro" className={inputCls} style={{ borderColor: "var(--border)" }}>
+              {PLAN_IDS.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <label className="block text-[12px] font-semibold" style={{ color: "var(--text-main)" }}>Durée</label>
+            <input name="durationCount" type="number" min={1} defaultValue={14} className={`${inputCls} w-24`} style={{ borderColor: "var(--border)" }} />
+          </div>
+          <div className="space-y-1.5">
+            <label className="block text-[12px] font-semibold" style={{ color: "var(--text-main)" }}>Unité</label>
+            <select name="durationUnit" defaultValue="day" className={inputCls} style={{ borderColor: "var(--border)" }}>
+              <option value="day">jours</option>
+              <option value="month">mois</option>
+              <option value="year">années</option>
+              <option value="lifetime">à vie</option>
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <label className="block text-[12px] font-semibold" style={{ color: "var(--text-main)" }}>Raison</label>
+            <select name="reason" defaultValue="geste commercial" className={inputCls} style={{ borderColor: "var(--border)" }}>
+              <option>client test</option>
+              <option>geste commercial</option>
+              <option>partenaire</option>
+              <option>accompagnement inclus</option>
+              <option>client interne</option>
+              <option>autre</option>
+            </select>
+          </div>
+          <button type="submit" className="h-10 rounded-xl px-4 text-[13px] font-bold text-white" style={{ background: "var(--blue-600)" }}>Offrir</button>
+        </form>
+
+        {grants.length > 0 ? (
+          <ul className="mt-4 space-y-2">
+            {grants.map((g) => {
+              const active = isGrantActive(g);
+              return (
+                <li key={g.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3 py-2 text-[12px]" style={{ borderColor: "var(--border-soft)" }}>
+                  <span>
+                    <Mono>{g.planCode}</Mono> · {g.durationUnit === "lifetime" ? "à vie" : `${g.durationCount} ${g.durationUnit}`}
+                    {g.endsAt ? ` → ${new Date(g.endsAt).toLocaleDateString("fr-FR")}` : ""}
+                    {g.reason ? ` · ${g.reason}` : ""}
+                    {" · "}<span style={{ color: active ? "#15803D" : "#94A3B8", fontWeight: 700 }}>{active ? "actif" : g.isActive ? "expiré" : "révoqué"}</span>
+                  </span>
+                  {active ? (
+                    <form action={revokeGrantFormAction}>
+                      <input type="hidden" name="tenantId" value={tenant.id} />
+                      <input type="hidden" name="grantId" value={g.id} />
+                      <button type="submit" className="rounded-lg border px-2 py-1 text-[11px] font-semibold" style={{ borderColor: "#FCA5A5", color: "#B91C1C" }}>Révoquer</button>
+                    </form>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
+      </SectionCard>
+
+      {entitlements ? (
+        <SectionCard icon={Sparkles} title="Fonctionnalités effectives" description={`Selon le plan effectif « ${entitlements.planCode} ».`}>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {FEATURE_CATEGORIES.map((cat) => {
+              const on = cat.features.filter((f) => entitlements.features[f.key]).length;
+              const off = cat.features.filter((f) => !entitlements.features[f.key]);
+              return (
+                <div key={cat.id} className="rounded-xl border px-3 py-2 text-[12px]" style={{ borderColor: "var(--border-soft)" }}>
+                  <div className="font-semibold" style={{ color: "var(--text-main)" }}>{cat.label} <span className="text-slate-500">{on}/{cat.features.length}</span></div>
+                  {off.length > 0 ? <div className="mt-0.5 text-slate-400">désactivé : {off.map((f) => f.label).join(", ")}</div> : null}
+                </div>
+              );
+            })}
+          </div>
+        </SectionCard>
+      ) : null}
 
       <SectionCard icon={Repeat} title="Abonnement (superuser)">
         <MetadataGrid

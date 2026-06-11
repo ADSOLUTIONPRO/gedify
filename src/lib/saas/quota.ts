@@ -4,8 +4,7 @@ import { NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pg";
 import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
 import { getActiveTenantId } from "@/lib/tenant/get-current-tenant";
-import { getTenantById, getTenantSettings, countTenantMembers } from "@/lib/tenant/tenant-store";
-import { getPlan } from "./plans";
+import { countTenantMembers } from "@/lib/tenant/tenant-store";
 
 /* ────────────────────────────────────────────────────────────────────────
    Plans, quotas et restrictions fonctionnelles (Phase 7).
@@ -58,32 +57,23 @@ const FEATURE_FLAG: Record<SaasFeature, keyof EffectiveLimits> = {
   onlyoffice: "onlyofficeEnabled",
 };
 
-/** Limites EFFECTIVES d'un tenant (tenant_settings, sinon défauts du plan). */
+/**
+ * Limites EFFECTIVES d'un tenant — déléguées aux DROITS EFFECTIFS (entitlements :
+ * gratuité > abonnement actif > tenant.plan > free ; définition via plan-store
+ * avec fallback plans.ts ; features fusionnées). Source unique pour les quotas.
+ */
 export async function getTenantPlanLimits(tenantId: string): Promise<EffectiveLimits> {
-  const tenant = await getTenantById(tenantId).catch(() => null);
-  const plan = getPlan(tenant?.plan);
-  const settings = await getTenantSettings(tenantId).catch(() => null);
-  if (!settings) {
-    return {
-      planId: plan.id,
-      maxUsers: plan.maxUsers,
-      maxDocuments: plan.maxDocuments,
-      maxStorageMb: plan.maxStorageMb,
-      aiEnabled: plan.aiEnabled,
-      ocrEnabled: plan.ocrEnabled,
-      emailImportEnabled: plan.emailImportEnabled,
-      onlyofficeEnabled: plan.onlyofficeEnabled,
-    };
-  }
+  const { getTenantEntitlements } = await import("./entitlements");
+  const ent = await getTenantEntitlements(tenantId);
   return {
-    planId: plan.id,
-    maxUsers: settings.maxUsers,
-    maxDocuments: settings.maxDocuments,
-    maxStorageMb: settings.maxStorageMb,
-    aiEnabled: settings.aiEnabled,
-    ocrEnabled: settings.ocrEnabled,
-    emailImportEnabled: settings.emailImportEnabled,
-    onlyofficeEnabled: settings.onlyofficeEnabled,
+    planId: ent.planCode,
+    maxUsers: ent.limits.maxUsers,
+    maxDocuments: ent.limits.maxDocuments,
+    maxStorageMb: ent.limits.maxStorageMb,
+    aiEnabled: ent.features.ai_enabled === true,
+    ocrEnabled: ent.features.ocr_enabled === true,
+    emailImportEnabled: ent.features.email_import_enabled === true,
+    onlyofficeEnabled: ent.features.onlyoffice_enabled === true,
   };
 }
 

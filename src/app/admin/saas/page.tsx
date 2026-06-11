@@ -1,7 +1,7 @@
 import Link from "next/link";
 import {
-  Activity, AlertTriangle, Banknote, BriefcaseBusiness, Building2, Clock, Gauge,
-  LayoutGrid, Link2, Receipt, Repeat, Send, Settings, ShieldCheck, Sliders, UserPlus, Users,
+  Activity, AlertTriangle, Banknote, BriefcaseBusiness, Building2, Clock, Gauge, Gift,
+  LayoutGrid, Link2, Receipt, Repeat, Send, Settings, ShieldCheck, Sliders, Tag, UserPlus, Users,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
@@ -19,6 +19,8 @@ const LINKS: { href: string; label: string; icon: typeof Building2; soon?: boole
   { href: "/admin/saas/tenants", label: "Clients / Espaces", icon: LayoutGrid },
   { href: "/admin/saas/create-tenant", label: "Créer un client", icon: UserPlus },
   { href: "/admin/saas/plans", label: "Plans & offres", icon: Sliders },
+  { href: "/admin/saas/promo-codes", label: "Codes promo", icon: Tag },
+  { href: "/admin/saas/grants", label: "Gratuités offertes", icon: Gift },
   { href: "/admin/saas/usage", label: "Quotas & usages", icon: Gauge },
   { href: "/admin/saas/subscriptions", label: "Abonnements", icon: Repeat, soon: true },
   { href: "/admin/saas/billing", label: "Facturation", icon: Receipt, soon: true },

@@ -8,6 +8,8 @@ import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
 import { getCurrentTenant, getTenantDebug } from "@/lib/tenant/get-current-tenant";
 import { getTenantCounts, getUnscopedCounts, type TenantCounts, type UnscopedCounts } from "@/lib/tenant/tenant-store";
 import { getTenantPlanLimits, getTenantUsage, type EffectiveLimits, type TenantUsage } from "@/lib/saas/quota";
+import { getTenantEntitlements } from "@/lib/saas/entitlements";
+import { FEATURE_CATEGORIES } from "@/lib/saas/features";
 import type { TenantContext } from "@/lib/tenant/types";
 
 export const dynamic = "force-dynamic";
@@ -85,6 +87,7 @@ export default async function SaasTenantPage() {
     limits = await getTenantPlanLimits(ctx.tenantId).catch(() => null);
     usage = await getTenantUsage(ctx.tenantId).catch(() => null);
   }
+  const entitlements = multiTenant && ctx ? await getTenantEntitlements(ctx.tenantId).catch(() => null) : null;
   const fmtLimit = (used: number | undefined, limit: number | null | undefined) =>
     `${used ?? 0} / ${limit == null ? "∞" : limit}`;
   const unscopedTotal = unscoped
@@ -188,6 +191,24 @@ export default async function SaasTenantPage() {
               { label: "OnlyOffice", value: <Bool value={limits.onlyofficeEnabled} /> },
             ]}
           />
+        </SectionCard>
+      ) : null}
+
+      {entitlements ? (
+        <SectionCard icon={Gauge} title="Fonctionnalités de votre offre" description={`Plan effectif : ${entitlements.planCode}`}>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {FEATURE_CATEGORIES.map((cat) => {
+              const on = cat.features.filter((f) => entitlements.features[f.key]);
+              const off = cat.features.filter((f) => !entitlements.features[f.key]);
+              return (
+                <div key={cat.id} className="rounded-xl border px-3 py-2 text-[12px]" style={{ borderColor: "var(--border-soft)" }}>
+                  <div className="font-semibold" style={{ color: "var(--text-main)" }}>{cat.label}</div>
+                  {on.length > 0 ? <div className="mt-0.5 text-emerald-700">✓ {on.map((f) => f.label).join(", ")}</div> : null}
+                  {off.length > 0 ? <div className="mt-0.5 text-slate-400">— {off.map((f) => f.label).join(", ")}</div> : null}
+                </div>
+              );
+            })}
+          </div>
         </SectionCard>
       ) : null}
 

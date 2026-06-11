@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { updateTenant, updateTenantSettings, setTenantStatus, applyPlanToSettings, type TenantStatusValue } from "@/lib/tenant/tenant-admin";
+import { applyManualGrant, revokeManualGrant, type GrantDurationUnit } from "@/lib/saas/grants";
 
 function str(v: FormDataEntryValue | null): string {
   return typeof v === "string" ? v : "";
@@ -65,6 +66,38 @@ export async function applyPlanFormAction(formData: FormData): Promise<void> {
   const tenantId = str(formData.get("tenantId"));
   try {
     await applyPlanToSettings(tenantId);
+  } catch (e) {
+    back(tenantId, e instanceof Error ? e.message : "Erreur.");
+  }
+  back(tenantId);
+}
+
+/** Attribue une gratuité (plan offert X durée). SUPERUSER uniquement. */
+export async function applyGrantFormAction(formData: FormData): Promise<void> {
+  const me = await getCurrentUser();
+  if (!me?.is_superuser) redirect("/admin/saas/tenants");
+  const tenantId = str(formData.get("tenantId"));
+  const unit = (str(formData.get("durationUnit")) || "month") as GrantDurationUnit;
+  try {
+    await applyManualGrant(tenantId, {
+      planCode: str(formData.get("planCode")) || "pro",
+      durationUnit: unit,
+      durationCount: unit === "lifetime" ? null : intOrNull(formData.get("durationCount")) ?? 1,
+      reason: str(formData.get("reason")) || null,
+      grantedByUserId: me.id,
+    });
+  } catch (e) {
+    back(tenantId, e instanceof Error ? e.message : "Erreur.");
+  }
+  back(tenantId);
+}
+
+/** Révoque une gratuité. SUPERUSER uniquement. */
+export async function revokeGrantFormAction(formData: FormData): Promise<void> {
+  await requireSuperuser();
+  const tenantId = str(formData.get("tenantId"));
+  try {
+    await revokeManualGrant(str(formData.get("grantId")));
   } catch (e) {
     back(tenantId, e instanceof Error ? e.message : "Erreur.");
   }
