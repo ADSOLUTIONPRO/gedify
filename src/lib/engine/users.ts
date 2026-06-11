@@ -9,6 +9,8 @@ import type { PaperlessProfile } from "@/lib/paperless-types";
 /** Identifiants de l'admin par défaut amorcé UNIQUEMENT en staging (cf. ensureBootstrapAdmin). */
 const STAGING_DEFAULT_ADMIN_USER = "admin";
 const STAGING_DEFAULT_ADMIN_PASSWORD = "admin";
+/** E-mail de l'admin par défaut staging : le formulaire de login attend une adresse e-mail. */
+const STAGING_DEFAULT_ADMIN_MAIL = "hello.adsolutionpro@gmail.com";
 
 /* ────────────────────────────────────────────────────────────────────────
    Utilisateurs locaux (remplacent les users Paperless). Mots de passe hashés
@@ -52,21 +54,27 @@ export async function ensureBootstrapAdmin(): Promise<void> {
 
   let username = process.env.GEDIFY_ADMIN_USER?.trim();
   let password = process.env.GEDIFY_ADMIN_PASSWORD;
+  let email = process.env.GEDIFY_ADMIN_MAIL?.trim() || "";
 
   // ── Admin par défaut « clé en main » UNIQUEMENT en staging ─────────────────
   // Sur la version SaaS staging (APP_ENV / NEXT_PUBLIC_APP_ENV = staging), si
   // aucun identifiant d'amorçage n'est fourni, on amorce un admin par défaut
-  // (admin / admin) pour pouvoir se connecter immédiatement aux données de test.
+  // (admin / admin, e-mail hello.adsolutionpro@gmail.com) pour pouvoir se
+  // connecter immédiatement aux données de test. Le formulaire de login exige
+  // une adresse e-mail (champ type="email") → on connecte avec cet e-mail.
   // STRICTEMENT gardé par isStaging() → aucun effet en développement, en
   // production (saas-production), sur main ni sur Docker Synology (qui ne posent
   // jamais APP_ENV=staging). Surchargeable via GEDIFY_ADMIN_USER /
-  // GEDIFY_ADMIN_PASSWORD ; réinitialisable via GEDIFY_ADMIN_RESET=true.
-  if ((!username || !password) && isStaging()) {
+  // GEDIFY_ADMIN_PASSWORD / GEDIFY_ADMIN_MAIL ; réinitialisable via
+  // GEDIFY_ADMIN_RESET=true.
+  const stagingDefaults = (!username || !password) && isStaging();
+  if (stagingDefaults) {
     username = username || STAGING_DEFAULT_ADMIN_USER;
     password = password || STAGING_DEFAULT_ADMIN_PASSWORD;
+    email = email || STAGING_DEFAULT_ADMIN_MAIL;
     console.warn(
-      "[engine] STAGING : identifiants admin par défaut actifs (admin/admin). " +
-        "Changez le mot de passe depuis l'interface ou définissez GEDIFY_ADMIN_USER/GEDIFY_ADMIN_PASSWORD.",
+      `[engine] STAGING : admin par défaut actif (login : ${email} / ${STAGING_DEFAULT_ADMIN_PASSWORD}). ` +
+        "Changez le mot de passe depuis l'interface ou définissez GEDIFY_ADMIN_USER/GEDIFY_ADMIN_PASSWORD/GEDIFY_ADMIN_MAIL.",
     );
   }
 
@@ -79,12 +87,24 @@ export async function ensureBootstrapAdmin(): Promise<void> {
     await createUser({
       username,
       password,
-      email: process.env.GEDIFY_ADMIN_MAIL?.trim() ?? "",
+      email,
       is_superuser: true,
       is_staff: true,
     });
-    console.log(`[engine] administrateur initial (env) créé : « ${username} ».`);
+    console.log(`[engine] administrateur initial (env) créé : « ${username} »${email ? ` (${email})` : ""}.`);
     return;
+  }
+
+  // Staging : si l'admin par défaut a déjà été amorcé SANS e-mail (volume créé
+  // avant cette version), on synchronise juste son e-mail — sans toucher au mot
+  // de passe — pour permettre la connexion par adresse e-mail. Réinitialisation
+  // du mot de passe : voir GEDIFY_ADMIN_RESET ci-dessous.
+  if (stagingDefaults && email) {
+    const current = users.find((u) => u.username.toLowerCase() === username.toLowerCase());
+    if (current && (current.email ?? "").trim().toLowerCase() !== email.toLowerCase()) {
+      await updateUser(current.id, { email });
+      console.log(`[engine] STAGING : e-mail de « ${username} » synchronisé → ${email}.`);
+    }
   }
 
   // Récupération optionnelle : forcer le mot de passe de l'admin env si demandé.
@@ -97,14 +117,20 @@ export async function ensureBootstrapAdmin(): Promise<void> {
       ? await bcrypt.compare(password, existing.passwordHash)
       : false;
     if (!matches || !existing.is_active) {
-      await updateUser(existing.id, { password, is_active: true, is_superuser: true, is_staff: true });
+      await updateUser(existing.id, {
+        password,
+        is_active: true,
+        is_superuser: true,
+        is_staff: true,
+        ...(email ? { email } : {}),
+      });
       console.log(`[engine] mot de passe de « ${username} » réinitialisé via GEDIFY_ADMIN_RESET.`);
     }
   } else {
     await createUser({
       username,
       password,
-      email: process.env.GEDIFY_ADMIN_MAIL?.trim() ?? "",
+      email,
       is_superuser: true,
       is_staff: true,
     });

@@ -117,9 +117,12 @@ En **staging uniquement** (`APP_ENV=staging` ou `NEXT_PUBLIC_APP_ENV=staging`), 
 aucun identifiant d'amorçage n'est fourni, l'application crée automatiquement un
 administrateur par défaut au premier accès :
 
-| Identifiant | Mot de passe |
-| ----------- | ------------ |
-| `admin`     | `admin`      |
+| Adresse e-mail (login)          | Mot de passe |
+| ------------------------------- | ------------ |
+| `hello.adsolutionpro@gmail.com` | `admin`      |
+
+> Le formulaire de connexion attend une **adresse e-mail** (champ `type="email"`) :
+> connectez-vous avec l'e-mail ci-dessus, pas avec l'identifiant `admin`.
 
 - Pré-requis : **`AUTH_SECRET` doit être défini** (sinon la connexion renvoie
   « Authentification non configurée »).
@@ -130,6 +133,7 @@ administrateur par défaut au premier accès :
   ```dotenv
   GEDIFY_ADMIN_USER=mon-admin
   GEDIFY_ADMIN_PASSWORD=un-mot-de-passe-fort
+  GEDIFY_ADMIN_MAIL=mon-admin@exemple.com
   ```
 - **Réinitialiser** un admin existant dont le mot de passe est perdu (volume
   recréé, bascule de backend…) :
