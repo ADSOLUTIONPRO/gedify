@@ -2,13 +2,14 @@ import "server-only";
 
 import { cookies, headers } from "next/headers";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { readSession } from "@/lib/auth/session";
 import {
   DEFAULT_TENANT,
   DEFAULT_TENANT_ID,
   isMultiTenantEnabled,
   tenantRoleSatisfies,
 } from "./tenant-config";
-import { getTenantById, listMembershipsForUser } from "./tenant-store";
+import { getTenantById, getTenantSettings, listMembershipsForUser } from "./tenant-store";
 import type { TenantContext, TenantRole } from "./types";
 
 /* ────────────────────────────────────────────────────────────────────────
@@ -61,9 +62,12 @@ export async function getCurrentTenant(): Promise<TenantContext> {
   if (!isMultiTenantEnabled()) {
     return {
       userId: user?.id ?? 0,
+      username: user?.username ?? "local",
+      email: user?.email ?? null,
       tenantId: DEFAULT_TENANT_ID,
       tenant: DEFAULT_TENANT,
       role: "owner",
+      settings: null,
     };
   }
 
@@ -86,7 +90,80 @@ export async function getCurrentTenant(): Promise<TenantContext> {
     throw new TenantAccessError(`Tenant introuvable : ${membership.tenantId}.`, "no_tenant");
   }
 
-  return { userId: user.id, tenantId: tenant.id, tenant, role: membership.role };
+  const settings = await getTenantSettings(tenant.id).catch(() => null);
+
+  return {
+    userId: user.id,
+    username: user.username,
+    email: user.email ?? null,
+    tenantId: tenant.id,
+    tenant,
+    role: membership.role,
+    settings,
+  };
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+   Diagnostic SÛR (jamais de secret : pas de password_hash, pas de token).
+   Sert au débogage de la résolution de tenant sur /admin/saas/tenant.
+   ──────────────────────────────────────────────────────────────────────── */
+export type TenantDebug = {
+  multiTenant: boolean;
+  sessionDetected: boolean;
+  sessionIdentifier: string | null;
+  userId: number | null;
+  username: string | null;
+  email: string | null;
+  membershipFound: boolean;
+  tenantFound: boolean;
+  settingsFound: boolean;
+  role: string | null;
+};
+
+export async function getTenantDebug(): Promise<TenantDebug> {
+  const multiTenant = isMultiTenantEnabled();
+  const session = await readSession();
+  const user = await getCurrentUser();
+
+  const debug: TenantDebug = {
+    multiTenant,
+    sessionDetected: Boolean(session?.username),
+    sessionIdentifier: session?.username ?? null,
+    userId: user?.id ?? null,
+    username: user?.username ?? null,
+    email: user?.email ?? null,
+    membershipFound: false,
+    tenantFound: false,
+    settingsFound: false,
+    role: null,
+  };
+
+  if (!multiTenant) {
+    debug.membershipFound = true;
+    debug.tenantFound = true;
+    debug.role = "owner";
+    return debug;
+  }
+  if (!user) return debug;
+
+  try {
+    const memberships = await listMembershipsForUser(user.id);
+    if (memberships.length === 0) return debug;
+    const selected = await readSelectedTenant();
+    const membership =
+      (selected && memberships.find((m) => m.tenantId === selected)) || memberships[0];
+    debug.membershipFound = true;
+    debug.role = membership.role;
+    const tenant = await getTenantById(membership.tenantId);
+    debug.tenantFound = Boolean(tenant);
+    if (tenant) {
+      const s = await getTenantSettings(tenant.id).catch(() => null);
+      debug.settingsFound = Boolean(s);
+    }
+  } catch {
+    /* laissé en l'état — le diagnostic reste partiel mais sans erreur */
+  }
+  return debug;
 }
 
 /** Alias explicite pour les routes/actions : renvoie le contexte ou lève. */

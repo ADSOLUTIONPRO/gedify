@@ -11,9 +11,21 @@ import { can, roleOf, type Permission, type Role } from "@/lib/auth/permissions"
 /** Utilisateur de la session courante (ou null). */
 export async function getCurrentUser(): Promise<EngineUser | null> {
   const session = await readSession();
-  if (!session?.username) return null;
+  // La session porte l'identifiant SAISI à la connexion (cf. signSession) : ce
+  // peut être le username OU l'e-mail (le formulaire de login exige une adresse
+  // e-mail). On résout donc l'utilisateur par username OU e-mail — exactement
+  // comme verifyCredentials — sinon un compte connecté par e-mail n'est jamais
+  // retrouvé (getCurrentRole/getCurrentTenant le voient comme « non connecté »).
+  const key = session?.username?.trim().toLowerCase();
+  if (!key) return null;
   const users = await readStore<EngineUser[]>(STORE.users, []);
-  return users.find((u) => u.username.toLowerCase() === session.username.toLowerCase()) ?? null;
+  return (
+    users.find(
+      (u) =>
+        u.username.trim().toLowerCase() === key ||
+        (u.email ?? "").trim().toLowerCase() === key,
+    ) ?? null
+  );
 }
 
 export async function getCurrentRole(): Promise<Role> {

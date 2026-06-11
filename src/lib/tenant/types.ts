@@ -40,7 +40,10 @@ export type TenantSettings = {
 /** Contexte tenant résolu pour la requête courante. */
 export type TenantContext = {
   userId: number;
+  username: string;
+  email: string | null;
   tenantId: string;
   tenant: Tenant;
   role: TenantRole;
+  settings: TenantSettings | null;
 };

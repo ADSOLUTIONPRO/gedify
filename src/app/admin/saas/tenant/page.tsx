@@ -1,13 +1,12 @@
-import { AlertTriangle, Building2, CheckCircle2, Gauge, ShieldCheck, XCircle } from "lucide-react";
+import { AlertTriangle, Building2, CheckCircle2, Gauge, ShieldCheck, Stethoscope, XCircle } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
 import { SectionCard } from "@/components/ui/section-card";
 import { MetadataGrid } from "@/components/ui/metadata-grid";
 import { getCurrentRole } from "@/lib/auth/current-user";
 import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
-import { getCurrentTenant } from "@/lib/tenant/get-current-tenant";
-import { getTenantSettings } from "@/lib/tenant/tenant-store";
-import type { TenantContext, TenantSettings } from "@/lib/tenant/types";
+import { getCurrentTenant, getTenantDebug } from "@/lib/tenant/get-current-tenant";
+import type { TenantContext } from "@/lib/tenant/types";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +22,18 @@ function Bool({ value }: { value: boolean }) {
   ) : (
     <span className="inline-flex items-center gap-1.5 text-slate-500">
       <XCircle className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" /> Désactivé
+    </span>
+  );
+}
+
+function YesNo({ value }: { value: boolean }) {
+  return value ? (
+    <span className="inline-flex items-center gap-1.5 text-emerald-700">
+      <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" /> Oui
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-1.5 text-rose-700">
+      <XCircle className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" /> Non
     </span>
   );
 }
@@ -48,18 +59,18 @@ export default async function SaasTenantPage() {
 
   const multiTenant = isMultiTenantEnabled();
 
-  // Résolution du contexte tenant (et des réglages) — tolérante aux erreurs.
+  // Diagnostic sûr (jamais de secret) — toujours calculé pour faciliter le support.
+  const debug = await getTenantDebug();
+
+  // Contexte tenant (tolérant aux erreurs).
   let ctx: TenantContext | null = null;
-  let settings: TenantSettings | null = null;
   let error: string | null = null;
   try {
     ctx = await getCurrentTenant();
-    if (multiTenant && ctx) {
-      settings = await getTenantSettings(ctx.tenantId);
-    }
   } catch (e) {
     error = e instanceof Error ? e.message : String(e);
   }
+  const settings = ctx?.settings ?? null;
 
   return (
     <PageShell>
@@ -74,7 +85,7 @@ export default async function SaasTenantPage() {
           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden="true" />
           <span>
             Mode <strong>mono-tenant</strong> : <Mono>MULTI_TENANT</Mono> n&apos;est pas activé. Le
-            tenant par défaut ci-dessous est synthétique (aucun accès base). Activez{" "}
+            tenant ci-dessous est synthétique (aucun accès base). Activez{" "}
             <Mono>MULTI_TENANT=true</Mono> sur l&apos;environnement SaaS pour la résolution réelle.
           </span>
         </div>
@@ -84,8 +95,8 @@ export default async function SaasTenantPage() {
         <div className="flex items-start gap-2 rounded-2xl border border-rose-200/70 bg-rose-50/70 px-3 py-2 text-xs text-rose-900">
           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden="true" />
           <span>
-            Impossible de résoudre le tenant : {error}. Vérifiez que le schéma est appliqué
-            (<Mono>npm run db:push</Mono>) et que le tenant initial existe
+            Impossible de résoudre le tenant : {error}. Voir le diagnostic ci-dessous. Vérifiez le
+            schéma (<Mono>npm run db:push</Mono>) et le tenant initial
             (<Mono>npm run saas:init-tenant</Mono>).
           </span>
         </div>
@@ -103,6 +114,8 @@ export default async function SaasTenantPage() {
                 { label: "Plan", value: <Mono>{ctx.tenant.plan ?? "—"}</Mono> },
                 { label: "Statut", value: <Mono>{ctx.tenant.status ?? "—"}</Mono> },
                 { label: "Mon rôle", value: <Mono>{ctx.role}</Mono> },
+                { label: "Utilisateur", value: <Mono>{ctx.username}</Mono> },
+                { label: "E-mail", value: ctx.email ?? "—" },
               ]}
             />
           </SectionCard>
@@ -135,6 +148,28 @@ export default async function SaasTenantPage() {
           </SectionCard>
         </>
       ) : null}
+
+      <SectionCard
+        icon={Stethoscope}
+        title="Diagnostic (résolution tenant)"
+        description="Aucun secret affiché (ni mot de passe, ni token)."
+      >
+        <MetadataGrid
+          columns={3}
+          items={[
+            { label: "MULTI_TENANT", value: <YesNo value={debug.multiTenant} /> },
+            { label: "Session détectée", value: <YesNo value={debug.sessionDetected} /> },
+            { label: "Identifiant session", value: debug.sessionIdentifier ? <Mono>{debug.sessionIdentifier}</Mono> : "—" },
+            { label: "userId", value: debug.userId ?? "—" },
+            { label: "username", value: debug.username ? <Mono>{debug.username}</Mono> : "—" },
+            { label: "email", value: debug.email ?? "—" },
+            { label: "Membership trouvé", value: <YesNo value={debug.membershipFound} /> },
+            { label: "Tenant trouvé", value: <YesNo value={debug.tenantFound} /> },
+            { label: "Settings trouvés", value: <YesNo value={debug.settingsFound} /> },
+            { label: "Rôle", value: debug.role ? <Mono>{debug.role}</Mono> : "—" },
+          ]}
+        />
+      </SectionCard>
     </PageShell>
   );
 }
