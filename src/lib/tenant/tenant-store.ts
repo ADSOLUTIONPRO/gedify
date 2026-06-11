@@ -2,6 +2,7 @@ import "server-only";
 
 import { getPool } from "@/lib/db/pg";
 import { postgresActive } from "@/lib/db/pg-store";
+import { isMultiTenantEnabled } from "./tenant-config";
 import type { Membership, Tenant, TenantRole, TenantSettings } from "./types";
 
 /* ────────────────────────────────────────────────────────────────────────
@@ -151,4 +152,54 @@ export async function getTenantCounts(tenantId: string): Promise<TenantCounts> {
     countOf("folders"),
   ]);
   return { documents, tags, correspondents, documentTypes, folders };
+}
+
+/**
+ * Tenant d'un document (pour rendre les jobs de fond tenant-aware), ou null si
+ * mono-tenant / hors postgres / introuvable / colonne absente. Ne lève jamais.
+ */
+export async function getDocumentTenantId(documentId: number): Promise<string | null> {
+  if (!isMultiTenantEnabled() || !postgresActive()) return null;
+  try {
+    const pool = await getPool();
+    const { rows } = await pool.query("SELECT tenant_id FROM documents WHERE id = $1 LIMIT 1", [documentId]);
+    return (rows[0]?.tenant_id as string | null) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export type UnscopedCounts = {
+  documents: number;
+  tags: number;
+  correspondents: number;
+  documentTypes: number;
+  folders: number;
+  documentCorrespondents: number;
+  documentFiles: number;
+};
+
+/** Compte les lignes métier SANS tenant_id (orphelines) — diagnostic anti-fuite. */
+export async function getUnscopedCounts(): Promise<UnscopedCounts> {
+  assertPostgres();
+  const pool = await getPool();
+  async function nullOf(table: string): Promise<number> {
+    try {
+      const { rows } = await pool.query(`SELECT COUNT(*)::int AS n FROM "${table}" WHERE tenant_id IS NULL`);
+      return Number(rows[0]?.n ?? 0);
+    } catch {
+      return 0;
+    }
+  }
+  const [documents, tags, correspondents, documentTypes, folders, documentCorrespondents, documentFiles] =
+    await Promise.all([
+      nullOf("documents"),
+      nullOf("tags"),
+      nullOf("correspondents"),
+      nullOf("document_types"),
+      nullOf("folders"),
+      nullOf("document_correspondents"),
+      nullOf("document_files"),
+    ]);
+  return { documents, tags, correspondents, documentTypes, folders, documentCorrespondents, documentFiles };
 }

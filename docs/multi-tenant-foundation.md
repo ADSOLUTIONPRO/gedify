@@ -143,9 +143,60 @@ npm run saas:backfill-tenant # rattache l'existant à azserver-staging (idempote
 # MULTI_TENANT=true (déjà actif) → filtrage par tenant effectif
 ```
 
-## Étapes suivantes (hors Phase 2)
+## Phase 3 — Durcissement de l'isolation (avant 2ᵉ tenant)
+
+### Jobs de fond tenant-aware
+
+`src/lib/tenant/tenant-context.ts` : contexte ambiant via `AsyncLocalStorage`
+(`runWithTenant(tenantId, fn)` / `getAmbientTenantId()`). `getActiveTenantId()`
+consulte ce contexte **en priorité** (hors requête, pas de session).
+
+Le worker pipeline (`src/lib/jobs/job-worker.ts`) résout le tenant du document
+du job (`getDocumentTenantId`) et exécute `runJob` **dans** `runWithTenant(tenant,…)`
+→ toutes les lectures/écritures du job sont filtrées et confinées à ce tenant.
+Le `tenantId` est **journalisé** par job ; un document sans `tenant_id` est
+signalé (warning) plutôt que traité « tous tenants ».
+
+### `document_correspondents` strict
+
+Ajouté à `TENANT_SCOPED_TABLES`. `pgReadDocCorrespondents` filtre par tenant ;
+`pgWriteDocCorrespondents` **estampille** `tenant_id` à l'INSERT et **confine** le
+DELETE (`WHERE role = … AND tenant_id = …`). `forbidGlobalDeleteInMultiTenant`
+empêche tout DELETE global par rôle quand `MULTI_TENANT` est actif.
+
+### `document_files`
+
+**Non utilisé au runtime** : les fichiers (originaux, miniatures, aperçus) sont
+sur le **système de fichiers** (`saveOriginal`/`saveThumbnail`…), pas dans cette
+table. La colonne `tenant_id` existe (réservée) et est couverte par les
+diagnostics ; aucun branchement runtime nécessaire tant que la table n'est pas
+utilisée.
+
+### Garde-fous anti-fuite (`tenant-scope.ts`)
+
+Tous **neutres** en mono-tenant : `assertRecordInTenant`,
+`assertRelationSameTenant`, `forbidGlobalWriteInMultiTenant`,
+`forbidGlobalDeleteInMultiTenant`, `requireTenantIdWhenMultiTenant`. Plus les
+helpers Phase 2 (`getTenantWhere`, `withTenantId`, `tenantScopedWhere`,
+`requireSameTenant`). À utiliser aux points sensibles ; déjà câblés dans le
+chemin `document_correspondents`. L'isolation lecture/écriture des collections
+cœur reste assurée centralement par la couche de stockage (engine-pg/pg-store).
+
+### Diagnostic & vérification
+
+- `/admin/saas/tenant` : compteurs par tenant **+ « lignes sans tenant_id »**
+  (documents, tags, correspondents, document_types, folders,
+  document_correspondents, document_files) avec **alerte rouge** si
+  `MULTI_TENANT=true` et qu'il reste des orphelines.
+- `npm run saas:check-isolation` (`scripts/saas/check-tenant-isolation.ts`) :
+  contrôle en lecture seule (tenants actifs, lignes sans tenant_id, cohérence des
+  relations document_correspondents ↔ document/correspondant), **exit 0 si OK,
+  exit 1 si fuite/incohérence**.
+
+## Étapes suivantes (hors Phase 3)
 
 - Étendre `tenant_id` aux autres tables métier (budget, mails, reminders, tasks…).
 - Sélecteur de tenant (UI) + résolution par sous-domaine.
-- CRUD tenants/memberships + invitations + application des limites + jobs de fond
-  tenant-aware.
+- CRUD tenants/memberships + invitations + application des limites.
+- Création/validation d'un **2ᵉ tenant** (Phase 4) une fois `saas:check-isolation`
+  vert.

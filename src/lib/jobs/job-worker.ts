@@ -2,6 +2,9 @@ import "server-only";
 
 import { claimNextJob, markJobDone, markJobFailed, reclaimStuckJobs } from "@/lib/jobs/job-store";
 import { runJob } from "@/lib/jobs/job-handlers";
+import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
+import { runWithTenant } from "@/lib/tenant/tenant-context";
+import { getDocumentTenantId } from "@/lib/tenant/tenant-store";
 
 /* ────────────────────────────────────────────────────────────────────────
    Worker du pipeline : poller in-process (mono-instance) démarré au boot via
@@ -31,7 +34,20 @@ async function tick(budget = 5): Promise<void> {
       const job = await claimNextJob();
       if (!job) break;
       try {
-        await runJob(job);
+        // Tenant-aware : on exécute le job DANS le tenant de son document, afin
+        // que toutes les lectures/écritures (engine-pg, pg-store) soient
+        // filtrées et confinées à ce tenant (cf. tenant-context / activeTenantIdFor).
+        const tenantId = await getDocumentTenantId(job.documentId);
+        if (isMultiTenantEnabled()) {
+          if (tenantId) {
+            console.log(`[jobs] ${job.type} job#${job.id} doc#${job.documentId} tenant=${tenantId}`);
+          } else {
+            console.warn(
+              `[jobs] ${job.type} job#${job.id} doc#${job.documentId} SANS tenant_id — exécutez saas:attach-data (traité hors scope).`,
+            );
+          }
+        }
+        await runWithTenant(tenantId, () => runJob(job));
         await markJobDone(job.id);
       } catch (e) {
         await markJobFailed(job.id, e instanceof Error ? e.message : String(e));

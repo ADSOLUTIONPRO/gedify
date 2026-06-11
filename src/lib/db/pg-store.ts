@@ -2,7 +2,7 @@ import "server-only";
 
 import { getPool } from "@/lib/db/pg";
 import { isSaaS, isPostgresUrl } from "@/lib/config/environment";
-import { activeTenantIdFor } from "@/lib/tenant/tenant-scope";
+import { activeTenantIdFor, forbidGlobalDeleteInMultiTenant } from "@/lib/tenant/tenant-scope";
 import {
   sqliteReadAll,
   sqliteReadByJsonIds,
@@ -345,10 +345,17 @@ export type DocCorrespondentEntry = { documentId: number; correspondentIds: numb
 export async function pgReadDocCorrespondents(role: string): Promise<DocCorrespondentEntry[]> {
   if (sqliteActive()) return sqliteReadDocCorrespondents(role);
   const pool = await getPool();
-  const { rows } = await pool.query(
-    `SELECT document_id, correspondent_id FROM document_correspondents WHERE role = $1 ORDER BY document_id, correspondent_id`,
-    [role],
-  );
+  // Multi-tenant : ne lire que les liens du tenant courant.
+  const tenantId = await activeTenantIdFor("document_correspondents");
+  const { rows } = tenantId
+    ? await pool.query(
+        `SELECT document_id, correspondent_id FROM document_correspondents WHERE role = $1 AND tenant_id = $2 ORDER BY document_id, correspondent_id`,
+        [role, tenantId],
+      )
+    : await pool.query(
+        `SELECT document_id, correspondent_id FROM document_correspondents WHERE role = $1 ORDER BY document_id, correspondent_id`,
+        [role],
+      );
   const map = new Map<number, number[]>();
   for (const r of rows) {
     const did = Number(r.document_id);
@@ -365,19 +372,35 @@ export async function pgWriteDocCorrespondents(
 ): Promise<void> {
   if (sqliteActive()) return sqliteWriteDocCorrespondents(role, entries);
   const pool = await getPool();
+  // Multi-tenant : stamping strict + suppression CONFINÉE au tenant courant.
+  // Jamais de DELETE global par rôle quand MULTI_TENANT est actif.
+  const tenantId = await activeTenantIdFor("document_correspondents");
+  forbidGlobalDeleteInMultiTenant(tenantId);
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    // Remplace tout l'ensemble du rôle (le store écrit toujours la collection complète).
-    await client.query("DELETE FROM document_correspondents WHERE role = $1", [role]);
+    if (tenantId) {
+      await client.query("DELETE FROM document_correspondents WHERE role = $1 AND tenant_id = $2", [role, tenantId]);
+    } else {
+      // Mono-tenant : remplacement complet du rôle (comportement historique).
+      await client.query("DELETE FROM document_correspondents WHERE role = $1", [role]);
+    }
     for (const e of entries) {
       for (const cid of [...new Set(e.correspondentIds)]) {
         // DO NOTHING : ne jamais écraser une ligne « primary » sur la même paire.
-        await client.query(
-          `INSERT INTO document_correspondents(document_id, correspondent_id, role) VALUES($1, $2, $3)
-           ON CONFLICT(document_id, correspondent_id) DO NOTHING`,
-          [e.documentId, cid, role],
-        );
+        if (tenantId) {
+          await client.query(
+            `INSERT INTO document_correspondents(document_id, correspondent_id, role, tenant_id) VALUES($1, $2, $3, $4)
+             ON CONFLICT(document_id, correspondent_id) DO NOTHING`,
+            [e.documentId, cid, role, tenantId],
+          );
+        } else {
+          await client.query(
+            `INSERT INTO document_correspondents(document_id, correspondent_id, role) VALUES($1, $2, $3)
+             ON CONFLICT(document_id, correspondent_id) DO NOTHING`,
+            [e.documentId, cid, role],
+          );
+        }
       }
     }
     await client.query("COMMIT");

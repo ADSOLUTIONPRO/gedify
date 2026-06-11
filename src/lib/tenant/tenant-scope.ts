@@ -24,6 +24,7 @@ export const TENANT_SCOPED_TABLES = new Set<string>([
   "correspondents",
   "document_types",
   "folders",
+  "document_correspondents",
 ]);
 
 export function isTenantScopedTable(name: string): boolean {
@@ -93,5 +94,51 @@ export function requireSameTenant(
     throw new Error(
       `Accès refusé : ressource d'un autre tenant (${recordTenantId} ≠ ${currentTenantId}).`,
     );
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+   Garde-fous anti-fuite (Phase 3). Tous NEUTRES en mono-tenant (MULTI_TENANT
+   off). À appeler aux points sensibles (lecture/écriture/suppression/relations)
+   pour empêcher toute fuite cross-tenant. `currentTenantId` est le tenant résolu
+   (getActiveTenantId / contexte ambiant).
+   ──────────────────────────────────────────────────────────────────────── */
+
+type WithTenant = { tenantId?: string | null } | null | undefined;
+
+/** Un enregistrement appartient-il au tenant courant ? Lève sinon. */
+export function assertRecordInTenant(record: WithTenant, currentTenantId: string | null): void {
+  if (!isMultiTenantEnabled() || !currentTenantId) return;
+  const rid = record?.tenantId ?? null;
+  if (rid == null) return; // legacy non rattaché (avant attach-data) : toléré
+  if (rid !== currentTenantId) {
+    throw new Error(`Fuite tenant bloquée : enregistrement ${rid} ≠ tenant courant ${currentTenantId}.`);
+  }
+}
+
+/** Deux extrémités d'une relation doivent être dans le tenant courant. Lève sinon. */
+export function assertRelationSameTenant(left: WithTenant, right: WithTenant, currentTenantId: string | null): void {
+  assertRecordInTenant(left, currentTenantId);
+  assertRecordInTenant(right, currentTenantId);
+}
+
+/** Interdit une écriture « globale » (sans tenant) quand MULTI_TENANT est actif. */
+export function forbidGlobalWriteInMultiTenant(currentTenantId: string | null): void {
+  if (isMultiTenantEnabled() && !currentTenantId) {
+    throw new Error("Écriture globale interdite en multi-tenant : tenant courant non résolu.");
+  }
+}
+
+/** Interdit une suppression « globale » (sans tenant) quand MULTI_TENANT est actif. */
+export function forbidGlobalDeleteInMultiTenant(currentTenantId: string | null): void {
+  if (isMultiTenantEnabled() && !currentTenantId) {
+    throw new Error("Suppression globale interdite en multi-tenant : tenant courant non résolu.");
+  }
+}
+
+/** Exige que `data` porte un tenant_id quand MULTI_TENANT est actif. */
+export function requireTenantIdWhenMultiTenant(data: WithTenant): void {
+  if (isMultiTenantEnabled() && !data?.tenantId) {
+    throw new Error("tenant_id requis en multi-tenant (donnée non rattachée).");
   }
 }

@@ -6,7 +6,7 @@ import { MetadataGrid } from "@/components/ui/metadata-grid";
 import { getCurrentRole } from "@/lib/auth/current-user";
 import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
 import { getCurrentTenant, getTenantDebug } from "@/lib/tenant/get-current-tenant";
-import { getTenantCounts, type TenantCounts } from "@/lib/tenant/tenant-store";
+import { getTenantCounts, getUnscopedCounts, type TenantCounts, type UnscopedCounts } from "@/lib/tenant/tenant-store";
 import type { TenantContext } from "@/lib/tenant/types";
 
 export const dynamic = "force-dynamic";
@@ -75,9 +75,20 @@ export default async function SaasTenantPage() {
 
   // Couverture des données par tenant (Phase 2) — uniquement en multi-tenant.
   let counts: TenantCounts | null = null;
+  let unscoped: UnscopedCounts | null = null;
   if (multiTenant && ctx) {
     counts = await getTenantCounts(ctx.tenantId).catch(() => null);
+    unscoped = await getUnscopedCounts().catch(() => null);
   }
+  const unscopedTotal = unscoped
+    ? unscoped.documents +
+      unscoped.tags +
+      unscoped.correspondents +
+      unscoped.documentTypes +
+      unscoped.folders +
+      unscoped.documentCorrespondents +
+      unscoped.documentFiles
+    : 0;
 
   return (
     <PageShell>
@@ -170,6 +181,41 @@ export default async function SaasTenantPage() {
               { label: "Correspondants", value: counts.correspondents },
               { label: "Types de document", value: counts.documentTypes },
               { label: "Dossiers", value: counts.folders },
+            ]}
+          />
+        </SectionCard>
+      ) : null}
+
+      {unscoped ? (
+        <SectionCard
+          icon={AlertTriangle}
+          title="Lignes sans tenant_id (orphelines)"
+          description="En multi-tenant, toute donnée métier doit porter un tenant_id."
+        >
+          {multiTenant && unscopedTotal > 0 ? (
+            <div className="mb-4 flex items-start gap-2 rounded-2xl border border-rose-300 bg-rose-50 px-3 py-2.5 text-xs font-semibold text-rose-900">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden="true" />
+              <span>
+                {unscopedTotal} ligne(s) métier sans tenant_id détectée(s) en mode multi-tenant.
+                Lancez <Mono>npm run saas:attach-data</Mono> pour les rattacher.
+              </span>
+            </div>
+          ) : (
+            <div className="mb-4 flex items-start gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+              <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden="true" />
+              <span>Aucune ligne métier orpheline — isolation OK.</span>
+            </div>
+          )}
+          <MetadataGrid
+            columns={3}
+            items={[
+              { label: "Documents", value: unscoped.documents },
+              { label: "Tags", value: unscoped.tags },
+              { label: "Correspondants", value: unscoped.correspondents },
+              { label: "Types de document", value: unscoped.documentTypes },
+              { label: "Dossiers", value: unscoped.folders },
+              { label: "document_correspondents", value: unscoped.documentCorrespondents },
+              { label: "document_files", value: unscoped.documentFiles },
             ]}
           />
         </SectionCard>

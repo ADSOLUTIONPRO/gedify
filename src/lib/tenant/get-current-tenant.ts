@@ -10,6 +10,7 @@ import {
   tenantRoleSatisfies,
 } from "./tenant-config";
 import { getTenantById, getTenantSettings, listMembershipsForUser } from "./tenant-store";
+import { getAmbientTenantId } from "./tenant-context";
 import type { TenantContext, TenantRole } from "./types";
 
 /* ────────────────────────────────────────────────────────────────────────
@@ -174,6 +175,10 @@ export async function getTenantDebug(): Promise<TenantDebug> {
  */
 export async function getActiveTenantId(): Promise<string | null> {
   if (!isMultiTenantEnabled()) return null;
+  // Contexte ambiant (jobs de fond via runWithTenant) prioritaire : pas de
+  // session disponible hors requête.
+  const ambient = getAmbientTenantId();
+  if (ambient) return ambient;
   try {
     const user = await getCurrentUser();
     if (!user) return null;
