@@ -5118,6 +5118,10 @@ var require_lib2 = __commonJS({
   }
 });
 
+// scripts/saas/encrypt-existing-files.ts
+import fs2 from "node:fs";
+import { randomUUID } from "node:crypto";
+
 // node_modules/pg/esm/index.mjs
 var import_lib = __toESM(require_lib2(), 1);
 var Client = import_lib.default.Client;
@@ -5139,8 +5143,17 @@ import path from "node:path";
 // src/lib/saas/encryption/envelope.ts
 import { randomBytes, createCipheriv, createDecipheriv } from "node:crypto";
 var MAGIC = Buffer.from("GEDENC\0", "binary");
+var VERSION = 1;
 var IV_LEN = 12;
 var TAG_LEN = 16;
+function gcmEncrypt(key, plaintext, aad) {
+  const iv = randomBytes(IV_LEN);
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+  if (aad) cipher.setAAD(aad);
+  const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return { iv, tag, ciphertext };
+}
 function gcmDecrypt(key, parts, aad) {
   const decipher = createDecipheriv("aes-256-gcm", key, parts.iv);
   if (aad) decipher.setAAD(aad);
@@ -5150,21 +5163,15 @@ function gcmDecrypt(key, parts, aad) {
 function isEnvelope(buf) {
   return buf.length >= MAGIC.length && buf.subarray(0, MAGIC.length).equals(MAGIC);
 }
-function decodeEnvelope(buf) {
-  if (!isEnvelope(buf)) throw new Error("Buffer non chiffr\xE9 (en-t\xEAte absent).");
-  let off = MAGIC.length;
-  const version = buf.readUInt8(off);
-  off += 1;
-  const keyIdLen = buf.readUInt16BE(off);
-  off += 2;
-  const keyId = buf.subarray(off, off + keyIdLen).toString("utf8");
-  off += keyIdLen;
-  const iv = buf.subarray(off, off + IV_LEN);
-  off += IV_LEN;
-  const tag = buf.subarray(off, off + TAG_LEN);
-  off += TAG_LEN;
-  const ciphertext = buf.subarray(off);
-  return { keyId, version, parts: { iv, tag, ciphertext } };
+function encodeEnvelope(keyId, key, plaintext) {
+  const aad = Buffer.from(keyId, "utf8");
+  const { iv, tag, ciphertext } = gcmEncrypt(key, plaintext, aad);
+  const keyIdBuf = Buffer.from(keyId, "utf8");
+  const header = Buffer.alloc(MAGIC.length + 1 + 2);
+  MAGIC.copy(header, 0);
+  header.writeUInt8(VERSION, MAGIC.length);
+  header.writeUInt16BE(keyIdBuf.length, MAGIC.length + 1);
+  return Buffer.concat([header, keyIdBuf, iv, tag, ciphertext]);
 }
 function unwrapKey(kek, wrapped, aad) {
   const raw = Buffer.from(wrapped, "base64");
@@ -5271,92 +5278,138 @@ function readHeader(file, n = 8) {
   }
 }
 
-// scripts/saas/check-encryption.ts
-import fs2 from "node:fs";
-async function main() {
-  const kek = parseMasterKey();
-  const present = Boolean((process.env.ENCRYPTION_MASTER_KEY ?? "").trim());
-  console.log("Chiffrement au repos :");
-  console.log(`   \u2022 ENCRYPTION_MASTER_KEY : ${present ? kek ? "pr\xE9sente & valide (32 octets)" : "pr\xE9sente mais INVALIDE" : "absente"}`);
-  console.log(`   \u2022 Chiffrement actif      : ${kek ? "oui" : "non"}`);
-  const url = process.env.DATABASE_URL;
-  if (!url) {
-    console.log("\n(DATABASE_URL absente \u2014 pas de stats base.)");
-    process.exit(0);
-  }
-  const client = new Client({ connectionString: url });
-  await client.connect();
+// scripts/saas/encrypt-existing-files.ts
+var DRY_RUN = process.argv.includes("--dry-run");
+var QUIET = process.argv.includes("--quiet");
+var RUN_DDL = `
+CREATE TABLE IF NOT EXISTS encryption_migration_runs (
+  id            TEXT PRIMARY KEY,
+  started_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  finished_at   TIMESTAMPTZ,
+  dry_run       BOOLEAN NOT NULL DEFAULT false,
+  found         INTEGER NOT NULL DEFAULT 0,
+  already_encrypted INTEGER NOT NULL DEFAULT 0,
+  encrypted     INTEGER NOT NULL DEFAULT 0,
+  skipped       INTEGER NOT NULL DEFAULT 0,
+  errors        INTEGER NOT NULL DEFAULT 0,
+  details       JSONB
+);`;
+function atomicWrite(file, data) {
+  const tmp = `${file}.enc-tmp-${process.pid}-${Date.now()}`;
   try {
-    let keyRows = [];
+    fs2.writeFileSync(tmp, data);
+    fs2.renameSync(tmp, file);
+  } catch (e) {
     try {
-      keyRows = (await client.query("SELECT tenant_id, wrapped_dek FROM tenant_encryption_keys")).rows;
+      if (fs2.existsSync(tmp)) fs2.unlinkSync(tmp);
     } catch {
-      console.log("\n   \u26A0\uFE0F  Table tenant_encryption_keys absente \u2014 ex\xE9cutez `npm run db:push`.");
-      process.exit(0);
     }
-    const tenants = Number((await client.query("SELECT COUNT(*)::int n FROM tenants").catch(() => ({ rows: [{ n: -1 }] }))).rows[0]?.n ?? -1);
-    console.log("\nCl\xE9s :");
-    console.log(`   \u2022 Tenants                : ${tenants}`);
-    console.log(`   \u2022 Cl\xE9s tenant stock\xE9es   : ${keyRows.length}`);
-    if (tenants >= 0 && keyRows.length < tenants) {
-      console.log(`   \u26A0\uFE0F  ${tenants - keyRows.length} tenant(s) sans cl\xE9 \u2014 g\xE9n\xE9rez-les via /admin/saas/encryption.`);
-    }
-    const deks = kek ? await loadTenantDeks(client, kek) : /* @__PURE__ */ new Map();
-    if (kek && keyRows.length > 0) {
-      const bad = keyRows.length - deks.size;
-      console.log(`   \u2022 DEK d\xE9wrappables (KEK) : ${deks.size}/${keyRows.length}`);
-      if (bad > 0) console.log(`   \u274C ${bad} cl\xE9(s) NON d\xE9chiffrable(s) avec la KEK courante \u2014 KEK erron\xE9e/chang\xE9e !`);
-      else console.log("   \u2705 Toutes les cl\xE9s tenant correspondent \xE0 la KEK courante.");
-    }
-    const docs = await loadDocuments(client);
-    const inv = { found: 0, encrypted: 0, plain: 0, noTenant: 0, noKey: 0, undecryptable: 0 };
-    for (const doc of docs) {
-      const files = filesForDocument(doc.id, doc.storedFilename);
-      for (const f of files) {
-        inv.found++;
-        let header;
+    throw e;
+  }
+}
+function cleanupTmp(file) {
+  try {
+    const dir = file.substring(0, file.lastIndexOf("/"));
+    const base = file.substring(file.lastIndexOf("/") + 1);
+    for (const f of fs2.readdirSync(dir)) {
+      if (f.startsWith(`${base}.enc-tmp-`)) {
         try {
-          header = readHeader(f.path);
+          fs2.unlinkSync(`${dir}/${f}`);
         } catch {
-          inv.undecryptable++;
-          continue;
-        }
-        if (!isEnvelope(header)) {
-          inv.plain++;
-          if (!doc.tenantId) inv.noTenant++;
-          continue;
-        }
-        inv.encrypted++;
-        try {
-          const full = fs2.readFileSync(f.path);
-          const { keyId, parts } = decodeEnvelope(full);
-          const dek = deks.get(keyId);
-          if (!dek) {
-            inv.noKey++;
-            continue;
-          }
-          gcmDecrypt(dek, parts, Buffer.from(keyId, "utf8"));
-        } catch {
-          inv.undecryptable++;
         }
       }
     }
-    console.log("\nFichiers documents :");
-    console.log(`   \u2022 Trouv\xE9s                : ${inv.found}`);
-    console.log(`   \u2022 Chiffr\xE9s               : ${inv.encrypted}`);
-    console.log(`   \u2022 En clair               : ${inv.plain}`);
-    if (inv.plain > 0) console.log(`   \u26A0\uFE0F  ${inv.plain} fichier(s) en clair \u2014 lancez \`npm run saas:encrypt-existing-files\`.`);
-    if (inv.noTenant > 0) console.log(`   \u26A0\uFE0F  ${inv.noTenant} fichier(s) en clair sans tenant_id (lancez saas:attach-data avant migration).`);
-    if (inv.noKey > 0) console.log(`   \u26A0\uFE0F  ${inv.noKey} fichier(s) chiffr\xE9(s) dont la cl\xE9 tenant est absente/illisible.`);
-    if (inv.undecryptable > 0) console.log(`   \u274C ${inv.undecryptable} fichier(s) illisible(s)/non d\xE9chiffrable(s) !`);
-    else if (inv.encrypted > 0) console.log("   \u2705 Tous les fichiers chiffr\xE9s sont d\xE9chiffrables.");
-    console.log("\n\u2705 check-encryption termin\xE9 (aucun secret affich\xE9).");
+  } catch {
+  }
+}
+async function main() {
+  const kek = parseMasterKey();
+  if (!kek) {
+    console.error("\u274C ENCRYPTION_MASTER_KEY absente ou invalide \u2014 migration refus\xE9e (aucun fichier modifi\xE9).");
+    process.exit(1);
+  }
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    console.error("\u274C DATABASE_URL absente.");
+    process.exit(1);
+  }
+  const client = new Client({ connectionString: url });
+  await client.connect();
+  const stats = { found: 0, alreadyEnc: 0, encrypted: 0, skipped: 0, errors: 0 };
+  const noTenantDocs = /* @__PURE__ */ new Set();
+  const noKeyTenants = /* @__PURE__ */ new Set();
+  const runId = randomUUID();
+  try {
+    await client.query(RUN_DDL);
+    if (!DRY_RUN) {
+      await client.query("INSERT INTO encryption_migration_runs(id, dry_run) VALUES ($1,$2)", [runId, false]);
+    }
+    const deks = await loadTenantDeks(client, kek);
+    const docs = await loadDocuments(client);
+    if (!QUIET) console.log(`${DRY_RUN ? "[DRY-RUN] " : ""}Migration : ${docs.length} document(s), ${deks.size} cl\xE9(s) tenant.`);
+    for (const doc of docs) {
+      if (!doc.tenantId) {
+        noTenantDocs.add(doc.id);
+        continue;
+      }
+      const dek = deks.get(doc.tenantId);
+      const files = filesForDocument(doc.id, doc.storedFilename);
+      for (const f of files) {
+        stats.found++;
+        try {
+          if (isEnvelope(readHeader(f.path))) {
+            stats.alreadyEnc++;
+            continue;
+          }
+          if (!dek) {
+            noKeyTenants.add(doc.tenantId);
+            stats.skipped++;
+            continue;
+          }
+          if (DRY_RUN) {
+            stats.encrypted++;
+            continue;
+          }
+          cleanupTmp(f.path);
+          const plaintext = fs2.readFileSync(f.path);
+          if (isEnvelope(plaintext)) {
+            stats.alreadyEnc++;
+            continue;
+          }
+          atomicWrite(f.path, encodeEnvelope(doc.tenantId, dek, plaintext));
+          stats.encrypted++;
+        } catch (e) {
+          stats.errors++;
+          if (!QUIET) console.error(`   \u26A0\uFE0F  ${f.kind} doc#${doc.id} : ${e instanceof Error ? e.message : String(e)}`);
+        }
+      }
+    }
+    const details = {
+      docsSansTenant: [...noTenantDocs].slice(0, 50),
+      tenantsSansCle: [...noKeyTenants]
+    };
+    if (!DRY_RUN) {
+      await client.query(
+        `UPDATE encryption_migration_runs SET finished_at=now(), found=$2, already_encrypted=$3, encrypted=$4, skipped=$5, errors=$6, details=$7 WHERE id=$1`,
+        [runId, stats.found, stats.alreadyEnc, stats.encrypted, stats.skipped, stats.errors, JSON.stringify(details)]
+      );
+    }
+    console.log(`
+${DRY_RUN ? "[DRY-RUN] " : ""}R\xE9sum\xE9 :`);
+    console.log(`   \u2022 Fichiers trouv\xE9s       : ${stats.found}`);
+    console.log(`   \u2022 D\xE9j\xE0 chiffr\xE9s          : ${stats.alreadyEnc}`);
+    console.log(`   \u2022 ${DRY_RUN ? "\xC0 chiffrer" : "Chiffr\xE9s"}              : ${stats.encrypted}`);
+    console.log(`   \u2022 Ignor\xE9s (sans cl\xE9)     : ${stats.skipped}`);
+    console.log(`   \u2022 Erreurs                : ${stats.errors}`);
+    if (noTenantDocs.size > 0) console.log(`   \u26A0\uFE0F  Documents sans tenant_id : ${noTenantDocs.size} (fichiers non chiffr\xE9s \u2014 lancez saas:attach-data).`);
+    if (noKeyTenants.size > 0) console.log(`   \u26A0\uFE0F  Tenants sans DEK : ${[...noKeyTenants].join(", ")} (g\xE9n\xE9rez les cl\xE9s via /admin/saas/encryption).`);
+    console.log(DRY_RUN ? "\n\u2705 Simulation termin\xE9e (aucune \xE9criture)." : "\n\u2705 Migration termin\xE9e.");
   } finally {
     await client.end();
   }
-  process.exit(0);
+  process.exit(stats.errors > 0 ? 1 : 0);
 }
 main().catch((e) => {
-  console.error("\u274C saas:check-encryption :", e instanceof Error ? e.message : String(e));
+  console.error("\u274C saas:encrypt-existing-files :", e instanceof Error ? e.message : String(e));
   process.exit(1);
 });

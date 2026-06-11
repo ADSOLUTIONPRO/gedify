@@ -1,4 +1,6 @@
-import "server-only";
+/* Primitives pures (node:crypto) — pas de "server-only" : importable par les
+   scripts CLI autonomes (migration) ET par la couche serveur. Aucun secret n'y
+   est lu : les clés sont passées en argument. */
 
 import { randomBytes, createCipheriv, createDecipheriv } from "node:crypto";
 

@@ -1080,3 +1080,18 @@ model TenantEncryptionKey {
 
   @@map("tenant_encryption_keys")
 }
+
+model EncryptionMigrationRun {
+  id          String   @id
+  startedAt   DateTime @default(now()) @map("started_at")
+  finishedAt  DateTime? @map("finished_at")
+  dryRun      Boolean  @default(false) @map("dry_run")
+  found       Int      @default(0)
+  alreadyEnc  Int      @default(0) @map("already_encrypted")
+  encrypted   Int      @default(0)
+  skipped     Int      @default(0)
+  errors      Int      @default(0)
+  details     Json?
+
+  @@map("encryption_migration_runs")
+}

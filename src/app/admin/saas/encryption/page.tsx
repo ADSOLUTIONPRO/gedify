@@ -7,6 +7,7 @@ import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getMasterKeyStatus, isEncryptionConfigured } from "@/lib/saas/encryption/master-key";
 import { listTenantsWithKey } from "@/lib/saas/encryption/tenant-keys";
+import { getEncryptionAudit } from "@/lib/saas/encryption/file-audit";
 import { listTenants } from "@/lib/tenant/tenant-store";
 import { ensureAllKeysAction } from "./actions";
 
@@ -30,9 +31,14 @@ export default async function EncryptionPage({ searchParams }: { searchParams: P
 
   const master = getMasterKeyStatus();
   const configured = isEncryptionConfigured();
-  const [tenants, withKey] = await Promise.all([listTenants().catch(() => []), listTenantsWithKey()]);
+  const [tenants, withKey, audit] = await Promise.all([
+    listTenants().catch(() => []),
+    listTenantsWithKey(),
+    getEncryptionAudit().catch(() => ({ found: 0, encrypted: 0, plain: 0, noTenant: 0, lastRun: null })),
+  ]);
   const keySet = new Set(withKey);
   const missing = tenants.filter((t) => !keySet.has(t.id));
+  const migratedDone = audit.found > 0 && audit.plain === 0;
 
   return (
     <PageShell>
@@ -64,6 +70,33 @@ export default async function EncryptionPage({ searchParams }: { searchParams: P
           <form action={ensureAllKeysAction} className="mt-4">
             <button className="h-9 rounded-xl px-4 text-[13px] font-bold text-white" style={{ background: "var(--blue-600)" }}>Générer les clés manquantes</button>
           </form>
+        ) : null}
+      </SectionCard>
+
+      <SectionCard icon={Lock} title="Fichiers documents (migration)">
+        <MetadataGrid columns={3} items={[
+          { label: "Nouveaux fichiers chiffrés", value: configured ? "Oui" : "Non" },
+          { label: "Fichiers existants migrés", value: audit.found === 0 ? "—" : (migratedDone ? "Oui" : "Partiel") },
+          { label: "Encore en clair", value: String(audit.plain) },
+          { label: "Fichiers trouvés", value: String(audit.found) },
+          { label: "Fichiers chiffrés", value: String(audit.encrypted) },
+          { label: "En clair sans tenant", value: String(audit.noTenant) },
+          {
+            label: "Dernière migration",
+            value: audit.lastRun?.finishedAt
+              ? `${new Date(audit.lastRun.finishedAt).toLocaleString("fr-FR")}${audit.lastRun.dryRun ? " (simulation)" : ""}`
+              : "jamais",
+          },
+          { label: "Dernier run — chiffrés", value: audit.lastRun ? String(audit.lastRun.encrypted) : "—" },
+          { label: "Dernier run — erreurs", value: audit.lastRun ? String(audit.lastRun.errors) : "—" },
+        ]} />
+        {audit.plain > 0 ? (
+          <p className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{audit.plain} fichier(s) encore en clair. Lancez <code className="font-mono">npm run saas:encrypt-existing-files</code> (idempotent) côté serveur pour les chiffrer.</span>
+          </p>
+        ) : audit.found > 0 ? (
+          <p className="mt-3 text-[12px] text-emerald-700">✓ Tous les fichiers documents inventoriés sont chiffrés.</p>
         ) : null}
       </SectionCard>
 

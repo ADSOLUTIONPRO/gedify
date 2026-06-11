@@ -60,6 +60,11 @@ export default async function SaasDiagnosticsPage() {
           <li><code className="font-mono">npm run saas:test-two-tenants</code> — test d&apos;isolation entre deux tenants (exit 0/1).</li>
           <li><code className="font-mono">npm run saas:check-quotas</code> — usage vs limites par tenant (exit 1 si dépassement).</li>
           <li><code className="font-mono">npm run saas:attach-data</code> — rattache les données orphelines au tenant.</li>
+          <li><code className="font-mono">npm run saas:check-billing</code> — profil émetteur, numérotation, intégrité factures.</li>
+          <li><code className="font-mono">npm run saas:check-mailing</code> — config SMTP (sans secret) + file/modèles/campagnes.</li>
+          <li><code className="font-mono">npm run saas:check-support</code> — stats support + contrôle d&apos;isolation tenant.</li>
+          <li><code className="font-mono">npm run saas:check-encryption</code> — KEK/DEK + fichiers chiffrés vs en clair.</li>
+          <li><code className="font-mono">npm run saas:encrypt-existing-files</code> — migre les fichiers existants vers le chiffrement (idempotent).</li>
         </ul>
       </SectionCard>
     </PageShell>
