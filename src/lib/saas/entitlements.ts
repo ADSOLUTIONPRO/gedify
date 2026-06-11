@@ -7,6 +7,7 @@ import { getTenantSubscription } from "./subscriptions";
 import { getActiveGrant, type SubscriptionGrant } from "./grants";
 import { getPlanDefinition, type PlanDefinition } from "./plan-store";
 import { mergeFeatures, type FeatureKey } from "./features";
+import { getSaasSettings, applyGlobalFeatureOverrides } from "./settings";
 
 /* ────────────────────────────────────────────────────────────────────────
    DROITS EFFECTIFS d'un tenant (Phase 8). Source UNIQUE des limites + features
@@ -64,7 +65,10 @@ export async function getEffectivePlanCode(tenantId: string): Promise<{ code: st
 export async function getTenantEntitlements(tenantId: string): Promise<TenantEntitlements> {
   const { code, source, grant } = await getEffectivePlanCode(tenantId);
   const plan = await getPlanDefinition(code);
-  const features = mergeFeatures(plan.features, grant?.featuresOverride ?? undefined, await tenantFeaturesOverride(tenantId) ?? undefined);
+  const merged = mergeFeatures(plan.features, grant?.featuresOverride ?? undefined, await tenantFeaturesOverride(tenantId) ?? undefined);
+  // Interrupteur GLOBAL (settings) : coupe une fonctionnalité pour TOUS les plans.
+  const settings = await getSaasSettings().catch(() => null);
+  const features = settings ? applyGlobalFeatureOverrides(merged, settings) : merged;
   return {
     planCode: plan.code,
     source,

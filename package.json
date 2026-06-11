@@ -30,6 +30,7 @@
     "saas:check-support": "node scripts/saas/check-support.mjs",
     "saas:check-encryption": "node scripts/saas/check-encryption.mjs",
     "saas:encrypt-existing-files": "node scripts/saas/encrypt-existing-files.mjs",
+    "saas:check-settings": "node scripts/saas/check-settings.mjs",
     "prisma:generate": "prisma generate",
     "prisma:sql": "node scripts/gen-sql.mjs",
     "build:scripts": "node scripts/build-scripts.mjs",

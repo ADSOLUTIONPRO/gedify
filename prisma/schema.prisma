@@ -1081,6 +1081,14 @@ model TenantEncryptionKey {
   @@map("tenant_encryption_keys")
 }
 
+model SaasSettings {
+  id        String   @id // "global"
+  data      Json
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("saas_settings")
+}
+
 model EncryptionMigrationRun {
   id          String   @id
   startedAt   DateTime @default(now()) @map("started_at")
