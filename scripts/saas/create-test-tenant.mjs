@@ -6980,12 +6980,18 @@ CREATE TABLE IF NOT EXISTS tenant_settings (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 `;
-async function nextUserId(client) {
-  const { rows } = await client.query(
-    `INSERT INTO counters(name, value) VALUES('users', 1)
-     ON CONFLICT(name) DO UPDATE SET value = counters.value + 1, updated_at = now() RETURNING value`
+async function allocateUserId(client) {
+  const maxRow = await client.query(`SELECT COALESCE(MAX(id), 0)::int AS m FROM users`);
+  const maxId = Number(maxRow.rows[0]?.m ?? 0);
+  const cntRow = await client.query(`SELECT value FROM counters WHERE name = 'users'`);
+  const counter = cntRow.rows[0] ? Number(cntRow.rows[0].value) : 0;
+  const newId = Math.max(maxId, counter) + 1;
+  await client.query(
+    `INSERT INTO counters(name, value) VALUES('users', $1)
+     ON CONFLICT(name) DO UPDATE SET value = GREATEST(counters.value, $1), updated_at = now()`,
+    [newId]
   );
-  return Number(rows[0].value);
+  return newId;
 }
 async function main() {
   const url = process.env.DATABASE_URL;
@@ -7006,7 +7012,7 @@ async function main() {
     if (found.rows[0]) {
       userId = Number(found.rows[0].id);
     } else {
-      userId = await nextUserId(client);
+      userId = await allocateUserId(client);
       const passwordHash = await import_bcryptjs.default.hash(USER.password, 10);
       const metadata = {
         id: userId,
