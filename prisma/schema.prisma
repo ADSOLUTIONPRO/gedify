@@ -1081,6 +1081,30 @@ model TenantEncryptionKey {
   @@map("tenant_encryption_keys")
 }
 
+model TenantDomain {
+  id                 String    @id
+  tenantId           String    @map("tenant_id")
+  domain             String    @unique
+  type               String    @default("subdomain") // subdomain|custom_domain
+  status             String    @default("pending") // pending|active|failed|disabled
+  isPrimary          Boolean   @default(false) @map("is_primary")
+  verificationToken  String?   @map("verification_token")
+  verificationStatus String    @default("pending") @map("verification_status") // pending|verified|failed
+  sslStatus          String    @default("pending") @map("ssl_status") // pending|active|failed|not_required
+  dnsStatus          String    @default("pending") @map("dns_status") // pending|valid|invalid
+  lastCheckedAt      DateTime? @map("last_checked_at")
+  verifiedAt         DateTime? @map("verified_at")
+  activatedAt        DateTime? @map("activated_at")
+  disabledAt         DateTime? @map("disabled_at")
+  raw                Json?
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([status])
+  @@map("tenant_domains")
+}
+
 model SecurityEvent {
   id                String    @id
   tenantId          String?   @map("tenant_id")
