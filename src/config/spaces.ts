@@ -1,6 +1,8 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Bell,
+  BriefcaseBusiness,
+  Building2,
   CalendarRange,
   FileText,
   FileType2,
@@ -221,6 +223,22 @@ export const spaces: Space[] = [
     quickActions: [
       { label: "Calendrier", href: "/calendrier", icon: CalendarRange },
       { label: "Mes tâches", href: "/rappels", icon: ListTodo },
+    ],
+  },
+  {
+    // Espace réservé aux superusers plateforme (gestion SaaS / clients). Le
+    // rail le masque pour les non-superusers (cf. AppsRail `saasAdmin`).
+    id: "gestion-clients",
+    label: "Gestion clients",
+    href: "/admin/saas",
+    icon: BriefcaseBusiness,
+    color: "#0E7490",
+    description:
+      "Administration SaaS : clients/tenants, plans, quotas, abonnements, facturation et diagnostics.",
+    shortDescription: "Clients, plans & abonnements",
+    quickActions: [
+      { label: "Clients / Espaces", href: "/admin/saas/tenants", icon: Building2 },
+      { label: "Créer un client", href: "/admin/saas/create-tenant", icon: Building2 },
     ],
   },
   {

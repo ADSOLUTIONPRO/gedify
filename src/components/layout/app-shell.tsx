@@ -10,6 +10,8 @@ import { ImportActivityIndicator } from "@/components/layout/import-activity-ind
 import { GlobalDropImport } from "@/components/layout/global-drop-import";
 import { readSession } from "@/lib/auth/session";
 import { getGedifyFeatureFlags } from "@/lib/settings/feature-flags";
+import { getCurrentUser } from "@/lib/auth/current-user";
+import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
 
 type AppShellProps = {
   children: ReactNode;
@@ -32,6 +34,10 @@ export async function AppShell({ children }: AppShellProps) {
   const ua = (await headers()).get("user-agent") ?? "";
   const isDesktop = ua.includes("GedifyDesktop");
   const { financeSpaceEnabled } = await getGedifyFeatureFlags().catch(() => ({ financeSpaceEnabled: true }));
+  // « Gestion clients » (SaaS) : visible uniquement pour un superuser sur une
+  // instance multi-tenant (jamais en local/Synology/mono-tenant).
+  const me = await getCurrentUser().catch(() => null);
+  const saasAdmin = isMultiTenantEnabled() && Boolean(me?.is_superuser);
 
   return (
     <div
@@ -46,7 +52,7 @@ export async function AppShell({ children }: AppShellProps) {
         />
       ) : null}
 
-      <AppsRail userInitials={initials} financeEnabled={financeSpaceEnabled} />
+      <AppsRail userInitials={initials} financeEnabled={financeSpaceEnabled} saasAdmin={saasAdmin} />
       <SpaceMenuSidebar financeEnabled={financeSpaceEnabled} />
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Bureau (≥ md) : topbar STICKY (reste visible au scroll) */}

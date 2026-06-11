@@ -80,7 +80,9 @@ export const RAIL_PRIMARY = [
   "agenda",
 ] as const;
 
-export const RAIL_SECONDARY = ["organiser", "office", "administration"] as const;
+// "gestion-clients" (SaaS) est placé juste AVANT "administration". Le rail le
+// masque pour les non-superusers (cf. AppsRail `saasAdmin`).
+export const RAIL_SECONDARY = ["organiser", "office", "gestion-clients", "administration"] as const;
 
 /* ── Menus par espace (allégés : uniquement l'essentiel) ───────────────── */
 
@@ -208,6 +210,35 @@ export const SPACE_MENUS: Record<string, SpaceMenu> = {
     ],
   },
 
+  "gestion-clients": {
+    id: "gestion-clients",
+    title: "Gestion clients",
+    description: "Administration SaaS (superuser)",
+    groups: [
+      { id: "pilotage", title: "Pilotage" },
+      { id: "offres", title: "Offres & finances" },
+      { id: "acces", title: "Clients & accès" },
+      { id: "exploitation", title: "Exploitation" },
+    ],
+    items: [
+      { label: "Tableau de bord SaaS", href: "/admin/saas", icon: LayoutDashboard, group: "pilotage" },
+      { label: "Clients / Espaces", href: "/admin/saas/tenants", icon: LayoutGrid, group: "pilotage" },
+      { label: "Créer un client", href: "/admin/saas/create-tenant", icon: UserPlus, group: "pilotage" },
+      { label: "Plans & offres", href: "/admin/saas/plans", icon: Sliders, group: "offres" },
+      { label: "Quotas & usages", href: "/admin/saas/usage", icon: Gauge, group: "offres" },
+      { label: "Abonnements", href: "/admin/saas/subscriptions", icon: Repeat, group: "offres" },
+      { label: "Facturation", href: "/admin/saas/billing", icon: Receipt, group: "offres" },
+      { label: "Stripe", href: "/admin/saas/stripe", icon: Banknote, group: "offres" },
+      { label: "Périodes d'essai", href: "/admin/saas/trials", icon: Clock, group: "offres" },
+      { label: "Invitations clients", href: "/admin/saas/invitations", icon: Send, group: "acces" },
+      { label: "Membres clients", href: "/admin/saas/memberships", icon: Users, group: "acces" },
+      { label: "Domaines clients", href: "/admin/saas/domains", icon: Link2, group: "acces" },
+      { label: "Sécurité clients", href: "/admin/saas/security", icon: AlertTriangle, group: "exploitation" },
+      { label: "Diagnostics SaaS", href: "/admin/saas/diagnostics", icon: Activity, group: "exploitation" },
+      { label: "Paramètres SaaS", href: "/admin/saas/settings", icon: Settings, group: "exploitation" },
+    ],
+  },
+
   office: {
     id: "office",
     title: "Office",
@@ -280,6 +311,9 @@ const ORPHAN_PREFIXES: [string, string][] = [
 /** Détermine l'id d'espace actif à partir d'un pathname. Toujours défini. */
 export function getActiveSpaceId(pathname: string): string {
   if (pathname === "/") return "accueil";
+  // Gestion clients (SaaS, superuser) — sauf /admin/saas/tenant (= espace courant
+  // de l'owner, qui ne fait pas partie de l'admin SaaS globale).
+  if (/^\/admin\/saas(\/|$)/.test(pathname) && pathname !== "/admin/saas/tenant") return "gestion-clients";
   // Hiérarchie simplifiée : espaces fusionnés (priment sur la résolution par href).
   // - Contacts = page multi-sources + correspondants.
   if (pathname.startsWith("/messagerie/contacts")) return "contacts";

@@ -1,0 +1,34 @@
+import type { ReactNode } from "react";
+import { headers } from "next/headers";
+import { ShieldCheck } from "lucide-react";
+import { PageHeader } from "@/components/ui/page-header";
+import { PageShell } from "@/components/ui/page-shell";
+import { SectionCard } from "@/components/ui/section-card";
+import { getCurrentUser } from "@/lib/auth/current-user";
+
+/* Garde commune des pages SaaS GLOBALES : superuser uniquement. Exception :
+   /admin/saas/tenant = « espace courant » de l'owner (gère son propre accès). */
+
+export default async function SaasAdminLayout({ children }: { children: ReactNode }) {
+  const pathname = (await headers()).get("x-pathname") ?? "";
+  if (pathname === "/admin/saas/tenant") return <>{children}</>;
+
+  const me = await getCurrentUser();
+  if (!me?.is_superuser) {
+    return (
+      <PageShell>
+        <PageHeader
+          breadcrumb={[{ href: "/dashboard", label: "Accueil" }, { label: "Gestion clients" }]}
+          title="Accès refusé"
+          description="Cette section est réservée aux superusers plateforme."
+        />
+        <SectionCard icon={ShieldCheck} title="403 — Accès refusé">
+          <p className="text-sm text-slate-600">
+            La gestion SaaS (clients, plans, abonnements, facturation…) est réservée aux superusers.
+          </p>
+        </SectionCard>
+      </PageShell>
+    );
+  }
+  return <>{children}</>;
+}

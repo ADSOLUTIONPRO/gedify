@@ -55,11 +55,21 @@ function RailTile({ entry, active }: { entry: RailEntry; active: boolean }) {
  * = #F7F1E7), icône + libellé sous l'icône, actif rose doux. Masqué sous `lg`
  * (navigation via `MobileTabBar`).
  */
-export function AppsRail({ financeEnabled = true }: { userInitials?: string; financeEnabled?: boolean }) {
+export function AppsRail({
+  financeEnabled = true,
+  saasAdmin = false,
+}: {
+  userInitials?: string;
+  financeEnabled?: boolean;
+  saasAdmin?: boolean;
+}) {
   const pathname = usePathname();
   const activeId = getActiveSpaceId(pathname);
-  // Masque l'espace Finances si le module est désactivé (Paramètres › Modules).
-  const entries = buildEntries().filter((e) => financeEnabled || e.id !== "finances");
+  // Masque Finances si le module est désactivé, et « Gestion clients » (SaaS)
+  // si l'utilisateur n'est pas superuser plateforme.
+  const entries = buildEntries().filter(
+    (e) => (financeEnabled || e.id !== "finances") && (saasAdmin || e.id !== "gestion-clients"),
+  );
 
   return (
     <aside
