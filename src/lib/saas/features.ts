@@ -168,6 +168,16 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
       { key: "custom_domain_enabled", label: "Domaine personnalisé" },
     ],
   },
+  {
+    id: "support", label: "Support / assistance",
+    features: [
+      { key: "help_center_enabled", label: "Centre d'aide" },
+      { key: "ai_support_assistant_enabled", label: "Assistant IA (support)" },
+      { key: "human_support_enabled", label: "Support humain (conseiller)" },
+      { key: "priority_support_enabled", label: "Support prioritaire (SLA)" },
+      { key: "support_attachments_enabled", label: "Pièces jointes au support" },
+    ],
+  },
 ];
 
 /** Toutes les clés de fonctionnalités connues. */
@@ -214,6 +224,7 @@ const FREE_DISABLED = new Set<FeatureKey>([
   "team_management_enabled", "user_invitations_enabled", "role_management_enabled",
   "audit_logs_enabled", "security_logs_enabled", "custom_branding_enabled", "custom_domain_enabled",
   "collaborative_editing_enabled", "document_versioning_enabled",
+  "human_support_enabled", "priority_support_enabled", "ai_support_assistant_enabled",
 ]);
 
 const TEST_DISABLED = new Set<FeatureKey>([

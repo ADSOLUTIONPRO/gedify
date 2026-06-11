@@ -966,3 +966,99 @@ model MailCampaign {
   @@index([status])
   @@map("mail_campaigns")
 }
+
+/**
+ * ── Support humain / chat conseiller ──────────────────────────────────────
+ * Conversations cloisonnées par tenant (un client ne voit QUE son tenant).
+ * Séparation IA / humain via `channel` + `author_type`.
+ */
+model SupportConversation {
+  id               String    @id
+  tenantId         String    @map("tenant_id")
+  ref              String    @unique // référence courte lisible (ex: SUP-0001)
+  subject          String
+  status           String    @default("open") // open|pending|waiting_customer|resolved|closed
+  channel          String    @default("chat") // chat|ticket|ai
+  priority         String    @default("normal") // low|normal|high|urgent
+  category         String?
+  createdByUserId  Int?      @map("created_by_user_id")
+  createdByName    String?   @map("created_by_name")
+  assignedToUserId Int?      @map("assigned_to_user_id")
+  lastMessageAt    DateTime? @map("last_message_at")
+  customerUnread   Int       @default(0) @map("customer_unread")
+  agentUnread      Int       @default(0) @map("agent_unread")
+  firstResponseAt  DateTime? @map("first_response_at")
+  resolvedAt       DateTime? @map("resolved_at")
+  closedAt         DateTime? @map("closed_at")
+  slaDueAt         DateTime? @map("sla_due_at")
+  slaBreached      Boolean   @default(false) @map("sla_breached")
+  ratingScore      Int?      @map("rating_score")
+  ratingComment    String?   @map("rating_comment")
+  meta             Json?
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([assignedToUserId])
+  @@map("support_conversations")
+}
+
+model SupportMessage {
+  id             String   @id
+  conversationId String   @map("conversation_id")
+  tenantId       String   @map("tenant_id")
+  authorType     String   @map("author_type") // customer|agent|ai|system
+  authorUserId   Int?     @map("author_user_id")
+  authorName     String?  @map("author_name")
+  body           String
+  isInternal     Boolean  @default(false) @map("is_internal") // note interne (jamais visible client)
+  meta           Json?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([conversationId])
+  @@index([tenantId])
+  @@map("support_messages")
+}
+
+model SupportAttachment {
+  id             String   @id
+  messageId      String?  @map("message_id")
+  conversationId String   @map("conversation_id")
+  tenantId       String   @map("tenant_id")
+  filename       String
+  mimeType       String?  @map("mime_type")
+  sizeBytes      Int?     @map("size_bytes")
+  storageKey     String   @map("storage_key")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([conversationId])
+  @@map("support_attachments")
+}
+
+model SupportSlaPolicy {
+  id                String   @id
+  name              String
+  priority          String   @default("normal")
+  firstResponseMins Int      @map("first_response_mins")
+  resolutionMins    Int      @map("resolution_mins")
+  isDefault         Boolean  @default(false) @map("is_default")
+  raw               Json?
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("support_sla_policies")
+}
+
+model SupportCannedReply {
+  id              String   @id
+  title           String
+  body            String
+  category        String?
+  shortcut        String?
+  createdByUserId Int?     @map("created_by_user_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("support_canned_replies")
+}

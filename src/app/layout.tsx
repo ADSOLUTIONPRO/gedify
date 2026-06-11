@@ -9,8 +9,10 @@ import { SessionExpiredBanner } from "@/components/ui/session-expired-banner";
 import { AssistantProvider } from "@/components/ai-assistant/assistant-provider";
 import { Toaster } from "@/components/ui/toaster";
 import { TenantBadge } from "@/components/tenant/tenant-badge";
+import { SupportWidget } from "@/components/support/support-widget";
 import { readSession } from "@/lib/auth/session";
 import { getTenantNav } from "@/lib/tenant/get-current-tenant";
+import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
 
 export const metadata: Metadata = {
   title: "Gedify",
@@ -114,6 +116,7 @@ export default async function RootLayout({
           <AuthSetupBanner />
           <SessionExpiredBanner />
           <AppShell>{children}</AppShell>
+          {isMultiTenantEnabled() ? <SupportWidget /> : null}
           <Toaster />
         </AssistantProvider>
       </body>

@@ -27,6 +27,7 @@
     "saas:check-mailing": "node scripts/saas/check-mailing.mjs",
     "saas:seed-mail-templates": "node scripts/saas/seed-mail-templates.mjs",
     "saas:process-mail-queue": "node scripts/saas/process-mail-queue.mjs",
+    "saas:check-support": "node scripts/saas/check-support.mjs",
     "prisma:generate": "prisma generate",
     "prisma:sql": "node scripts/gen-sql.mjs",
     "build:scripts": "node scripts/build-scripts.mjs",
