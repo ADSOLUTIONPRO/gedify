@@ -348,6 +348,8 @@ export type EngineDocument = DocumentDerivedStatuses & {
   checksum: string;
   deleted: boolean;
   deletedAt: string | null;
+  /** Taille de l'original (octets) — sert au calcul du quota de stockage SaaS. */
+  archiveSize?: number | null;
 };
 
 /* ── Taxonomies (formes proches de Paperless, document_count calculé) ───── */

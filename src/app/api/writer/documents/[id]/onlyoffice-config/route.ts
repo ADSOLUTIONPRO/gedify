@@ -6,6 +6,7 @@ import {
   isOnlyOfficeConfigured,
 } from "@/lib/writer/onlyoffice-config";
 import { getWriterDocument } from "@/lib/writer/writer-store";
+import { featureGate } from "@/lib/saas/quota";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,6 +15,8 @@ type Ctx = { params: Promise<{ id: string }> };
 
 export async function GET(request: NextRequest, ctx: Ctx) {
   try {
+    const denied = await featureGate("onlyoffice");
+    if (denied) return denied;
     const { id } = await ctx.params;
     const document = await getWriterDocument(id);
     if (!document) {

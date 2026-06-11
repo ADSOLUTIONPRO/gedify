@@ -5,6 +5,7 @@ import { postgresActive } from "@/lib/db/pg-store";
 import { createUser, listUsers } from "@/lib/engine/users";
 import { recordAudit } from "@/lib/audit/audit-store";
 import { getTenantById, getTenantBySlug, getTenantSettings } from "./tenant-store";
+import { getPlan } from "@/lib/saas/plans";
 
 /* ────────────────────────────────────────────────────────────────────────
    Couche d'administration des tenants (ÉCRITURE) — superuser uniquement
@@ -214,4 +215,20 @@ export async function updateTenantSettings(tenantId: string, patch: TenantSettin
 /** Suspend ou réactive un tenant (raccourci sur updateTenant). */
 export async function setTenantStatus(tenantId: string, status: TenantStatusValue): Promise<void> {
   await updateTenant(tenantId, { status });
+}
+
+/** Recopie les limites/fonctionnalités du PLAN du tenant dans tenant_settings. */
+export async function applyPlanToSettings(tenantId: string): Promise<void> {
+  const tenant = await getTenantById(tenantId);
+  if (!tenant) throw new Error(`Tenant introuvable : ${tenantId}.`);
+  const plan = getPlan(tenant.plan);
+  await updateTenantSettings(tenantId, {
+    maxUsers: plan.maxUsers,
+    maxDocuments: plan.maxDocuments,
+    maxStorageMb: plan.maxStorageMb,
+    aiEnabled: plan.aiEnabled,
+    ocrEnabled: plan.ocrEnabled,
+    emailImportEnabled: plan.emailImportEnabled,
+    onlyofficeEnabled: plan.onlyofficeEnabled,
+  });
 }

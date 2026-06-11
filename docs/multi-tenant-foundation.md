@@ -316,6 +316,30 @@ uniquement** (un owner client ne peut ni créer un tenant, ni modifier son
 plan/statut/limites). Les actions métier restent tenant-scopées (Phases 2–3) ;
 aucune donnée métier n'est créée sans `tenant_id` en multi-tenant.
 
+## Phase 7 — Plans, quotas & restrictions (sans Stripe)
+
+- `src/lib/saas/plans.ts` : config centralisée `free|test|pro|business|internal`
+  (limites + features + label/description/support). `null` = illimité.
+- `src/lib/saas/quota.ts` : `getTenantPlanLimits` (tenant_settings, sinon défauts
+  du plan), `getTenantUsage` (users/documents/storageMb), `check*Quota`,
+  `assertFeatureEnabled`, `canUse*`, et gardes `enforceDocumentQuota` /
+  `featureGate(feature)` / `userQuotaGate` (NO-OP hors MULTI_TENANT ou sans
+  tenant actif).
+- **Bloquant** : création/import document (`consume` → `enforceDocumentQuota` :
+  maxDocuments + stockage ; `archiveSize` enregistré au blob), IA
+  (`/api/ai/analyze-document`, `/api/documents/[id]/reanalyze`), OCR
+  (`/api/documents/[id]/redo-ocr`), import email
+  (`/api/mail-connector/accounts/[id]/sync`), OnlyOffice
+  (`onlyoffice-config`), création utilisateur (`/api/paperless/users`).
+  Messages propres (« Limite de documents atteinte pour votre offre. » …).
+- Admin : `/admin/saas/tenant` (owner) et `/admin/saas/tenants/[tenantId]`
+  (superuser) affichent **usage vs limites** ; le superuser peut « appliquer les
+  limites du plan » (`applyPlanToSettings`) + surcharge manuelle (Phase 6).
+- `npm run saas:check-quotas` : usage/limites par tenant, exit 1 si dépassement.
+- Sécurité : quotas vérifiés **côté serveur** ; un owner ne peut pas augmenter
+  ses quotas (édition = superuser). Stockage = best-effort (somme `archiveSize`,
+  documents créés après la Phase 7).
+
 ## Étapes suivantes (hors Phase 6)
 
 - Étendre `tenant_id` aux autres tables métier (budget, mails, reminders, tasks…).

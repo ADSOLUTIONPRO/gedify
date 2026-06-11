@@ -7,6 +7,7 @@ import { getCurrentRole } from "@/lib/auth/current-user";
 import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
 import { getCurrentTenant, getTenantDebug } from "@/lib/tenant/get-current-tenant";
 import { getTenantCounts, getUnscopedCounts, type TenantCounts, type UnscopedCounts } from "@/lib/tenant/tenant-store";
+import { getTenantPlanLimits, getTenantUsage, type EffectiveLimits, type TenantUsage } from "@/lib/saas/quota";
 import type { TenantContext } from "@/lib/tenant/types";
 
 export const dynamic = "force-dynamic";
@@ -76,10 +77,16 @@ export default async function SaasTenantPage() {
   // Couverture des données par tenant (Phase 2) — uniquement en multi-tenant.
   let counts: TenantCounts | null = null;
   let unscoped: UnscopedCounts | null = null;
+  let limits: EffectiveLimits | null = null;
+  let usage: TenantUsage | null = null;
   if (multiTenant && ctx) {
     counts = await getTenantCounts(ctx.tenantId).catch(() => null);
     unscoped = await getUnscopedCounts().catch(() => null);
+    limits = await getTenantPlanLimits(ctx.tenantId).catch(() => null);
+    usage = await getTenantUsage(ctx.tenantId).catch(() => null);
   }
+  const fmtLimit = (used: number | undefined, limit: number | null | undefined) =>
+    `${used ?? 0} / ${limit == null ? "∞" : limit}`;
   const unscopedTotal = unscoped
     ? unscoped.documents +
       unscoped.tags +
@@ -165,6 +172,23 @@ export default async function SaasTenantPage() {
             )}
           </SectionCard>
         </>
+      ) : null}
+
+      {limits && usage ? (
+        <SectionCard icon={Gauge} title="Usage vs limites" description={`Plan effectif : ${limits.planId}`}>
+          <MetadataGrid
+            columns={3}
+            items={[
+              { label: "Documents", value: fmtLimit(usage.documents, limits.maxDocuments) },
+              { label: "Utilisateurs", value: fmtLimit(usage.users, limits.maxUsers) },
+              { label: "Stockage (Mo)", value: fmtLimit(usage.storageMb, limits.maxStorageMb) },
+              { label: "IA", value: <Bool value={limits.aiEnabled} /> },
+              { label: "OCR", value: <Bool value={limits.ocrEnabled} /> },
+              { label: "Import email", value: <Bool value={limits.emailImportEnabled} /> },
+              { label: "OnlyOffice", value: <Bool value={limits.onlyofficeEnabled} /> },
+            ]}
+          />
+        </SectionCard>
       ) : null}
 
       {counts ? (

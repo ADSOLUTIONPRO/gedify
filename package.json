@@ -18,6 +18,7 @@
     "saas:create-test-tenant": "node scripts/saas/create-test-tenant.mjs",
     "saas:test-two-tenants": "node scripts/saas/test-two-tenant-isolation.mjs",
     "saas:create-tenant": "node scripts/saas/create-tenant.mjs",
+    "saas:check-quotas": "node scripts/saas/check-quotas.mjs",
     "prisma:generate": "prisma generate",
     "prisma:sql": "node scripts/gen-sql.mjs",
     "build:scripts": "node scripts/build-scripts.mjs",

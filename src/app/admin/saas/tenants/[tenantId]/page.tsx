@@ -15,7 +15,8 @@ import {
   listTenantMembersWithUser,
   getRecentDocuments,
 } from "@/lib/tenant/tenant-store";
-import { updateTenantFormAction, updateSettingsFormAction, setStatusFormAction } from "./actions";
+import { getTenantPlanLimits, getTenantUsage } from "@/lib/saas/quota";
+import { updateTenantFormAction, updateSettingsFormAction, setStatusFormAction, applyPlanFormAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -78,13 +79,17 @@ export default async function SaasTenantDetailPage({
     );
   }
 
-  const [settings, counts, members, unscoped, recent] = await Promise.all([
+  const [settings, counts, members, unscoped, recent, limits, usage] = await Promise.all([
     getTenantSettings(tenantId).catch(() => null),
     getTenantCounts(tenantId).catch(() => null),
     listTenantMembersWithUser(tenantId).catch(() => []),
     getUnscopedCounts().catch(() => null),
     getRecentDocuments(tenantId, 10).catch(() => []),
+    getTenantPlanLimits(tenantId).catch(() => null),
+    getTenantUsage(tenantId).catch(() => null),
   ]);
+  const fmtLimit = (used: number | undefined, limit: number | null | undefined) =>
+    `${used ?? 0} / ${limit == null ? "∞" : limit}`;
   const unscopedTotal = unscoped
     ? unscoped.documents + unscoped.tags + unscoped.correspondents + unscoped.documentTypes + unscoped.folders + unscoped.documentCorrespondents + unscoped.documentFiles
     : 0;
@@ -162,6 +167,27 @@ export default async function SaasTenantDetailPage({
             { label: "Limites", value: settings ? `users≤${settings.maxUsers ?? "∞"}, docs≤${settings.maxDocuments ?? "∞"}, ${settings.maxStorageMb ?? "∞"}Mo` : "—" },
           ]}
         />
+      </SectionCard>
+
+      <SectionCard icon={Gauge} title="Usage vs limites" description={limits ? `Plan effectif : ${limits.planId}` : undefined}>
+        <MetadataGrid
+          columns={3}
+          items={[
+            { label: "Documents", value: fmtLimit(usage?.documents, limits?.maxDocuments) },
+            { label: "Utilisateurs", value: fmtLimit(usage?.users, limits?.maxUsers) },
+            { label: "Stockage (Mo)", value: fmtLimit(usage?.storageMb, limits?.maxStorageMb) },
+            { label: "IA", value: limits?.aiEnabled ? "Activée" : "Désactivée" },
+            { label: "OCR", value: limits?.ocrEnabled ? "Activé" : "Désactivé" },
+            { label: "Import email", value: limits?.emailImportEnabled ? "Activé" : "Désactivé" },
+            { label: "OnlyOffice", value: limits?.onlyofficeEnabled ? "Activé" : "Désactivé" },
+          ]}
+        />
+        <form action={applyPlanFormAction} className="mt-4">
+          <input type="hidden" name="tenantId" value={tenant.id} />
+          <button type="submit" className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-[13px] font-semibold" style={{ borderColor: "var(--border)", color: "var(--accent)" }}>
+            Appliquer les limites du plan « {tenant.plan ?? "free"} »
+          </button>
+        </form>
       </SectionCard>
 
       {/* ── Édition (superuser) ─────────────────────────────────────────── */}

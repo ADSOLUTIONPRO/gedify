@@ -107,6 +107,11 @@ export async function consume(input: ConsumeInput): Promise<PaperlessTask> {
       return task;
     }
 
+    // Quota SaaS : documents + stockage (no-op hors multi-tenant / sans tenant actif).
+    // QuotaError est capturée par le catch → tâche FAILURE avec message propre.
+    const { enforceDocumentQuota } = await import("@/lib/saas/quota");
+    await enforceDocumentQuota(input.buffer.length);
+
     const id = await nextId("documents");
     const ext = path.extname(input.filename) || (input.mime ? extFromMimeSafe(input.mime) : "");
     const mime = input.mime || mimeFromExt(ext);
@@ -181,6 +186,7 @@ export async function consume(input: ConsumeInput): Promise<PaperlessTask> {
       custom_fields: input.custom_fields ?? [],
       storedFilename,
       checksum: sum,
+      archiveSize: input.buffer.length,
       deleted: false,
       deletedAt: null,
       import_status: "ready",

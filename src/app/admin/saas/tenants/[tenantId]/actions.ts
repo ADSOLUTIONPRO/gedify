@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { updateTenant, updateTenantSettings, setTenantStatus, type TenantStatusValue } from "@/lib/tenant/tenant-admin";
+import { updateTenant, updateTenantSettings, setTenantStatus, applyPlanToSettings, type TenantStatusValue } from "@/lib/tenant/tenant-admin";
 
 function str(v: FormDataEntryValue | null): string {
   return typeof v === "string" ? v : "";
@@ -53,6 +53,18 @@ export async function updateSettingsFormAction(formData: FormData): Promise<void
       emailImportEnabled: bool(formData.get("emailImportEnabled")),
       onlyofficeEnabled: bool(formData.get("onlyofficeEnabled")),
     });
+  } catch (e) {
+    back(tenantId, e instanceof Error ? e.message : "Erreur.");
+  }
+  back(tenantId);
+}
+
+/** Applique les limites du plan courant. SUPERUSER uniquement. */
+export async function applyPlanFormAction(formData: FormData): Promise<void> {
+  await requireSuperuser();
+  const tenantId = str(formData.get("tenantId"));
+  try {
+    await applyPlanToSettings(tenantId);
   } catch (e) {
     back(tenantId, e instanceof Error ? e.message : "Erreur.");
   }

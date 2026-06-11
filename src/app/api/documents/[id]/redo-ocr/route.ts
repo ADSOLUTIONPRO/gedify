@@ -5,6 +5,7 @@ import { requireAuth } from "@/lib/auth/require-auth";
 import { jsonError } from "@/lib/api-utils";
 import { enqueueJob } from "@/lib/jobs/job-store";
 import { kickJobWorker } from "@/lib/jobs/job-worker";
+import { featureGate } from "@/lib/saas/quota";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +20,8 @@ type Ctx = { params: Promise<{ id: string }> };
 export async function POST(request: NextRequest, { params }: Ctx) {
   const deny = await requireAuth(request);
   if (deny) return deny;
+  const denied = await featureGate("ocr");
+  if (denied) return denied;
 
   const { id } = await params;
   const docId = Number(id);

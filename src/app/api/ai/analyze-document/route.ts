@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { jsonError } from "@/lib/api-utils";
 import { runDocumentAnalysis } from "@/lib/ai/run-document-analysis";
 import { withDocumentAnalysisLock } from "@/lib/ai/analysis-lock";
+import { featureGate } from "@/lib/saas/quota";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,6 +28,8 @@ type Body = {
 
 export async function POST(request: NextRequest) {
   const requestId = randomUUID();
+  const denied = await featureGate("ai");
+  if (denied) return denied;
   try {
     const body = (await request.json()) as Body;
     if (body.documentId === undefined || body.documentId === null) {

@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { jsonError } from "@/lib/api-utils";
 import { runDocumentAnalysis } from "@/lib/ai/run-document-analysis";
 import { withDocumentAnalysisLock } from "@/lib/ai/analysis-lock";
+import { featureGate } from "@/lib/saas/quota";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,6 +16,8 @@ type Ctx = { params: Promise<{ id: string }> };
 // Auth is handled by middleware (same as /api/ai/analyze-document).
 export async function POST(request: NextRequest, { params }: Ctx) {
   const requestId = randomUUID();
+  const denied = await featureGate("ai");
+  if (denied) return denied;
   try {
     const { id } = await params;
     const docId = Number(id);
