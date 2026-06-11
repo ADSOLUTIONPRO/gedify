@@ -604,7 +604,7 @@ model Invoice {
   subscriptionId    String?   @map("subscription_id")
   provider          String    @default("manual")
   providerInvoiceId String?   @map("provider_invoice_id")
-  status            String? // draft|open|paid|void|uncollectible
+  status            String? // draft|issued|paid|void|canceled|refunded|uncollectible
   amountDue         Int?      @map("amount_due") // cents
   amountPaid        Int?      @map("amount_paid") // cents
   currency          String?   @default("EUR")
@@ -613,12 +613,131 @@ model Invoice {
   hostedInvoiceUrl  String?   @map("hosted_invoice_url")
   invoicePdf        String?   @map("invoice_pdf")
   raw               Json?
+  // ── Facture « réelle » (Module facturation) ──
+  invoiceNumber     String?   @unique @map("invoice_number")
+  billingProfileId  String?   @map("billing_profile_id")
+  templateId        String?   @map("template_id")
+  type              String?   @default("invoice") // invoice|credit_note|proforma
+  creditNoteOfId    String?   @map("credit_note_of_id")
+  issueDate         DateTime? @map("issue_date")
+  subtotalHtCents   Int?      @map("subtotal_ht_cents")
+  discountCents     Int?      @default(0) @map("discount_cents")
+  taxCents          Int?      @default(0) @map("tax_cents")
+  totalTtcCents     Int?      @map("total_ttc_cents")
+  vatRate           Float?    @map("vat_rate")
+  vatRegime         String?   @map("vat_regime")
+  buyerName         String?   @map("buyer_name")
+  buyerLegalName    String?   @map("buyer_legal_name")
+  buyerEmail        String?   @map("buyer_email")
+  buyerAddressLine1 String?   @map("buyer_address_line1")
+  buyerAddressLine2 String?   @map("buyer_address_line2")
+  buyerPostalCode   String?   @map("buyer_postal_code")
+  buyerCity         String?   @map("buyer_city")
+  buyerCountry      String?   @map("buyer_country")
+  buyerSiren        String?   @map("buyer_siren")
+  buyerSiret        String?   @map("buyer_siret")
+  buyerVatNumber    String?   @map("buyer_vat_number")
+  periodStart       DateTime? @map("period_start")
+  periodEnd         DateTime? @map("period_end")
+  htmlUrl           String?   @map("html_url")
+  pdfUrl            String?   @map("pdf_url")
+  legalMentionsSnapshot Json? @map("legal_mentions_snapshot")
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @default(now()) @updatedAt @map("updated_at")
 
   @@index([tenantId])
   @@index([subscriptionId])
+  @@index([status])
   @@map("invoices")
+}
+
+model InvoiceLine {
+  id              String   @id
+  invoiceId       String   @map("invoice_id")
+  description     String?
+  quantity        Float    @default(1)
+  unitPriceHtCents Int     @default(0) @map("unit_price_ht_cents")
+  discountCents   Int      @default(0) @map("discount_cents")
+  vatRate         Float?   @map("vat_rate")
+  taxCents        Int      @default(0) @map("tax_cents")
+  totalHtCents    Int      @default(0) @map("total_ht_cents")
+  totalTtcCents   Int      @default(0) @map("total_ttc_cents")
+  periodStart     DateTime? @map("period_start")
+  periodEnd       DateTime? @map("period_end")
+  sortOrder       Int      @default(0) @map("sort_order")
+  raw             Json?
+
+  @@index([invoiceId])
+  @@map("invoice_lines")
+}
+
+model BillingProfile {
+  id                          String   @id
+  profileName                 String   @map("profile_name")
+  companyName                 String   @map("company_name")
+  legalName                   String?  @map("legal_name")
+  legalForm                   String?  @map("legal_form")
+  siren                       String?
+  siret                       String?
+  vatNumber                   String?  @map("vat_number")
+  rcsCity                     String?  @map("rcs_city")
+  rcsNumber                   String?  @map("rcs_number")
+  rmNumber                    String?  @map("rm_number")
+  apeNaf                      String?  @map("ape_naf")
+  shareCapital                String?  @map("share_capital")
+  addressLine1                String   @map("address_line1")
+  addressLine2                String?  @map("address_line2")
+  postalCode                  String   @map("postal_code")
+  city                        String
+  country                     String   @default("France")
+  email                       String
+  phone                       String?
+  website                     String?
+  logoUrl                     String?  @map("logo_url")
+  signatureUrl                String?  @map("signature_url")
+  iban                        String?
+  bic                         String?
+  paymentTermsDays            Int      @default(30) @map("payment_terms_days")
+  latePaymentRate             String?  @map("late_payment_rate")
+  fixedRecoveryIndemnityCents Int      @default(4000) @map("fixed_recovery_indemnity_cents")
+  vatRegime                   String   @default("standard") @map("vat_regime") // standard|franchise_base|exempt|reverse_charge|intra_eu
+  defaultVatRate              Float?   @map("default_vat_rate")
+  invoicePrefix               String   @default("FAC") @map("invoice_prefix")
+  creditNotePrefix            String   @default("AVOIR") @map("credit_note_prefix")
+  nextInvoiceNumber           Int      @default(1) @map("next_invoice_number")
+  nextCreditNoteNumber        Int      @default(1) @map("next_credit_note_number")
+  isDefault                   Boolean  @default(false) @map("is_default")
+  legalFooterHtml             String?  @map("legal_footer_html")
+  termsFooterHtml             String?  @map("terms_footer_html")
+  raw                         Json?
+  createdAt                   DateTime @default(now()) @map("created_at")
+  updatedAt                   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("billing_profiles")
+}
+
+model InvoiceTemplate {
+  id                 String   @id
+  name               String
+  isDefault          Boolean  @default(false) @map("is_default")
+  locale             String   @default("fr-FR")
+  currency           String   @default("EUR")
+  primaryColor       String?  @map("primary_color")
+  secondaryColor     String?  @map("secondary_color")
+  fontFamily         String?  @map("font_family")
+  logoPosition       String?  @map("logo_position")
+  showLogo           Boolean  @default(true) @map("show_logo")
+  showPaymentDetails Boolean  @default(true) @map("show_payment_details")
+  showLegalFooter    Boolean  @default(true) @map("show_legal_footer")
+  showQrCode         Boolean  @default(false) @map("show_qr_code")
+  headerHtml         String?  @map("header_html")
+  footerHtml         String?  @map("footer_html")
+  customCss          String?  @map("custom_css")
+  raw                Json?
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("invoice_templates")
 }
 
 model PaymentEvent {
