@@ -6,6 +6,9 @@ const endpoint = "/api/users/";
 const label = "les utilisateurs";
 
 export async function GET(request: NextRequest) {
+  // Liste GLOBALE des comptes moteur : superuser uniquement en multi-tenant.
+  // Les owners clients voient leurs membres via la page (memberships), pas cet endpoint.
+  const g = await (await import("@/lib/saas/admin-guards")).denyGlobalAdminForTenant("users-global"); if (g) return g;
   return proxyCollectionGet(request, endpoint, { label });
 }
 

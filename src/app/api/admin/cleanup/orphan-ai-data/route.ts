@@ -65,6 +65,7 @@ async function fetchAllPaperlessIds(): Promise<Set<number>> {
 export async function POST(request: NextRequest) {
   const deny = await requireAuth(request);
   if (deny) return deny;
+  const g = await (await import("@/lib/saas/admin-guards")).denyGlobalAdminForTenant("cleanup-orphan-ai"); if (g) return g;
 
   try {
     const existingIds = await fetchAllPaperlessIds();

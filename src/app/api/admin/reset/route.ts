@@ -118,6 +118,7 @@ async function resetSuggestions() {
 export async function POST(request: NextRequest) {
   const deny = await requireAuth(request);
   if (deny) return deny;
+  const g = await (await import("@/lib/saas/admin-guards")).denyGlobalAdminForTenant("reset"); if (g) return g;
 
   let body: Record<string, unknown>;
   try {

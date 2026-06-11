@@ -17,6 +17,7 @@ export const maxDuration = 300;
 export async function GET(request: NextRequest) {
   const deny = await requireAuth(request);
   if (deny) return deny;
+  const g = await (await import("@/lib/saas/admin-guards")).denyGlobalAdminForTenant("backup-list"); if (g) return g;
   try {
     return NextResponse.json({ backups: await listServerBackups() });
   } catch (error) {
@@ -40,6 +41,7 @@ export async function POST(request: NextRequest) {
   if (!viaCron) {
     const deny = await requirePermission(request, "backup.manage");
     if (deny) return deny;
+    const g = await (await import("@/lib/saas/admin-guards")).denyGlobalAdminForTenant("backup-create"); if (g) return g;
   }
 
   let body: { includeFiles?: boolean } = {};

@@ -14,6 +14,7 @@ const EXPECTED_SCOPE = "internal-history-only";
 export async function POST(request: NextRequest) {
   const deny = await requireAuth(request);
   if (deny) return deny;
+  const g = await (await import("@/lib/saas/admin-guards")).denyGlobalAdminForTenant("reset-history"); if (g) return g;
 
   let body: Record<string, unknown>;
   try {

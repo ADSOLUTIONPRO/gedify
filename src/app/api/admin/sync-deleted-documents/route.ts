@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   const deny = await requireAuth(request);
   if (deny) return deny;
+  const g = await (await import("@/lib/saas/admin-guards")).denyGlobalAdminForTenant("sync-deleted-documents"); if (g) return g;
 
   try {
     const report = await syncDeletedPaperlessDocuments();

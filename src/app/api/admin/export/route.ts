@@ -13,6 +13,7 @@ export const maxDuration = 300;
 export async function GET(request: NextRequest) {
   const deny = await requireAuth(request);
   if (deny) return deny;
+  const g = await (await import("@/lib/saas/admin-guards")).denyGlobalAdminForTenant("export-all"); if (g) return g;
 
   const includeFiles = request.nextUrl.searchParams.get("files") !== "false";
 

@@ -18,6 +18,7 @@ const VALID = new Set<TaxonomyResource>(["tags", "correspondents", "document_typ
 export async function POST(request: NextRequest) {
   const deny = await requirePermission(request, "documents.edit");
   if (deny) return deny;
+  const g = await (await import("@/lib/saas/admin-guards")).denyGlobalAdminForTenant("taxonomy-merge"); if (g) return g;
   try {
     const body = (await request.json()) as { resource?: string; keepId?: number; mergeIds?: number[] };
     const resource = body.resource as TaxonomyResource;

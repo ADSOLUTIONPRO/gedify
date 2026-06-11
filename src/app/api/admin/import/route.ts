@@ -25,6 +25,7 @@ const REPLACE_CONFIRM = "IMPORT_REPLACE";
 export async function POST(request: NextRequest) {
   const deny = await requireAuth(request);
   if (deny) return deny;
+  const g = await (await import("@/lib/saas/admin-guards")).denyGlobalAdminForTenant("import-all"); if (g) return g;
 
   const params = request.nextUrl.searchParams;
   const mode: ImportMode = params.get("mode") === "merge" ? "merge" : "replace";

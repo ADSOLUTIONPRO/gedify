@@ -33,6 +33,7 @@
     "saas:check-settings": "node scripts/saas/check-settings.mjs",
     "saas:check-security": "node scripts/saas/check-security.mjs",
     "saas:check-domains": "node scripts/saas/check-domains.mjs",
+    "saas:check-admin-isolation": "node scripts/saas/check-admin-isolation.mjs",
     "prisma:generate": "prisma generate",
     "prisma:sql": "node scripts/gen-sql.mjs",
     "build:scripts": "node scripts/build-scripts.mjs",

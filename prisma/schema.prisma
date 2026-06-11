@@ -1081,6 +1081,31 @@ model TenantEncryptionKey {
   @@map("tenant_encryption_keys")
 }
 
+model TenantInvitation {
+  id                String    @id
+  tenantId          String    @map("tenant_id")
+  email             String
+  role              String    @default("member") // owner|admin|member|viewer
+  status            String    @default("pending") // pending|accepted|expired|canceled
+  tokenHash         String    @map("token_hash")
+  invitedByUserId   Int?      @map("invited_by_user_id")
+  acceptedByUserId  Int?      @map("accepted_by_user_id")
+  expiresAt         DateTime  @map("expires_at")
+  acceptedAt        DateTime? @map("accepted_at")
+  canceledAt        DateTime? @map("canceled_at")
+  lastSentAt        DateTime? @map("last_sent_at")
+  sendCount         Int       @default(0) @map("send_count")
+  message           String?
+  metadata          Json?
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([email])
+  @@index([status])
+  @@map("tenant_invitations")
+}
+
 model TenantDomain {
   id                 String    @id
   tenantId           String    @map("tenant_id")

@@ -53,6 +53,7 @@ async function orphanFilesIn(dir: string, active: Set<number>): Promise<string[]
 export async function POST(request: NextRequest) {
   const deny = await requirePermission(request, "admin.access");
   if (deny) return deny;
+  const g = await (await import("@/lib/saas/admin-guards")).denyGlobalAdminForTenant("maintenance-orphans"); if (g) return g;
 
   try {
     const active = await activeIds();
