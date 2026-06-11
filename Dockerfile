@@ -6,7 +6,15 @@ FROM node:22.13-alpine AS deps
 WORKDIR /app
 RUN apk add --no-cache libc6-compat
 COPY package.json package-lock.json* ./
-RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+# Étape de BUILD : on FORCE l'installation des devDependencies via --include=dev.
+# Coolify expose NODE_ENV=production au build-time → npm appliquerait sinon
+# --omit=dev implicitement et n'installerait PAS le toolchain de build
+# (tailwindcss, @tailwindcss/postcss, postcss, typescript, prisma, @types/*,
+# babel-plugin-react-compiler…) → « Cannot find module '@tailwindcss/postcss' »
+# sur globals.css pendant `next build`. --include=dev l'emporte sur cet omit.
+# Sans effet sur Synology (où devDeps s'installaient déjà) ; le runtime final
+# reste léger (sortie standalone Next + node_modules copiés sélectivement).
+RUN if [ -f package-lock.json ]; then npm ci --include=dev; else npm install --include=dev; fi
 # `npm ci` peut omettre les optionalDependencies spécifiques à la plateforme
 # (binaires natifs @img/sharp-linuxmusl-* et @napi-rs/canvas-linux-*-musl) quand
 # le lockfile vient d'un autre OS (bug npm connu) → réinstallation ciblée pour la
