@@ -14,9 +14,17 @@ import { PageShell } from "@/components/ui/page-shell";
 import { SectionCard } from "@/components/ui/section-card";
 import { MetadataGrid } from "@/components/ui/metadata-grid";
 import { getCurrentRole } from "@/lib/auth/current-user";
-import { getEnvironmentDiagnostics, type AppEnv } from "@/lib/config/environment";
+import { getEnvironmentDiagnostics, isPostgresUrl, type AppEnv } from "@/lib/config/environment";
+import { getStorageMode } from "@/lib/db/pg-store";
+import { getDataDir } from "@/lib/storage/data-dir";
 
 export const dynamic = "force-dynamic";
+
+const STORAGE_MODE_LABEL: Record<"postgres" | "sqlite" | "json", string> = {
+  postgres: "PostgreSQL",
+  sqlite: "SQLite",
+  json: "JSON (fichiers)",
+};
 
 const ENV_LABEL: Record<AppEnv, string> = {
   development: "Développement",
@@ -96,6 +104,13 @@ export default async function EnvironmentDiagnosticPage() {
   }
 
   const d = getEnvironmentDiagnostics();
+  const storageMode = getStorageMode();
+  const dataDir = getDataDir();
+  const databaseType = isPostgresUrl(process.env.DATABASE_URL)
+    ? "PostgreSQL"
+    : d.databaseUrlConfigured
+      ? "Autre"
+      : "—";
 
   return (
     <PageShell>
@@ -140,6 +155,58 @@ export default async function EnvironmentDiagnosticPage() {
             { label: "REDIS_URL configurée", value: <YesNo value={d.redisUrlConfigured} /> },
           ]}
         />
+      </SectionCard>
+
+      <SectionCard
+        icon={Database}
+        title="Stockage métier (base de données)"
+        description="Moteur effectif des données métier — distinct du stockage des fichiers."
+      >
+        <MetadataGrid
+          columns={3}
+          items={[
+            {
+              label: "Storage mode actuel",
+              value:
+                storageMode === "postgres" ? (
+                  <span className="inline-flex items-center gap-1.5 text-emerald-700">
+                    <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+                    {STORAGE_MODE_LABEL[storageMode]}
+                  </span>
+                ) : (
+                  <span
+                    className={`inline-flex items-center gap-1.5 ${
+                      d.appEnv === "staging" || d.appEnv === "production"
+                        ? "text-rose-700"
+                        : "text-slate-700"
+                    }`}
+                  >
+                    {d.appEnv === "staging" || d.appEnv === "production" ? (
+                      <AlertTriangle className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+                    ) : null}
+                    {STORAGE_MODE_LABEL[storageMode]}
+                  </span>
+                ),
+            },
+            { label: "Database configured", value: <YesNo value={d.databaseUrlConfigured} /> },
+            { label: "Database type detected", value: <Mono>{databaseType}</Mono> },
+            { label: "dataDir", value: <Mono>{dataDir}</Mono> },
+            { label: "APP_ENV", value: <EnvPill env={d.appEnv} /> },
+            { label: "STORAGE_DRIVER", value: <Mono>{d.storageDriver}</Mono> },
+            { label: "STORAGE_ROOT", value: <Mono>{d.storageRoot}</Mono> },
+          ]}
+        />
+        {(d.appEnv === "staging" || d.appEnv === "production") && storageMode === "json" ? (
+          <div className="mt-4 flex items-start gap-2 rounded-2xl border border-rose-200/70 bg-rose-50/70 px-3 py-2 text-xs text-rose-900">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden="true" />
+            <span>
+              Environnement SaaS en stockage JSON : les données métier ne sont pas persistées en
+              base. Configurez une <Mono>DATABASE_URL</Mono> PostgreSQL (le mode bascule
+              automatiquement). Le démarrage est refusé sauf{" "}
+              <Mono>ALLOW_JSON_STORAGE_IN_SAAS=true</Mono>.
+            </span>
+          </div>
+        ) : null}
       </SectionCard>
 
       <SectionCard

@@ -62,6 +62,22 @@ export function isProduction(): boolean {
   return getAppEnv() === "production";
 }
 
+/**
+ * Environnement SaaS (Coolify) = staging OU production. Sert à imposer le
+ * backend PostgreSQL (cf. getStorageMode / assertSaaSStorageBackend).
+ * Le développement local et le déploiement Synology ne sont JAMAIS « SaaS ».
+ */
+export function isSaaS(): boolean {
+  const e = getAppEnv();
+  return e === "staging" || e === "production";
+}
+
+/** Une URL de connexion PostgreSQL ? (`postgresql://` ou `postgres://`). */
+export function isPostgresUrl(url: string | undefined | null): boolean {
+  const u = url?.trim().toLowerCase() ?? "";
+  return u.startsWith("postgresql://") || u.startsWith("postgres://");
+}
+
 /* ── URLs ──────────────────────────────────────────────────────────────── */
 
 /** URL applicative côté serveur (APP_URL), ou null si non configurée. */

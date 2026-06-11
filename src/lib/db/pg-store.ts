@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getPool } from "@/lib/db/pg";
+import { isSaaS, isPostgresUrl } from "@/lib/config/environment";
 import {
   sqliteReadAll,
   sqliteReadByJsonIds,
@@ -25,10 +26,50 @@ import {
    MÉLANGE jamais les deux backends.
    ──────────────────────────────────────────────────────────────────────── */
 
-/** Mode de stockage déclaré (`json` par défaut). */
+/**
+ * Mode de stockage MÉTIER effectif.
+ *
+ * 1. Si `GEDIFY_STORAGE_MODE` est défini explicitement (`postgres`/`sqlite`/
+ *    `json`), il fait foi — comportement historique (Synology utilise `sqlite`,
+ *    le local reste `json`).
+ * 2. Sinon, en environnement SaaS (APP_ENV=staging|production) AVEC une
+ *    `DATABASE_URL` PostgreSQL, on bascule AUTOMATIQUEMENT en `postgres` — sans
+ *    exiger `GEDIFY_STORAGE_MODE`. C'est ce qui corrige le « mode=json » en SaaS.
+ * 3. Sinon : `json` (défaut historique pour le local/desktop).
+ *
+ * Le repli automatique vers JSON est INTERDIT en SaaS (cf.
+ * assertSaaSStorageBackend) : un SaaS doit démarrer sur PostgreSQL.
+ */
 export function getStorageMode(): "postgres" | "sqlite" | "json" {
-  const m = process.env.GEDIFY_STORAGE_MODE?.trim().toLowerCase();
-  return m === "postgres" || m === "sqlite" ? m : "json";
+  const explicit = process.env.GEDIFY_STORAGE_MODE?.trim().toLowerCase();
+  if (explicit === "postgres" || explicit === "sqlite" || explicit === "json") {
+    return explicit;
+  }
+  if (isSaaS() && isPostgresUrl(process.env.DATABASE_URL)) {
+    return "postgres";
+  }
+  return "json";
+}
+
+/**
+ * Garde-fou SaaS : en staging/production, REFUSE de démarrer en stockage JSON
+ * (données métier non persistées en base) sauf opt-in explicite
+ * `ALLOW_JSON_STORAGE_IN_SAAS=true`. Idempotent (vérifié une seule fois).
+ * Appelé au démarrage (instrumentation) → échoue vite avec un message clair.
+ */
+let saasStorageAsserted = false;
+export function assertSaaSStorageBackend(): void {
+  if (saasStorageAsserted) return;
+  saasStorageAsserted = true;
+  if (!isSaaS()) return;
+  if (getStorageMode() === "json") {
+    const allow = /^(1|true|yes)$/i.test((process.env.ALLOW_JSON_STORAGE_IN_SAAS ?? "").trim());
+    if (!allow) {
+      throw new Error(
+        "SaaS environment requires PostgreSQL. Refusing to start in JSON storage mode.",
+      );
+    }
+  }
 }
 
 /** Postgres réellement actif (nécessite le pool pg + DATABASE_URL). */

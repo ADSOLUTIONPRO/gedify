@@ -100,9 +100,20 @@ RUN chmod +x ./deploy/synology/scripts/*.sh \
  && sh -n ./deploy/synology/scripts/start-synology.sh \
  && echo "[build] scripts Synology OK"
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
-RUN rm -rf node_modules/@prisma/engines node_modules/@prisma/dev \
-           node_modules/@prisma/studio-core node_modules/@prisma/fetch-engine \
-           node_modules/@prisma/get-platform
+# Prisma CLI au RUNTIME : permet `npm run db:push` / `db:migrate` / `db:generate`
+# directement dans le conteneur (SaaS PostgreSQL). On copie le paquet `prisma`,
+# sa config (prisma.config.ts fournit l'URL via DATABASE_URL — le datasource du
+# schéma n'a pas d'`url`), et on recrée le binaire .bin/prisma. On NE supprime
+# PLUS @prisma/engines (schema-engine requis par db push/migrate) ni les paquets
+# que le CLI Prisma 7 charge au démarrage (ex. @prisma/studio-core) : l'image est
+# un peu plus grosse mais le CLI fonctionne de bout en bout. Impacte uniquement
+# l'image SaaS (Coolify) — Synology/main build depuis un autre Dockerfile.
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.ts ./prisma.config.ts
+RUN mkdir -p node_modules/.bin \
+ && ln -sf ../prisma/build/index.js node_modules/.bin/prisma \
+ && node node_modules/prisma/build/index.js -v >/dev/null 2>&1 \
+ && echo "[build] Prisma CLI runtime OK"
 # Auto-tests : (1) les scripts gedify:* sont bien listés dans /app/package.json ;
 # (2) la chaîne de migration se charge dans l'image (dry-run, n'écrit rien en base).
 RUN node -e "const s=require('./package.json').scripts||{}; if(!s['gedify:migrate-json']){console.error('[build] scripts gedify absents du package.json');process.exit(1)} console.log('[build] scripts gedify présents')"

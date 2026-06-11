@@ -73,15 +73,26 @@ Projet : Gedify SaaS
 | `STORAGE_ROOT`         | Racine du stockage (chemin disque ou bucket)                     |
 | `STORAGE_PREFIX`       | Préfixe de clés (isole staging/prod, futur tenant)              |
 | `AUTH_SECRET`          | Secret de signature des sessions (≥ 32 caractères)              |
-| `GEDIFY_STORAGE_MODE`  | Mode base de données : `postgres` en SaaS                       |
+| `GEDIFY_STORAGE_MODE`  | Mode base **optionnel** en SaaS (auto-détecté, voir ci-dessous) |
+| `ALLOW_JSON_STORAGE_IN_SAAS` | `true` pour autoriser exceptionnellement le JSON en SaaS  |
 | `AI_PROVIDER`          | Fournisseur IA (`mock` par défaut, `openai`, `ollama`…)         |
 | `EMAILS_ENABLED`       | Active l'envoi d'emails (`true`/`false`)                        |
 | `STRIPE_MODE`          | `test` \| `live` \| `off` (la clé reste dans `STRIPE_SECRET_KEY`)|
 
-> Le **mode base** (`GEDIFY_STORAGE_MODE`) et le **stockage des fichiers**
+> Le **mode base** (données métier) et le **stockage des fichiers**
 > (`STORAGE_DRIVER`/`STORAGE_ROOT`/`STORAGE_PREFIX`) sont **deux notions
 > distinctes** : la première concerne les métadonnées en base, la seconde les
 > fichiers (binaires).
+
+> **Sélection automatique du moteur métier (SaaS).** En `APP_ENV=staging` ou
+> `production`, si `DATABASE_URL` est une URL PostgreSQL (`postgresql://` /
+> `postgres://`), le moteur métier passe **automatiquement** en PostgreSQL —
+> **`GEDIFY_STORAGE_MODE` n'est plus requis**. Le repli automatique en JSON est
+> **interdit** en SaaS : si le mode effectif est JSON, l'application **refuse de
+> démarrer** (`SaaS environment requires PostgreSQL. Refusing to start in JSON
+> storage mode.`) sauf `ALLOW_JSON_STORAGE_IN_SAAS=true`. Hors SaaS (local,
+> Synology), `GEDIFY_STORAGE_MODE` explicite reste prioritaire et le défaut
+> demeure `json` → aucun changement.
 
 ### Variables staging
 
@@ -185,6 +196,13 @@ STRIPE_MODE=live
 - Le `prisma generate` est lancé au build (`npm run build`). Aucune migration
   destructive n'est exécutée automatiquement : les changements de schéma se font
   d'abord sur staging.
+- **Le client Prisma est disponible DANS le conteneur** (CLI embarqué). Après un
+  (re)déploiement, applique le schéma depuis le terminal Coolify de l'app :
+  ```bash
+  npm run db:push        # synchronise le schéma (prisma db push) — staging
+  npm run db:migrate     # applique les migrations (prisma migrate deploy) — prod
+  npm run db:generate    # régénère le client si besoin
+  ```
 
 ## 5. Redis staging / production séparés
 
