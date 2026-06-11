@@ -5,6 +5,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { getDataDir } from "@/lib/storage/data-dir";
 import { filesSubdir, legacyMediaSubdir, resolveExistingFilePath } from "@/lib/storage/ged-paths";
+import { encryptOnWrite, decryptOnRead } from "@/lib/saas/encryption/file-crypto";
 import {
   postgresEngineEnabled,
   engineCollectionSupported,
@@ -186,7 +187,7 @@ export async function saveOriginal(id: number, ext: string, buf: Buffer): Promis
   await ensureDir(originalsDir());
   const safeExt = ext && /^\.[A-Za-z0-9]+$/.test(ext) ? ext.toLowerCase() : "";
   const filename = `${id}${safeExt}`;
-  await fs.writeFile(path.join(originalsDir(), filename), buf);
+  await fs.writeFile(path.join(originalsDir(), filename), await encryptOnWrite(buf));
   return filename;
 }
 
@@ -195,7 +196,7 @@ export async function readOriginal(filename: string): Promise<Buffer | null> {
   const p = resolveExistingFilePath("originals", filename);
   if (!p) return null;
   try {
-    return await fs.readFile(p);
+    return await decryptOnRead(await fs.readFile(p));
   } catch {
     return null;
   }
@@ -208,14 +209,14 @@ export async function deleteOriginal(filename: string): Promise<void> {
 
 export async function saveThumbnail(id: number, buf: Buffer): Promise<void> {
   await ensureDir(thumbnailsDir());
-  await fs.writeFile(path.join(thumbnailsDir(), `${id}.webp`), buf);
+  await fs.writeFile(path.join(thumbnailsDir(), `${id}.webp`), await encryptOnWrite(buf));
 }
 
 export async function readThumbnail(id: number): Promise<Buffer | null> {
   const p = resolveExistingFilePath("thumbnails", `${id}.webp`);
   if (!p) return null;
   try {
-    return await fs.readFile(p);
+    return await decryptOnRead(await fs.readFile(p));
   } catch {
     return null;
   }
@@ -240,11 +241,11 @@ export async function originalExists(filename: string): Promise<boolean> {
 /* ── Aperçus (previews) — image moyenne résolution, files/previews/<id>.webp ── */
 export async function savePreview(id: number, buf: Buffer): Promise<void> {
   await ensureDir(previewsDir());
-  await fs.writeFile(path.join(previewsDir(), `${id}.webp`), buf);
+  await fs.writeFile(path.join(previewsDir(), `${id}.webp`), await encryptOnWrite(buf));
 }
 export async function readPreview(id: number): Promise<Buffer | null> {
   try {
-    return await fs.readFile(path.join(previewsDir(), `${id}.webp`));
+    return await decryptOnRead(await fs.readFile(path.join(previewsDir(), `${id}.webp`)));
   } catch {
     return null;
   }
@@ -267,11 +268,11 @@ function pageDirFor(id: number) {
 }
 export async function savePage(id: number, pageNumber: number, buf: Buffer): Promise<void> {
   await ensureDir(pageDirFor(id));
-  await fs.writeFile(path.join(pageDirFor(id), `${pageNumber}.webp`), buf);
+  await fs.writeFile(path.join(pageDirFor(id), `${pageNumber}.webp`), await encryptOnWrite(buf));
 }
 export async function readPage(id: number, pageNumber: number): Promise<Buffer | null> {
   try {
-    return await fs.readFile(path.join(pageDirFor(id), `${pageNumber}.webp`));
+    return await decryptOnRead(await fs.readFile(path.join(pageDirFor(id), `${pageNumber}.webp`)));
   } catch {
     return null;
   }

@@ -10,6 +10,7 @@ import { recordAudit } from "@/lib/audit/audit-store";
 import { getTenantById, listTenantMembersWithUser } from "@/lib/tenant/tenant-store";
 import { enqueueMail } from "@/lib/saas/mailing/queue";
 import { getAppBaseUrl } from "@/lib/saas/mailing/config";
+import { encryptForTenant, decryptOnRead } from "@/lib/saas/encryption/file-crypto";
 import { getDefaultBillingProfile } from "./profile-store";
 import { reserveInvoiceNumber, reserveCreditNoteNumber } from "./invoice-numbering";
 import { buildLegalMentions } from "./legal-mentions";
@@ -188,8 +189,9 @@ async function renderAndStore(invoice: InvoiceRecord, lines: Record<string, unkn
   const number = (invoice.invoice_number as string) ?? String(invoice.id);
   const dir = path.join(getDataDir(), "billing", "invoices", tenantId);
   await mkdir(dir, { recursive: true });
-  await writeFile(path.join(dir, `${number}.html`), html, "utf8");
-  await writeFile(path.join(dir, `${number}.pdf`), pdf);
+  // Documents potentiellement sensibles → chiffrés au repos avec la clé du tenant.
+  await writeFile(path.join(dir, `${number}.html`), await encryptForTenant(tenantId, Buffer.from(html, "utf8")));
+  await writeFile(path.join(dir, `${number}.pdf`), await encryptForTenant(tenantId, Buffer.from(pdf)));
 
   const base = `/admin/saas/billing/invoices/${invoice.id}`;
   // snapshot mentions + urls persistés
@@ -321,14 +323,14 @@ export async function readInvoiceFile(invoice: InvoiceRecord, kind: "html" | "pd
   const number = (invoice.invoice_number as string) ?? String(invoice.id);
   const file = path.join(getDataDir(), "billing", "invoices", String(invoice.tenant_id), `${number}.${kind}`);
   try {
-    return await readFile(file);
+    return await decryptOnRead(await readFile(file));
   } catch {
     // Régénère à la volée si le fichier manque (et que la facture est émise).
     if (invoice.invoice_number) {
       const data = await getInvoice(String(invoice.id));
       if (data) {
         await renderAndStore(data.invoice, data.lines);
-        try { return await readFile(file); } catch { return null; }
+        try { return await decryptOnRead(await readFile(file)); } catch { return null; }
       }
     }
     return null;

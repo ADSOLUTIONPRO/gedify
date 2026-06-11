@@ -237,6 +237,7 @@ export default async function EnvironmentDiagnosticPage() {
           items={[
             { label: "AI_PROVIDER", value: <Mono>{d.aiProvider}</Mono> },
             { label: "EMAILS_ENABLED", value: <YesNo value={d.emailsEnabled} /> },
+            { label: "ENCRYPTION_MASTER_KEY", value: <YesNo value={d.encryptionConfigured} /> },
             { label: "STRIPE_MODE", value: <Mono>{d.stripeMode}</Mono> },
           ]}
         />

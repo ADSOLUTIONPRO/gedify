@@ -121,6 +121,17 @@ export async function createTenantWithOwner(input: CreateTenantInput): Promise<C
   await recordAudit({ action: "membership_created", target: `${slug}:${ownerId}`, details: "role=owner" });
   await recordAudit({ action: "tenant_settings_updated", target: slug, details: "init" });
 
+  // Chiffrement au repos : génère la clé du tenant si une KEK maître est configurée.
+  // Best-effort : ne bloque jamais la création du client.
+  try {
+    const { isEncryptionConfigured } = await import("@/lib/saas/encryption/master-key");
+    if (isEncryptionConfigured()) {
+      const { ensureTenantKey } = await import("@/lib/saas/encryption/tenant-keys");
+      await ensureTenantKey(slug);
+      await recordAudit({ action: "tenant_encryption_key_created", target: slug });
+    }
+  } catch { /* clé créée plus tard via /admin/saas/encryption */ }
+
   return { tenantId: slug, ownerId, ownerCreated };
 }
 

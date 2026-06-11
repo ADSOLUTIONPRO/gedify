@@ -147,6 +147,8 @@ export type EnvironmentDiagnostics = {
   aiProvider: string;
   /** Envoi d'emails activé ? (EMAILS_ENABLED). */
   emailsEnabled: boolean;
+  /** Chiffrement au repos configuré ? (ENCRYPTION_MASTER_KEY présente — jamais la valeur). */
+  encryptionConfigured: boolean;
   /** Mode Stripe : "test" | "live" | "off" (jamais la clé). */
   stripeMode: string;
   /** Horodatage de génération du rapport. */
@@ -184,6 +186,7 @@ export function getEnvironmentDiagnostics(): EnvironmentDiagnostics {
     storagePrefix: getStoragePrefix(),
     aiProvider: process.env.AI_PROVIDER?.trim().toLowerCase() || "mock",
     emailsEnabled: areEmailsEnabled(),
+    encryptionConfigured: Boolean(process.env.ENCRYPTION_MASTER_KEY?.trim()),
     stripeMode: getStripeMode(),
     generatedAt: new Date().toISOString(),
   };

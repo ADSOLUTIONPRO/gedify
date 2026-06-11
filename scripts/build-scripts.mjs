@@ -46,6 +46,7 @@ const entries = [
   ["scripts/saas/seed-mail-templates.ts", "scripts/saas/seed-mail-templates.mjs"],
   ["scripts/saas/process-mail-queue.ts", "scripts/saas/process-mail-queue.mjs"],
   ["scripts/saas/check-support.ts", "scripts/saas/check-support.mjs"],
+  ["scripts/saas/check-encryption.ts", "scripts/saas/check-encryption.mjs"],
 ];
 
 for (const [entry, outfile] of entries) {

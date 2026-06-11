@@ -1062,3 +1062,21 @@ model SupportCannedReply {
 
   @@map("support_canned_replies")
 }
+
+/**
+ * ── Chiffrement au repos par tenant (enveloppe) ───────────────────────────
+ * La DEK (clé de données du tenant) n'est JAMAIS stockée en clair : elle est
+ * chiffrée (wrapped) avec la KEK maître (ENCRYPTION_MASTER_KEY) via AES-256-GCM.
+ */
+model TenantEncryptionKey {
+  id          String   @id
+  tenantId    String   @unique @map("tenant_id")
+  wrappedDek  String   @map("wrapped_dek") // base64(iv|tag|ciphertext) — DEK chiffrée par la KEK
+  algo        String   @default("aes-256-gcm")
+  keyVersion  Int      @default(1) @map("key_version")
+  status      String   @default("active") // active|rotating|retired
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("tenant_encryption_keys")
+}
