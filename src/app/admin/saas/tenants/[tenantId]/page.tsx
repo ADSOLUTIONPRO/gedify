@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { AlertTriangle, Building2, ChevronLeft, Database, FileText, Gauge, ShieldCheck, Users } from "lucide-react";
+import { AlertTriangle, Building2, ChevronLeft, Database, FileText, Gauge, Pencil, Power, ShieldCheck, Users } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
 import { SectionCard } from "@/components/ui/section-card";
 import { MetadataGrid } from "@/components/ui/metadata-grid";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
+import { TENANT_PLANS, TENANT_STATUSES } from "@/lib/tenant/tenant-admin";
 import {
   getTenantById,
   getTenantCounts,
@@ -14,8 +15,11 @@ import {
   listTenantMembersWithUser,
   getRecentDocuments,
 } from "@/lib/tenant/tenant-store";
+import { updateTenantFormAction, updateSettingsFormAction, setStatusFormAction } from "./actions";
 
 export const dynamic = "force-dynamic";
+
+const inputCls = "h-10 w-full rounded-xl border px-3 text-[14px] outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100";
 
 function Mono({ children }: { children: React.ReactNode }) {
   return <code className="font-mono text-[12px]">{children}</code>;
@@ -23,10 +27,13 @@ function Mono({ children }: { children: React.ReactNode }) {
 
 export default async function SaasTenantDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ tenantId: string }>;
+  searchParams: Promise<{ updated?: string; created?: string; error?: string }>;
 }) {
   const { tenantId } = await params;
+  const { updated, created, error } = await searchParams;
   const breadcrumb = [
     { href: "/dashboard", label: "Accueil" },
     { href: "/admin/saas/tenants", label: "Tenants SaaS" },
@@ -82,9 +89,24 @@ export default async function SaasTenantDetailPage({
     ? unscoped.documents + unscoped.tags + unscoped.correspondents + unscoped.documentTypes + unscoped.folders + unscoped.documentCorrespondents + unscoped.documentFiles
     : 0;
 
+  const isSuspended = (tenant.status ?? "").toLowerCase() === "suspended";
+
   return (
     <PageShell>
-      <PageHeader breadcrumb={breadcrumb} title={tenant.name ?? tenant.id} description={`Diagnostic tenant (superuser) — ${tenant.slug}`} />
+      <PageHeader breadcrumb={breadcrumb} title={tenant.name ?? tenant.id} description={`Tenant (superuser) — ${tenant.slug}`} />
+
+      {created || updated ? (
+        <div className="flex items-start gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+          <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden="true" />
+          <span>{created ? "Tenant créé avec succès." : "Modifications enregistrées."}</span>
+        </div>
+      ) : null}
+      {error ? (
+        <div className="flex items-start gap-2 rounded-2xl border border-rose-300 bg-rose-50 px-3 py-2.5 text-xs font-semibold text-rose-900">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden="true" />
+          <span>{error}</span>
+        </div>
+      ) : null}
 
       <SectionCard icon={Building2} title="Tenant">
         <MetadataGrid
@@ -140,6 +162,74 @@ export default async function SaasTenantDetailPage({
             { label: "Limites", value: settings ? `users≤${settings.maxUsers ?? "∞"}, docs≤${settings.maxDocuments ?? "∞"}, ${settings.maxStorageMb ?? "∞"}Mo` : "—" },
           ]}
         />
+      </SectionCard>
+
+      {/* ── Édition (superuser) ─────────────────────────────────────────── */}
+      <SectionCard icon={Pencil} title="Plan & statut (superuser)">
+        <form action={updateTenantFormAction} className="flex flex-wrap items-end gap-4">
+          <input type="hidden" name="tenantId" value={tenant.id} />
+          <div className="space-y-1.5">
+            <label className="block text-[12.5px] font-semibold" style={{ color: "var(--text-main)" }}>Plan</label>
+            <select name="plan" defaultValue={tenant.plan ?? "free"} className={inputCls} style={{ borderColor: "var(--border)" }}>
+              {TENANT_PLANS.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <label className="block text-[12.5px] font-semibold" style={{ color: "var(--text-main)" }}>Statut</label>
+            <select name="status" defaultValue={tenant.status ?? "active"} className={inputCls} style={{ borderColor: "var(--border)" }}>
+              {TENANT_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <button type="submit" className="h-10 rounded-xl px-5 text-[13px] font-bold text-white" style={{ background: "var(--blue-600)" }}>
+            Enregistrer
+          </button>
+        </form>
+
+        <div className="mt-3 border-t pt-3" style={{ borderColor: "var(--border-soft)" }}>
+          <form action={setStatusFormAction}>
+            <input type="hidden" name="tenantId" value={tenant.id} />
+            <input type="hidden" name="status" value={isSuspended ? "active" : "suspended"} />
+            <button
+              type="submit"
+              className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-[13px] font-semibold"
+              style={isSuspended
+                ? { borderColor: "#86EFAC", color: "#15803D", background: "#F0FDF4" }
+                : { borderColor: "#FCA5A5", color: "#B91C1C", background: "#FEF2F2" }}
+            >
+              <Power className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+              {isSuspended ? "Réactiver le tenant" : "Suspendre le tenant"}
+            </button>
+          </form>
+        </div>
+      </SectionCard>
+
+      <SectionCard icon={Gauge} title="Limites & fonctionnalités (superuser)">
+        <form action={updateSettingsFormAction} className="space-y-4">
+          <input type="hidden" name="tenantId" value={tenant.id} />
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-1.5">
+              <label className="block text-[12.5px] font-semibold" style={{ color: "var(--text-main)" }}>Max utilisateurs</label>
+              <input name="maxUsers" type="number" min={0} defaultValue={settings?.maxUsers ?? ""} className={inputCls} style={{ borderColor: "var(--border)" }} placeholder="∞" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="block text-[12.5px] font-semibold" style={{ color: "var(--text-main)" }}>Max documents</label>
+              <input name="maxDocuments" type="number" min={0} defaultValue={settings?.maxDocuments ?? ""} className={inputCls} style={{ borderColor: "var(--border)" }} placeholder="∞" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="block text-[12.5px] font-semibold" style={{ color: "var(--text-main)" }}>Max stockage (Mo)</label>
+              <input name="maxStorageMb" type="number" min={0} defaultValue={settings?.maxStorageMb ?? ""} className={inputCls} style={{ borderColor: "var(--border)" }} placeholder="∞" />
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-4 text-[13px]" style={{ color: "var(--text-main)" }}>
+            <label className="inline-flex items-center gap-2"><input type="checkbox" name="aiEnabled" defaultChecked={settings?.aiEnabled ?? true} /> IA</label>
+            <label className="inline-flex items-center gap-2"><input type="checkbox" name="ocrEnabled" defaultChecked={settings?.ocrEnabled ?? true} /> OCR</label>
+            <label className="inline-flex items-center gap-2"><input type="checkbox" name="emailImportEnabled" defaultChecked={settings?.emailImportEnabled ?? false} /> Import email</label>
+            <label className="inline-flex items-center gap-2"><input type="checkbox" name="onlyofficeEnabled" defaultChecked={settings?.onlyofficeEnabled ?? true} /> OnlyOffice</label>
+          </div>
+          <button type="submit" className="h-10 rounded-xl px-5 text-[13px] font-bold text-white" style={{ background: "var(--blue-600)" }}>
+            Enregistrer les limites
+          </button>
+        </form>
       </SectionCard>
 
       <SectionCard icon={Database} title="Lignes sans tenant_id (global)" description="Diagnostic anti-fuite — doit être 0 en multi-tenant.">

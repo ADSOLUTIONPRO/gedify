@@ -274,10 +274,51 @@ tenant accessible → auto ; sinon (plusieurs, aucun) → **sélection requise**
 depuis `client.gedify.fr` ; les domaines portail (`app/staging.gedify.fr`)
 renvoient null. **Non branché** — la résolution reste par membership.
 
-## Étapes suivantes (hors Phase 5)
+## Phase 6 — Onboarding contrôlé (sans Stripe)
+
+### Création de tenant (superuser)
+
+- Page `/admin/saas/create-tenant` (superuser only) : nom, slug, e-mail +
+  identifiant + mot de passe temporaire de l'owner, plan
+  (`free|test|pro|business|internal`), statut (`active|trial|suspended`),
+  limites (max_users/documents/storage_mb) et fonctionnalités (ai/ocr/
+  email_import/onlyoffice).
+- À la validation (`createTenantWithOwner`, `src/lib/tenant/tenant-admin.ts`) :
+  crée le tenant (slug = id), **crée ou réutilise** l'owner (par e-mail/
+  identifiant ; refuse une incohérence e-mail≠identifiant), crée le membership
+  owner, crée `tenant_settings`. **Refuse un slug déjà pris.** L'owner ayant un
+  seul espace, il y entre automatiquement à la connexion (Phase 5). Ne crée
+  **aucune** donnée métier.
+
+### Édition de tenant (superuser)
+
+`/admin/saas/tenants/[tenantId]` : en plus du diagnostic, le superuser peut
+modifier **plan/statut**, **limites/fonctionnalités**, et **suspendre/réactiver**
+(`updateTenant`, `updateTenantSettings`, `setTenantStatus`).
+
+### CLI
+
+`npm run saas:create-tenant -- --slug=demo --name="Demo" --email=demo@gedify.local`
+(`scripts/saas/create-tenant.ts`, idempotent) — options `--username --password
+--plan --status --max-users --max-documents --max-storage-mb --ai/--ocr/
+--email-import/--onlyoffice`.
+
+### Audit
+
+`recordAudit` journalise : `tenant_created`, `tenant_updated`,
+`tenant_suspended`, `membership_created`, `tenant_settings_updated` (visible dans
+les journaux / la Santé).
+
+### Sécurité
+
+Toutes les pages/actions d'onboarding et d'édition sont **`is_superuser`
+uniquement** (un owner client ne peut ni créer un tenant, ni modifier son
+plan/statut/limites). Les actions métier restent tenant-scopées (Phases 2–3) ;
+aucune donnée métier n'est créée sans `tenant_id` en multi-tenant.
+
+## Étapes suivantes (hors Phase 6)
 
 - Étendre `tenant_id` aux autres tables métier (budget, mails, reminders, tasks…).
-- Sélecteur superuser pour AGIR dans un tenant (avec audit) ; activation
-  sous-domaines.
-- CRUD tenants/memberships + invitations + **application des limites**
-  (max_users / max_documents / max_storage_mb) ; Stripe ; inscription publique.
+- **Application** effective des limites (max_users / max_documents / max_storage_mb).
+- Sélecteur superuser pour AGIR dans un tenant ; activation sous-domaines.
+- Invitations de membres ; Stripe ; inscription publique.

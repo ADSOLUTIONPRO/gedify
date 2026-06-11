@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertTriangle, Building2, ChevronRight, ShieldCheck } from "lucide-react";
+import { AlertTriangle, Building2, ChevronRight, Plus, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
 import { SectionCard } from "@/components/ui/section-card";
@@ -58,6 +58,15 @@ export default async function SaasTenantsPage() {
         breadcrumb={breadcrumb}
         title="Tenants SaaS"
         description={`Vue globale (superuser) — ${tenants.length} tenant(s).`}
+        actions={
+          <Link
+            href="/admin/saas/create-tenant"
+            className="inline-flex h-10 items-center gap-2 rounded-xl px-4 text-[13px] font-bold text-white shadow-sm"
+            style={{ background: "var(--blue-600)" }}
+          >
+            <Plus className="h-4 w-4" strokeWidth={2.25} aria-hidden="true" /> Créer un tenant
+          </Link>
+        }
       />
 
       <SectionCard icon={Building2} title="Tenants" bodyClassName="p-0">
