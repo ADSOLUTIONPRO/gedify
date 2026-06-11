@@ -33,6 +33,9 @@ const PUBLIC_PREFIXES = [
   // client). Sécurisé par le `state` signé + le flag MICROSOFT_RELAY_ENABLED dans
   // la route elle-même. Doit donc rester PUBLIC.
   "/api/connectors/outlook/relay",
+  // Webhook Stripe : appelé par Stripe SANS session. Sécurisé par la vérification
+  // de signature (STRIPE_WEBHOOK_SECRET) dans la route elle-même.
+  "/api/saas/stripe/webhook",
   "/_next/",
   "/favicon",
 ];

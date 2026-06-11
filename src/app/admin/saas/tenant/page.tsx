@@ -10,6 +10,10 @@ import { getTenantCounts, getUnscopedCounts, type TenantCounts, type UnscopedCou
 import { getTenantPlanLimits, getTenantUsage, type EffectiveLimits, type TenantUsage } from "@/lib/saas/quota";
 import { getTenantEntitlements } from "@/lib/saas/entitlements";
 import { FEATURE_CATEGORIES } from "@/lib/saas/features";
+import { isStripeEnabled } from "@/lib/saas/stripe/config";
+import { getTenantStripeCustomerId } from "@/lib/saas/stripe/sync";
+import { getTenantSubscription } from "@/lib/saas/subscriptions";
+import Link from "next/link";
 import type { TenantContext } from "@/lib/tenant/types";
 
 export const dynamic = "force-dynamic";
@@ -88,6 +92,9 @@ export default async function SaasTenantPage() {
     usage = await getTenantUsage(ctx.tenantId).catch(() => null);
   }
   const entitlements = multiTenant && ctx ? await getTenantEntitlements(ctx.tenantId).catch(() => null) : null;
+  const stripeOn = isStripeEnabled();
+  const subscription = multiTenant && ctx ? await getTenantSubscription(ctx.tenantId).catch(() => null) : null;
+  const stripeCustomer = stripeOn && ctx ? await getTenantStripeCustomerId(ctx.tenantId).catch(() => null) : null;
   const fmtLimit = (used: number | undefined, limit: number | null | undefined) =>
     `${used ?? 0} / ${limit == null ? "∞" : limit}`;
   const unscopedTotal = unscoped
@@ -191,6 +198,32 @@ export default async function SaasTenantPage() {
               { label: "OnlyOffice", value: <Bool value={limits.onlyofficeEnabled} /> },
             ]}
           />
+        </SectionCard>
+      ) : null}
+
+      {ctx ? (
+        <SectionCard icon={Gauge} title="Abonnement & paiement">
+          <MetadataGrid
+            columns={3}
+            items={[
+              { label: "Plan effectif", value: <Mono>{entitlements?.planCode ?? ctx.tenant.plan ?? "—"}</Mono> },
+              { label: "Statut abonnement", value: <Mono>{subscription?.status ?? "(aucun)"}</Mono> },
+              { label: "Prochaine échéance", value: subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString("fr-FR") : "—" },
+              { label: "Gratuité active", value: entitlements?.grant ? `oui (${entitlements.grant.planCode})` : "non" },
+            ]}
+          />
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Link href="/pricing" className="inline-flex h-10 items-center rounded-xl border px-4 text-[13px] font-semibold" style={{ borderColor: "var(--border)" }}>
+              Choisir une offre
+            </Link>
+            {stripeOn && stripeCustomer ? (
+              <form action="/api/saas/stripe/portal" method="post">
+                <button type="submit" className="h-10 rounded-xl px-4 text-[13px] font-bold text-white" style={{ background: "var(--blue-600)" }}>
+                  Gérer mon abonnement
+                </button>
+              </form>
+            ) : null}
+          </div>
         </SectionCard>
       ) : null}
 

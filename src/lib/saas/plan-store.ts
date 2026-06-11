@@ -154,3 +154,34 @@ export async function upsertPlan(input: UpsertPlanInput): Promise<void> {
   );
   await recordAudit({ action: existing.rows[0] ? "plan_updated" : "plan_created", target: code });
 }
+
+/** Enregistre les IDs Stripe d'un plan (crée la ligne depuis le fallback si besoin). */
+export async function setPlanStripe(
+  code: string,
+  ids: { productId?: string | null; monthlyPriceId?: string | null; yearlyPriceId?: string | null },
+): Promise<void> {
+  if (!postgresActive()) throw new Error("Postgres requis.");
+  const c = code.trim().toLowerCase();
+  // S'assure que la ligne existe (sinon on la matérialise depuis la définition effective).
+  const def = await getPlanDefinition(c);
+  if (def.source === "fallback") {
+    await upsertPlan({
+      code: c, name: def.name, description: def.description, isActive: def.isActive, isPublic: def.isPublic,
+      isDefault: def.isDefault, sortOrder: def.sortOrder, monthlyPriceCents: def.monthlyPriceCents,
+      yearlyPriceCents: def.yearlyPriceCents, currency: def.currency, maxUsers: def.maxUsers,
+      maxDocuments: def.maxDocuments, maxStorageMb: def.maxStorageMb, supportLevel: def.supportLevel,
+      features: def.features,
+    });
+  }
+  const pool = await getPool();
+  await pool.query(
+    `UPDATE saas_plans SET
+       stripe_product_id = COALESCE($2, stripe_product_id),
+       stripe_monthly_price_id = COALESCE($3, stripe_monthly_price_id),
+       stripe_yearly_price_id = COALESCE($4, stripe_yearly_price_id),
+       updated_at = now()
+     WHERE code = $1`,
+    [c, ids.productId ?? null, ids.monthlyPriceId ?? null, ids.yearlyPriceId ?? null],
+  );
+  await recordAudit({ action: "plan_updated", target: c, details: "stripe ids" });
+}

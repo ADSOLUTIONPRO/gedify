@@ -40,6 +40,7 @@ const entries = [
   ["scripts/saas/check-subscriptions.ts", "scripts/saas/check-subscriptions.mjs"],
   ["scripts/saas/create-manual-subscription.ts", "scripts/saas/create-manual-subscription.mjs"],
   ["scripts/saas/check-entitlements.ts", "scripts/saas/check-entitlements.mjs"],
+  ["scripts/saas/check-stripe.ts", "scripts/saas/check-stripe.mjs"],
 ];
 
 for (const [entry, outfile] of entries) {

@@ -3,9 +3,24 @@ import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
 import { SectionCard } from "@/components/ui/section-card";
 import { MetadataGrid } from "@/components/ui/metadata-grid";
-import { getStripeConfigStatus } from "@/lib/saas/stripe/stripe-config";
+import { getStripeConfigStatus } from "@/lib/saas/stripe/config";
+import { postgresActive } from "@/lib/db/pg-store";
+import { getPool } from "@/lib/db/pg";
 
 export const dynamic = "force-dynamic";
+
+async function stripeCounts(): Promise<{ plans: number; customers: number; subscriptions: number }> {
+  if (!postgresActive()) return { plans: 0, customers: 0, subscriptions: 0 };
+  const pool = await getPool();
+  const one = async (sql: string) => {
+    try { return Number((await pool.query(sql)).rows[0]?.n ?? 0); } catch { return 0; }
+  };
+  return {
+    plans: await one("SELECT COUNT(*)::int n FROM saas_plans WHERE stripe_product_id IS NOT NULL"),
+    customers: await one("SELECT COUNT(DISTINCT provider_customer_id)::int n FROM subscriptions WHERE provider='stripe' AND provider_customer_id IS NOT NULL"),
+    subscriptions: await one("SELECT COUNT(*)::int n FROM subscriptions WHERE provider='stripe' AND provider_subscription_id IS NOT NULL"),
+  };
+}
 
 const breadcrumb = [
   { href: "/dashboard", label: "Accueil" },
@@ -17,8 +32,9 @@ function yn(v: boolean): string {
   return v ? "Oui" : "Non";
 }
 
-export default function SaasStripePage() {
+export default async function SaasStripePage() {
   const s = getStripeConfigStatus();
+  const counts = await stripeCounts();
   return (
     <PageShell>
       <PageHeader breadcrumb={breadcrumb} title="Stripe" description="Configuration Stripe (préparation). Aucun secret affiché ; aucun appel tant que désactivé." />
@@ -43,6 +59,18 @@ export default function SaasStripePage() {
             { label: "Price Business", value: yn(s.priceBusinessPresent) },
           ]}
         />
+      </SectionCard>
+
+      <SectionCard icon={Banknote} title="Liens Stripe">
+        <MetadataGrid
+          columns={3}
+          items={[
+            { label: "Plans synchronisés", value: counts.plans },
+            { label: "Clients Stripe liés", value: counts.customers },
+            { label: "Abonnements Stripe", value: counts.subscriptions },
+          ]}
+        />
+        <p className="mt-3 text-[12px] text-slate-500">Diagnostic CLI : <code className="font-mono">npm run saas:check-stripe</code>. Synchroniser un plan : page « Plans & offres » → bouton « Synchroniser avec Stripe ».</p>
       </SectionCard>
 
       <SectionCard icon={Banknote} title="Synchronisation (bientôt)">

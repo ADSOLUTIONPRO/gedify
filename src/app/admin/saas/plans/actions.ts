@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { upsertPlan } from "@/lib/saas/plan-store";
 import { FEATURE_KEYS } from "@/lib/saas/features";
+import { syncPlanToStripe } from "@/lib/saas/stripe/sync";
 
 function str(v: FormDataEntryValue | null): string {
   return typeof v === "string" ? v : "";
@@ -49,6 +50,17 @@ export async function upsertPlanFormAction(formData: FormData): Promise<void> {
     });
   } catch (e) {
     back(e instanceof Error ? e.message : "Erreur.");
+  }
+  back();
+}
+
+/** Synchronise un plan avec Stripe (produit + prices). SUPERUSER uniquement. */
+export async function syncPlanStripeFormAction(formData: FormData): Promise<void> {
+  await requireSuperuser();
+  try {
+    await syncPlanToStripe(str(formData.get("code")));
+  } catch (e) {
+    back(e instanceof Error ? e.message : "Erreur Stripe.");
   }
   back();
 }

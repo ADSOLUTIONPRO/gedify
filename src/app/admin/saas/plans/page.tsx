@@ -5,7 +5,8 @@ import { SectionCard } from "@/components/ui/section-card";
 import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
 import { listPlanDefinitions, type PlanDefinition } from "@/lib/saas/plan-store";
 import { FEATURE_CATEGORIES } from "@/lib/saas/features";
-import { upsertPlanFormAction } from "./actions";
+import { isStripeEnabled, getStripeMode } from "@/lib/saas/stripe/config";
+import { upsertPlanFormAction, syncPlanStripeFormAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -72,6 +73,7 @@ export default async function SaasPlansPage({ searchParams }: { searchParams: Pr
   }
   const { error, updated } = await searchParams;
   const plans = await listPlanDefinitions().catch(() => []);
+  const stripeOn = isStripeEnabled();
 
   return (
     <PageShell>
@@ -82,6 +84,21 @@ export default async function SaasPlansPage({ searchParams }: { searchParams: Pr
       {plans.map((p) => (
         <SectionCard key={p.code} icon={Sliders} title={`${p.name} (${p.code})`} description={`${p.source === "db" ? "table" : "config par défaut"} · ${p.isActive ? "actif" : "inactif"}${p.isPublic ? " · public" : ""}`}>
           <PlanForm plan={p} />
+          <div className="mt-3 border-t pt-3 text-[12px]" style={{ borderColor: "var(--border-soft)" }}>
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <span className="font-semibold" style={{ color: "var(--text-main)" }}>Stripe ({getStripeMode()})</span>
+              <span className={p.stripeProductId ? "text-emerald-700" : "text-slate-400"}>{p.stripeProductId ? "synchronisé" : "non synchronisé"}</span>
+            </div>
+            <div className="font-mono text-[11px] text-slate-500">
+              product={p.stripeProductId ?? "—"} · monthly={p.stripeMonthlyPriceId ?? "—"} · yearly={p.stripeYearlyPriceId ?? "—"}
+            </div>
+            <form action={syncPlanStripeFormAction} className="mt-2">
+              <input type="hidden" name="code" value={p.code} />
+              <button type="submit" disabled={!stripeOn} className="h-9 rounded-lg border px-3 text-[12px] font-semibold disabled:cursor-not-allowed disabled:opacity-50" style={{ borderColor: "var(--border)", color: "var(--accent)" }}>
+                {stripeOn ? "Synchroniser avec Stripe" : "Stripe désactivé"}
+              </button>
+            </form>
+          </div>
         </SectionCard>
       ))}
 
