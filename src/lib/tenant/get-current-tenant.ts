@@ -166,6 +166,28 @@ export async function getTenantDebug(): Promise<TenantDebug> {
   return debug;
 }
 
+/**
+ * Identifiant du tenant actif (léger, sans charger tenant/settings), ou `null`
+ * si non résolvable (mono-tenant, hors requête, non authentifié, sans
+ * membership). Ne lève jamais. Utilisé par la couche de stockage pour le
+ * filtrage/confinement (cf. tenant-scope.ts).
+ */
+export async function getActiveTenantId(): Promise<string | null> {
+  if (!isMultiTenantEnabled()) return null;
+  try {
+    const user = await getCurrentUser();
+    if (!user) return null;
+    const memberships = await listMembershipsForUser(user.id);
+    if (memberships.length === 0) return null;
+    const selected = await readSelectedTenant();
+    const membership =
+      (selected && memberships.find((m) => m.tenantId === selected)) || memberships[0];
+    return membership.tenantId;
+  } catch {
+    return null;
+  }
+}
+
 /** Alias explicite pour les routes/actions : renvoie le contexte ou lève. */
 export async function requireTenant(): Promise<TenantContext> {
   return getCurrentTenant();

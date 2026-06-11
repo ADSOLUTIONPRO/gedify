@@ -12,6 +12,7 @@
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
     "saas:init-tenant": "node scripts/saas/create-initial-tenant.mjs",
+    "saas:backfill-tenant": "node scripts/saas/backfill-tenant-id.mjs",
     "prisma:generate": "prisma generate",
     "prisma:sql": "node scripts/gen-sql.mjs",
     "build:scripts": "node scripts/build-scripts.mjs",

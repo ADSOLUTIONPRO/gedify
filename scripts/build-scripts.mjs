@@ -30,6 +30,7 @@ const entries = [
   ["scripts/db-push.ts", "scripts/gedify-db-push.mjs"],
   ["scripts/db-check.ts", "scripts/gedify-db-check.mjs"],
   ["scripts/saas/create-initial-tenant.ts", "scripts/saas/create-initial-tenant.mjs"],
+  ["scripts/saas/backfill-tenant-id.ts", "scripts/saas/backfill-tenant-id.mjs"],
 ];
 
 for (const [entry, outfile] of entries) {

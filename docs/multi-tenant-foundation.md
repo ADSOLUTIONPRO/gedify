@@ -75,8 +75,49 @@ npm run saas:init-tenant # crée le tenant initial + membership owner (idempoten
 Pour activer la résolution multi-tenant : définir `MULTI_TENANT=true` (Runtime)
 puis redéployer. Sans cette variable, tout reste en mono-tenant.
 
-## Étapes suivantes (hors Phase 1)
+## Phase 2 — `tenant_id` sur les tables métier principales
 
-- Ajouter `tenant_id` (progressif) sur les tables métier + filtrage par tenant.
+Ajout **progressif** de `tenant_id` (nullable, indexé) sur 5 tables :
+`documents`, `tags`, `correspondents`, `document_types`, `folders`. Le filtrage
+et le **confinement des écritures** par tenant ne s'activent **que** si
+`MULTI_TENANT=true` **et** qu'un tenant est résolu (contexte requête).
+
+### Comportement (gardé)
+
+- `src/lib/tenant/tenant-scope.ts` : `TENANT_SCOPED_TABLES` + `activeTenantIdFor(table)`
+  → renvoie le tenant actif, ou `null` (mono-tenant, hors requête / job de fond,
+  non authentifié) ⇒ **comportement historique strict** (aucun filtre, aucune
+  colonne `tenant_id` touchée).
+- Lectures (`engine-pg.readCollectionPg`, `pg-store.pgReadAll` / `pgReadByJsonIds`) :
+  filtrées `WHERE tenant_id = <actif>` uniquement si un tenant est résolu.
+- Écritures « remplacement de collection » (`writeCollectionPg`, `pgWriteAll`) :
+  estampillage `tenant_id` à l'INSERT (jamais modifié en UPDATE), et **suppression
+  CONFINÉE** au tenant courant (`DELETE … WHERE tenant_id = <actif> AND id NOT IN …`)
+  → **jamais** de suppression des lignes d'un autre tenant. Lecture-scope et
+  delete-scope reposent sur la même résolution ⇒ cohérence garantie.
+
+> **Rollback instantané** : `MULTI_TENANT=false` désactive TOUT le tenant-scoping
+> (lectures/écritures redeviennent à l'identique) sans redéploiement de code.
+
+### Rattachement des données existantes
+
+Script idempotent `scripts/saas/backfill-tenant-id.ts` → bundle
+`scripts/saas/backfill-tenant-id.mjs` (`npm run saas:backfill-tenant`) : ajoute
+`tenant_id` si absent, crée l'index, et affecte `tenant_id = azserver-staging`
+(surchargeable via `TENANT_ID`) aux lignes `NULL`. Relançable sans effet.
+
+### Commandes (Coolify, après déploiement)
+
+```bash
+npm run db:push             # ajoute tenant_id aux 5 tables (idempotent)
+npm run db:generate         # régénère le client Prisma
+npm run saas:backfill-tenant # rattache l'existant à azserver-staging (idempotent)
+# MULTI_TENANT=true (déjà actif) → filtrage par tenant effectif
+```
+
+## Étapes suivantes (hors Phase 2)
+
+- Étendre `tenant_id` aux autres tables métier (budget, mails, reminders, tasks…).
 - Sélecteur de tenant (UI) + résolution par sous-domaine.
-- CRUD tenants/memberships + invitations + application des limites.
+- CRUD tenants/memberships + invitations + application des limites + jobs de fond
+  tenant-aware.

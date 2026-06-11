@@ -2,6 +2,7 @@ import "server-only";
 
 import { getPool } from "@/lib/db/pg";
 import { postgresActive, sqliteActive } from "@/lib/db/pg-store";
+import { activeTenantIdFor } from "@/lib/tenant/tenant-scope";
 import {
   sqliteReadSetting,
   sqliteWriteSetting,
@@ -97,6 +98,16 @@ export async function readCollectionPg(name: string): Promise<unknown> {
     });
   }
   const { table, blob } = TABLES[name];
+  // Multi-tenant : si un tenant est actif (gated), on ne lit QUE ses lignes.
+  // Sinon (null) → lecture historique complète (aucune colonne tenant_id requise).
+  const tenantId = await activeTenantIdFor(name);
+  if (tenantId) {
+    const { rows } = await pool.query(
+      `SELECT "${blob}" AS raw FROM "${table}" WHERE tenant_id = $1 ORDER BY id`,
+      [tenantId],
+    );
+    return rows.map((r) => r.raw);
+  }
   const { rows } = await pool.query(`SELECT "${blob}" AS raw FROM "${table}" ORDER BY id`);
   return rows.map((r) => r.raw);
 }
@@ -157,18 +168,40 @@ export async function writeCollectionPg(name: string, data: unknown): Promise<vo
       }
     } else {
       const { table, blob } = TABLES[name];
+      // Multi-tenant : tenantId non-null ⇒ on estampille à l'INSERT et on
+      // CONFINE la suppression au tenant courant (jamais les autres tenants).
+      // tenantId null ⇒ comportement historique (remplacement complet).
+      const tenantId = await activeTenantIdFor(name);
       const arr = Array.isArray(data) ? data : [];
       const ids: number[] = [];
       for (const item of arr) {
         const id = Number((item as { id?: unknown })?.id);
         if (!Number.isFinite(id)) continue;
         ids.push(id);
-        await client.query(
-          `INSERT INTO "${table}"(id, "${blob}") VALUES($1, $2) ON CONFLICT(id) DO UPDATE SET "${blob}" = EXCLUDED."${blob}"`,
-          [id, JSON.stringify(item)],
-        );
+        if (tenantId) {
+          // tenant_id posé à l'INSERT ; en UPDATE on NE touche PAS tenant_id (préserve l'appartenance).
+          await client.query(
+            `INSERT INTO "${table}"(id, "${blob}", tenant_id) VALUES($1, $2, $3)
+             ON CONFLICT(id) DO UPDATE SET "${blob}" = EXCLUDED."${blob}"`,
+            [id, JSON.stringify(item), tenantId],
+          );
+        } else {
+          await client.query(
+            `INSERT INTO "${table}"(id, "${blob}") VALUES($1, $2) ON CONFLICT(id) DO UPDATE SET "${blob}" = EXCLUDED."${blob}"`,
+            [id, JSON.stringify(item)],
+          );
+        }
       }
-      if (ids.length > 0) {
+      if (tenantId) {
+        if (ids.length > 0) {
+          await client.query(
+            `DELETE FROM "${table}" WHERE tenant_id = $1 AND id <> ALL($2::int[])`,
+            [tenantId, ids],
+          );
+        } else {
+          await client.query(`DELETE FROM "${table}" WHERE tenant_id = $1`, [tenantId]);
+        }
+      } else if (ids.length > 0) {
         await client.query(`DELETE FROM "${table}" WHERE id <> ALL($1::int[])`, [ids]);
       } else {
         await client.query(`DELETE FROM "${table}"`);

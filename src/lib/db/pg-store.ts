@@ -2,6 +2,7 @@ import "server-only";
 
 import { getPool } from "@/lib/db/pg";
 import { isSaaS, isPostgresUrl } from "@/lib/config/environment";
+import { activeTenantIdFor } from "@/lib/tenant/tenant-scope";
 import {
   sqliteReadAll,
   sqliteReadByJsonIds,
@@ -102,6 +103,15 @@ export function jsonFallback(): boolean {
 export async function pgReadAll<T>(table: string, idCol = "id", blobCol = "raw"): Promise<T[]> {
   if (sqliteActive()) return sqliteReadAll<T>(table, idCol, blobCol);
   const pool = await getPool();
+  // Multi-tenant : pour une table scopée avec tenant actif, on ne lit que ses lignes.
+  const tenantId = await activeTenantIdFor(table);
+  if (tenantId) {
+    const { rows } = await pool.query(
+      `SELECT "${blobCol}" AS blob FROM "${table}" WHERE tenant_id = $1 ORDER BY "${idCol}"`,
+      [tenantId],
+    );
+    return rows.map((r) => r.blob as T);
+  }
   const { rows } = await pool.query(`SELECT "${blobCol}" AS blob FROM "${table}" ORDER BY "${idCol}"`);
   return rows.map((r) => r.blob as T);
 }
@@ -127,6 +137,15 @@ export async function pgReadByJsonIds<T>(
   if (ids.length === 0) return [];
   if (sqliteActive()) return sqliteReadByJsonIds<T>(table, jsonKey, ids, blobCol);
   const pool = await getPool();
+  // Multi-tenant : on confine aussi cette lecture ciblée au tenant actif.
+  const tenantId = await activeTenantIdFor(table);
+  if (tenantId) {
+    const { rows } = await pool.query(
+      `SELECT "${blobCol}" AS blob FROM "${table}" WHERE tenant_id = $2 AND ("${blobCol}"->>'${jsonKey}')::bigint = ANY($1::bigint[])`,
+      [ids, tenantId],
+    );
+    return rows.map((r) => r.blob as T);
+  }
   const { rows } = await pool.query(
     `SELECT "${blobCol}" AS blob FROM "${table}" WHERE ("${blobCol}"->>'${jsonKey}')::bigint = ANY($1::bigint[])`,
     [ids],
@@ -154,6 +173,9 @@ export async function pgWriteAll<T>(
 ): Promise<void> {
   if (sqliteActive()) return sqliteWriteAll<T>(table, idCol, idOf, items, blobCol, extraColumns);
   const extras = extraColumns ?? [];
+  // Multi-tenant : tenantId non-null ⇒ estampillage + suppression CONFINÉE au
+  // tenant courant. null ⇒ comportement historique (remplacement complet).
+  const tenantId = await activeTenantIdFor(table);
   const pool = await getPool();
   const client = await pool.connect();
   try {
@@ -167,9 +189,10 @@ export async function pgWriteAll<T>(
       await client.query(`ALTER TABLE "${table}" ADD COLUMN IF NOT EXISTS "${c.name}" TEXT`);
     }
     const ids: (string | number)[] = [];
-    // Colonnes insérées : idCol, blobCol, puis les extras. Le SET du ON CONFLICT
-    // met à jour blobCol + extras (jamais idCol, clé de conflit).
-    const colNames = [idCol, blobCol, ...extras.map((c) => c.name)];
+    // Colonnes insérées : idCol, blobCol, extras, (+ tenant_id si tenant actif).
+    // Le SET du ON CONFLICT met à jour blobCol + extras (jamais idCol ni
+    // tenant_id → l'appartenance tenant est préservée en UPDATE).
+    const colNames = [idCol, blobCol, ...extras.map((c) => c.name), ...(tenantId ? ["tenant_id"] : [])];
     const colList = colNames.map((c) => `"${c}"`).join(", ");
     const placeholders = colNames.map((_, i) => `$${i + 1}`).join(", ");
     const updateSet = [blobCol, ...extras.map((c) => c.name)].map((c) => `"${c}" = EXCLUDED."${c}"`).join(", ");
@@ -177,12 +200,29 @@ export async function pgWriteAll<T>(
       const id = idOf(item);
       if (id == null || id === "") continue;
       ids.push(id);
+      const values = [
+        id,
+        JSON.stringify(item),
+        ...extras.map((c) => c.valueOf(item)),
+        ...(tenantId ? [tenantId] : []),
+      ];
       await client.query(
         `INSERT INTO "${table}"(${colList}) VALUES(${placeholders}) ON CONFLICT("${idCol}") DO UPDATE SET ${updateSet}`,
-        [id, JSON.stringify(item), ...extras.map((c) => c.valueOf(item))],
+        values,
       );
     }
-    if (ids.length > 0) {
+    if (tenantId) {
+      // Suppression confinée au tenant courant : ne touche jamais les autres tenants.
+      if (ids.length > 0) {
+        const ph = ids.map((_, i) => `$${i + 2}`).join(",");
+        await client.query(
+          `DELETE FROM "${table}" WHERE tenant_id = $1 AND "${idCol}" NOT IN (${ph})`,
+          [tenantId, ...ids],
+        );
+      } else {
+        await client.query(`DELETE FROM "${table}" WHERE tenant_id = $1`, [tenantId]);
+      }
+    } else if (ids.length > 0) {
       const placeholders = ids.map((_, i) => `$${i + 1}`).join(",");
       await client.query(`DELETE FROM "${table}" WHERE "${idCol}" NOT IN (${placeholders})`, ids);
     } else {
