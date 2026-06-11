@@ -33,6 +33,10 @@ RUN mkdir -p tessdata \
  && wget -qO tessdata/eng.traineddata.gz https://tessdata.projectnaptha.com/4.0.0/eng.traineddata.gz \
  && wget -qO tessdata/fra.traineddata.gz https://tessdata.projectnaptha.com/4.0.0/fra.traineddata.gz
 RUN npm run build
+# Rassemble le CLI Prisma + sa closure de dépendances (hors @prisma/*) dans un
+# bundle, à partir des paquets DÉJÀ installés ici (moteur Alpine inclus, validé
+# par `prisma generate` ci-dessus) → copié tel quel dans le runtime, SANS réseau.
+RUN node scripts/collect-prisma-runtime.mjs /opt/prisma-runtime/node_modules
 
 # 3. Runtime
 FROM node:22.13-alpine AS runner
@@ -99,21 +103,22 @@ RUN chmod +x ./deploy/synology/scripts/*.sh \
  && sh -n ./deploy/synology/scripts/init-secrets.sh \
  && sh -n ./deploy/synology/scripts/start-synology.sh \
  && echo "[build] scripts Synology OK"
+# @prisma/* (client runtime via driver adapter + moteurs/paquets requis par le
+# CLI Prisma : engines, dev, studio-core, fetch-engine, get-platform). On NE
+# supprime PLUS engines/dev/studio-core : le CLI Prisma 7 les charge au démarrage.
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
-# Client Prisma 7 = driver adapter (pg, WASM) au runtime → aucun moteur natif
-# requis pour l'APP : on élague les gros paquets inutiles à l'exécution applicative.
-RUN rm -rf node_modules/@prisma/engines node_modules/@prisma/dev \
-           node_modules/@prisma/studio-core node_modules/@prisma/fetch-engine \
-           node_modules/@prisma/get-platform
 # Prisma CLI au RUNTIME (`npm run db:push` / `db:migrate` / `db:generate` dans le
-# conteneur SaaS) : installé GLOBALEMENT → closure de dépendances complète +
-# schema-engine musl téléchargé pour la plateforme. Copier seulement le paquet
-# `prisma` échouait (ses deps transitives — @prisma/dev → pglite/hono… — absentes
-# de la sortie standalone). prisma.config.ts fournit l'URL (DATABASE_URL) car le
-# datasource du schéma n'a pas d'`url`. Impacte uniquement l'image SaaS (Coolify).
+# conteneur), SANS install globale : on copie le paquet `prisma` + sa closure de
+# dépendances hors @prisma/* (mysql2, postgres, @electric-sql/*, hono, c12,
+# chart.js, @radix-ui/*…) collectée par scripts/collect-prisma-runtime.mjs depuis
+# le builder (paquets déjà installés/validés, moteur Alpine inclus → hors-ligne).
+# prisma.config.ts fournit l'URL (DATABASE_URL) : le datasource du schéma n'a
+# pas d'`url`. Le binaire .bin/prisma est recréé puis testé localement.
+COPY --from=builder --chown=nextjs:nodejs /opt/prisma-runtime/node_modules ./node_modules
 COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.ts ./prisma.config.ts
-RUN npm install -g prisma@7.8.0 \
- && prisma -v >/dev/null 2>&1 \
+RUN mkdir -p node_modules/.bin \
+ && ln -sf ../prisma/build/index.js node_modules/.bin/prisma \
+ && ./node_modules/.bin/prisma -v >/dev/null 2>&1 \
  && echo "[build] Prisma CLI runtime OK"
 # Auto-tests : (1) les scripts gedify:* sont bien listés dans /app/package.json ;
 # (2) la chaîne de migration se charge dans l'image (dry-run, n'écrit rien en base).
