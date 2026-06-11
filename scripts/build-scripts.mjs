@@ -49,6 +49,7 @@ const entries = [
   ["scripts/saas/check-encryption.ts", "scripts/saas/check-encryption.mjs"],
   ["scripts/saas/encrypt-existing-files.ts", "scripts/saas/encrypt-existing-files.mjs"],
   ["scripts/saas/check-settings.ts", "scripts/saas/check-settings.mjs"],
+  ["scripts/saas/check-security.ts", "scripts/saas/check-security.mjs"],
 ];
 
 for (const [entry, outfile] of entries) {

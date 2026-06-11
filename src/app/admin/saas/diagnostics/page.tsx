@@ -65,6 +65,8 @@ export default async function SaasDiagnosticsPage() {
           <li><code className="font-mono">npm run saas:check-support</code> — stats support + contrôle d&apos;isolation tenant.</li>
           <li><code className="font-mono">npm run saas:check-encryption</code> — KEK/DEK + fichiers chiffrés vs en clair.</li>
           <li><code className="font-mono">npm run saas:encrypt-existing-files</code> — migre les fichiers existants vers le chiffrement (idempotent).</li>
+          <li><code className="font-mono">npm run saas:check-settings</code> — cohérence des réglages globaux (sans secret).</li>
+          <li><code className="font-mono">npm run saas:check-security</code> — synthèse du journal de sécurité.</li>
         </ul>
       </SectionCard>
     </PageShell>

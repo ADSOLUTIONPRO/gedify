@@ -21,6 +21,7 @@ import { updateTenantFormAction, updateSettingsFormAction, setStatusFormAction, 
 import { createManualSubscriptionAction, setSubscriptionStatusAction } from "@/app/admin/saas/subscriptions/actions";
 import { applyGrantFormAction, revokeGrantFormAction } from "./actions";
 import { getTenantEntitlements } from "@/lib/saas/entitlements";
+import { getSecurityEvents } from "@/lib/saas/security/security-events";
 import { listTenantGrants, isGrantActive } from "@/lib/saas/grants";
 import { FEATURE_CATEGORIES } from "@/lib/saas/features";
 import { PLAN_IDS } from "@/lib/saas/plans";
@@ -98,9 +99,10 @@ export default async function SaasTenantDetailPage({
     getTenantSubscription(tenantId).catch(() => null),
     listPaymentEvents(tenantId).catch(() => []),
   ]);
-  const [entitlements, grants] = await Promise.all([
+  const [entitlements, grants, securityEvents] = await Promise.all([
     getTenantEntitlements(tenantId).catch(() => null),
     listTenantGrants(tenantId).catch(() => []),
+    getSecurityEvents({ tenantId, limit: 8 }).catch(() => []),
   ]);
   const tenantPageUrl = `/admin/saas/tenants/${encodeURIComponent(tenantId)}`;
   const fmtLimit = (used: number | undefined, limit: number | null | undefined) =>
@@ -425,6 +427,31 @@ export default async function SaasTenantDetailPage({
             ]}
           />
         ) : null}
+      </SectionCard>
+
+      <SectionCard icon={ShieldCheck} title="Sécurité (derniers événements)" bodyClassName="p-0">
+        {securityEvents.length === 0 ? (
+          <p className="px-4 py-6 text-sm text-slate-500">Aucun événement de sécurité pour ce tenant.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-[12.5px]">
+              <thead><tr className="border-b text-[11px] uppercase text-slate-500" style={{ borderColor: "var(--border)" }}>
+                <th className="px-4 py-2">Date</th><th className="px-4 py-2">Type</th><th className="px-4 py-2">Gravité</th><th className="px-4 py-2">Message</th>
+              </tr></thead>
+              <tbody>
+                {securityEvents.map((e) => (
+                  <tr key={String(e.id)} className="border-b last:border-0" style={{ borderColor: "var(--border-soft)" }}>
+                    <td className="px-4 py-2 whitespace-nowrap text-[11px] text-slate-500">{e.created_at ? new Date(String(e.created_at)).toLocaleString("fr-FR") : "—"}</td>
+                    <td className="px-4 py-2"><code className="font-mono text-[11px]">{String(e.event_type)}</code></td>
+                    <td className="px-4 py-2">{String(e.severity)}</td>
+                    <td className="px-4 py-2">{String(e.message)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div className="px-4 py-2"><Link href={`/admin/saas/security?tenant=${tenantId}`} className="text-[12px] font-semibold" style={{ color: "var(--blue-600)" }}>Voir tous les événements →</Link></div>
       </SectionCard>
 
       <SectionCard icon={FileText} title="Derniers documents du tenant">

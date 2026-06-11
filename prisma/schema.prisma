@@ -1081,6 +1081,33 @@ model TenantEncryptionKey {
   @@map("tenant_encryption_keys")
 }
 
+model SecurityEvent {
+  id                String    @id
+  tenantId          String?   @map("tenant_id")
+  userId            Int?      @map("user_id")
+  actorUserId       Int?      @map("actor_user_id")
+  eventType         String    @map("event_type")
+  category          String    @default("info") // auth|tenant|billing|support|encryption|access|system
+  severity          String    @default("info") // info|warning|critical
+  ipAddress         String?   @map("ip_address")
+  userAgent         String?   @map("user_agent")
+  targetType        String?   @map("target_type")
+  targetId          String?   @map("target_id")
+  message           String
+  metadata          Json?
+  status            String    @default("open") // open|reviewed|ignored|resolved
+  reviewedAt        DateTime? @map("reviewed_at")
+  reviewedByUserId  Int?      @map("reviewed_by_user_id")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([eventType])
+  @@index([severity])
+  @@index([status])
+  @@index([createdAt])
+  @@map("security_events")
+}
+
 model SaasSettings {
   id        String   @id // "global"
   data      Json

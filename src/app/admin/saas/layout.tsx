@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
 import { SectionCard } from "@/components/ui/section-card";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { logSecurityEvent } from "@/lib/saas/security/security-events";
 
 /* Garde commune des pages SaaS GLOBALES : superuser uniquement. Exception :
    /admin/saas/tenant = « espace courant » de l'owner (gère son propre accès). */
@@ -15,6 +16,11 @@ export default async function SaasAdminLayout({ children }: { children: ReactNod
 
   const me = await getCurrentUser();
   if (!me?.is_superuser) {
+    await logSecurityEvent({
+      eventType: "unauthorized_access", category: "access", severity: "warning",
+      actorUserId: me?.id ?? null, targetType: "route", targetId: pathname,
+      message: `Accès refusé à une page SaaS globale : ${pathname}`,
+    });
     return (
       <PageShell>
         <PageHeader

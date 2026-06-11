@@ -129,6 +129,10 @@ export async function createTenantWithOwner(input: CreateTenantInput): Promise<C
       const { ensureTenantKey } = await import("@/lib/saas/encryption/tenant-keys");
       await ensureTenantKey(slug);
       await recordAudit({ action: "tenant_encryption_key_created", target: slug });
+      try {
+        const { logTenantSecurityEvent } = await import("@/lib/saas/security/security-events");
+        await logTenantSecurityEvent(slug, "encryption_key_created", "Clé de chiffrement générée pour le tenant", { category: "encryption" });
+      } catch { /* best-effort */ }
     }
   } catch { /* clé créée plus tard via /admin/saas/encryption */ }
 
@@ -170,6 +174,19 @@ export async function updateTenant(
     target: tenantId,
     details: [patch.plan ? `plan=${patch.plan}` : null, patch.status ? `status=${patch.status}` : null].filter(Boolean).join(" "),
   });
+
+  // Journal de sécurité (best-effort).
+  try {
+    const { logTenantSecurityEvent } = await import("@/lib/saas/security/security-events");
+    if (patch.status && patch.status.trim().toLowerCase() !== String(tenant.status ?? "")) {
+      const st = patch.status.trim().toLowerCase();
+      await logTenantSecurityEvent(tenantId, st === "suspended" ? "tenant_suspended" : "tenant_reactivated",
+        `Statut du tenant → ${st}`, { severity: st === "suspended" ? "warning" : "info", category: "tenant" });
+    }
+    if (patch.plan && patch.plan.trim().toLowerCase() !== String(tenant.plan ?? "")) {
+      await logTenantSecurityEvent(tenantId, "plan_changed", `Plan du tenant → ${patch.plan.trim().toLowerCase()}`, { category: "billing" });
+    }
+  } catch { /* best-effort */ }
 }
 
 export type TenantSettingsPatch = {
