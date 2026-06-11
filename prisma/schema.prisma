@@ -556,9 +556,178 @@ model TenantSettings {
   ocrEnabled         Boolean  @default(true) @map("ocr_enabled")
   emailImportEnabled Boolean  @default(true) @map("email_import_enabled")
   onlyofficeEnabled  Boolean  @default(true) @map("onlyoffice_enabled")
+  featuresOverride   Json?    @map("features_override") // surcharge fine de features par tenant
   raw                Json?
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @default(now()) @updatedAt @map("updated_at")
 
   @@map("tenant_settings")
+}
+
+/**
+ * ── Abonnements / facturation (Phase 8 — préparation, compatible Stripe) ──
+ * Additif, inactif tant que MULTI_TENANT n'est pas activé. Aucun appel Stripe.
+ */
+
+model Subscription {
+  id                     String    @id
+  tenantId               String    @map("tenant_id")
+  plan                   String?
+  status                 String? // trialing|active|past_due|canceled|unpaid|paused|incomplete
+  provider               String    @default("manual") // manual|stripe
+  providerCustomerId     String?   @map("provider_customer_id")
+  providerSubscriptionId String?   @map("provider_subscription_id")
+  currentPeriodStart     DateTime? @map("current_period_start")
+  currentPeriodEnd       DateTime? @map("current_period_end")
+  trialStart             DateTime? @map("trial_start")
+  trialEnd               DateTime? @map("trial_end")
+  cancelAt               DateTime? @map("cancel_at")
+  canceledAt             DateTime? @map("canceled_at")
+  // Liens commerciaux (gratuités / promos) — cf. SubscriptionGrant / PromoCode.
+  manualGrantId          String?   @map("manual_grant_id")
+  promoCodeId            String?   @map("promo_code_id")
+  discountUntil          DateTime? @map("discount_until")
+  freeUntil              DateTime? @map("free_until")
+  isFreeForever          Boolean   @default(false) @map("is_free_forever")
+  raw                    Json?
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([status])
+  @@map("subscriptions")
+}
+
+model Invoice {
+  id                String    @id
+  tenantId          String    @map("tenant_id")
+  subscriptionId    String?   @map("subscription_id")
+  provider          String    @default("manual")
+  providerInvoiceId String?   @map("provider_invoice_id")
+  status            String? // draft|open|paid|void|uncollectible
+  amountDue         Int?      @map("amount_due") // cents
+  amountPaid        Int?      @map("amount_paid") // cents
+  currency          String?   @default("EUR")
+  dueDate           DateTime? @map("due_date")
+  paidAt            DateTime? @map("paid_at")
+  hostedInvoiceUrl  String?   @map("hosted_invoice_url")
+  invoicePdf        String?   @map("invoice_pdf")
+  raw               Json?
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([subscriptionId])
+  @@map("invoices")
+}
+
+model PaymentEvent {
+  id              String    @id
+  tenantId        String?   @map("tenant_id")
+  provider        String    @default("manual")
+  eventType       String?   @map("event_type")
+  providerEventId String?   @map("provider_event_id")
+  processedAt     DateTime? @map("processed_at")
+  raw             Json?
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@map("payment_events")
+}
+
+/**
+ * ── Plans administrables, codes promo, gratuités (Phase 8 — complément) ────
+ */
+
+model SaasPlan {
+  id                  String   @id
+  code                String   @unique // free|test|pro|business|internal|custom_xxx
+  name                String?
+  description         String?
+  isActive            Boolean  @default(true) @map("is_active")
+  isPublic            Boolean  @default(false) @map("is_public")
+  isDefault           Boolean  @default(false) @map("is_default")
+  sortOrder           Int      @default(0) @map("sort_order")
+  monthlyPriceCents   Int?     @map("monthly_price_cents")
+  yearlyPriceCents    Int?     @map("yearly_price_cents")
+  currency            String   @default("EUR")
+  maxUsers            Int?     @map("max_users")
+  maxDocuments        Int?     @map("max_documents")
+  maxStorageMb        Int?     @map("max_storage_mb")
+  aiEnabled           Boolean  @default(true) @map("ai_enabled")
+  ocrEnabled          Boolean  @default(true) @map("ocr_enabled")
+  emailImportEnabled  Boolean  @default(false) @map("email_import_enabled")
+  onlyofficeEnabled   Boolean  @default(true) @map("onlyoffice_enabled")
+  supportLevel        String?  @map("support_level")
+  features            Json?    // feature flags du plan (cf. src/lib/saas/features.ts)
+  stripeProductId     String?  @map("stripe_product_id")
+  stripeMonthlyPriceId String? @map("stripe_monthly_price_id")
+  stripeYearlyPriceId String?  @map("stripe_yearly_price_id")
+  raw                 Json?
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("saas_plans")
+}
+
+model PromoCode {
+  id                    String    @id
+  code                  String    @unique
+  name                  String?
+  description           String?
+  discountType          String?   @map("discount_type") // percent|amount|free_period|free_forever
+  percentOff            Int?      @map("percent_off")
+  amountOffCents        Int?      @map("amount_off_cents")
+  currency              String    @default("EUR")
+  freeDurationCount     Int?      @map("free_duration_count")
+  freeDurationUnit      String?   @map("free_duration_unit") // day|month|year|lifetime
+  appliesToPlan         String?   @map("applies_to_plan")
+  maxRedemptions        Int?      @map("max_redemptions")
+  redeemedCount         Int       @default(0) @map("redeemed_count")
+  startsAt              DateTime? @map("starts_at")
+  expiresAt             DateTime? @map("expires_at")
+  isActive              Boolean   @default(true) @map("is_active")
+  stripeCouponId        String?   @map("stripe_coupon_id")
+  stripePromotionCodeId String?   @map("stripe_promotion_code_id")
+  raw                   Json?
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  @@map("promo_codes")
+}
+
+model PromoRedemption {
+  id             String    @id
+  promoCodeId    String    @map("promo_code_id")
+  tenantId       String    @map("tenant_id")
+  userId         Int?      @map("user_id")
+  subscriptionId String?   @map("subscription_id")
+  redeemedAt     DateTime  @default(now()) @map("redeemed_at")
+  expiresAt      DateTime? @map("expires_at")
+  raw            Json?
+
+  @@index([promoCodeId])
+  @@index([tenantId])
+  @@map("promo_redemptions")
+}
+
+model SubscriptionGrant {
+  id              String    @id
+  tenantId        String    @map("tenant_id")
+  planCode        String    @map("plan_code")
+  grantType       String    @map("grant_type") // free_trial|free_period|free_forever|manual_discount|internal
+  startsAt        DateTime  @default(now()) @map("starts_at")
+  endsAt          DateTime? @map("ends_at")
+  durationCount   Int?      @map("duration_count")
+  durationUnit    String?   @map("duration_unit") // day|month|year|lifetime
+  reason           String?
+  grantedByUserId  Int?      @map("granted_by_user_id")
+  isActive         Boolean   @default(true) @map("is_active")
+  featuresOverride Json?     @map("features_override")
+  raw              Json?
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@map("subscription_grants")
 }

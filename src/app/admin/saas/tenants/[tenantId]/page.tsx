@@ -16,7 +16,10 @@ import {
   getRecentDocuments,
 } from "@/lib/tenant/tenant-store";
 import { getTenantPlanLimits, getTenantUsage } from "@/lib/saas/quota";
+import { getTenantSubscription, listPaymentEvents, SUBSCRIPTION_STATUSES } from "@/lib/saas/subscriptions";
 import { updateTenantFormAction, updateSettingsFormAction, setStatusFormAction, applyPlanFormAction } from "./actions";
+import { createManualSubscriptionAction, setSubscriptionStatusAction } from "@/app/admin/saas/subscriptions/actions";
+import { Repeat } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -79,7 +82,7 @@ export default async function SaasTenantDetailPage({
     );
   }
 
-  const [settings, counts, members, unscoped, recent, limits, usage] = await Promise.all([
+  const [settings, counts, members, unscoped, recent, limits, usage, subscription, payments] = await Promise.all([
     getTenantSettings(tenantId).catch(() => null),
     getTenantCounts(tenantId).catch(() => null),
     listTenantMembersWithUser(tenantId).catch(() => []),
@@ -87,7 +90,10 @@ export default async function SaasTenantDetailPage({
     getRecentDocuments(tenantId, 10).catch(() => []),
     getTenantPlanLimits(tenantId).catch(() => null),
     getTenantUsage(tenantId).catch(() => null),
+    getTenantSubscription(tenantId).catch(() => null),
+    listPaymentEvents(tenantId).catch(() => []),
   ]);
+  const tenantPageUrl = `/admin/saas/tenants/${encodeURIComponent(tenantId)}`;
   const fmtLimit = (used: number | undefined, limit: number | null | undefined) =>
     `${used ?? 0} / ${limit == null ? "∞" : limit}`;
   const unscopedTotal = unscoped
@@ -188,6 +194,52 @@ export default async function SaasTenantDetailPage({
             Appliquer les limites du plan « {tenant.plan ?? "free"} »
           </button>
         </form>
+      </SectionCard>
+
+      <SectionCard icon={Repeat} title="Abonnement (superuser)">
+        <MetadataGrid
+          columns={3}
+          items={[
+            { label: "Statut", value: <Mono>{subscription?.status ?? "(aucun)"}</Mono> },
+            { label: "Plan abo", value: <Mono>{subscription?.plan ?? "—"}</Mono> },
+            { label: "Provider", value: <Mono>{subscription?.provider ?? "—"}</Mono> },
+            { label: "Période fin", value: subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString("fr-FR") : "—" },
+            { label: "Annulé le", value: subscription?.canceledAt ? new Date(subscription.canceledAt).toLocaleDateString("fr-FR") : "—" },
+          ]}
+        />
+        <div className="mt-4">
+          {subscription ? (
+            <form action={setSubscriptionStatusAction} className="flex flex-wrap items-center gap-2">
+              <input type="hidden" name="tenantId" value={tenant.id} />
+              <input type="hidden" name="redirectTo" value={tenantPageUrl} />
+              <select name="status" defaultValue={subscription.status ?? "active"} className={inputCls} style={{ borderColor: "var(--border)" }}>
+                {SUBSCRIPTION_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+                <option value="__resume__">▶ reprendre</option>
+              </select>
+              <button type="submit" className="h-10 rounded-xl px-4 text-[13px] font-bold text-white" style={{ background: "var(--blue-600)" }}>Mettre à jour</button>
+            </form>
+          ) : (
+            <form action={createManualSubscriptionAction} className="flex flex-wrap items-center gap-2">
+              <input type="hidden" name="tenantId" value={tenant.id} />
+              <input type="hidden" name="redirectTo" value={tenantPageUrl} />
+              <input type="hidden" name="plan" value={tenant.plan ?? "free"} />
+              <select name="status" defaultValue="active" className={inputCls} style={{ borderColor: "var(--border)" }}>
+                {SUBSCRIPTION_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <button type="submit" className="h-10 rounded-xl border px-4 text-[13px] font-semibold" style={{ borderColor: "var(--border)", color: "var(--accent)" }}>Créer un abonnement manuel</button>
+            </form>
+          )}
+        </div>
+        {payments.length > 0 ? (
+          <div className="mt-4">
+            <h3 className="mb-2 text-[12px] font-bold uppercase tracking-wide text-slate-500">Événements paiement</h3>
+            <ul className="space-y-1 text-[12px] text-slate-600">
+              {payments.map((p) => (
+                <li key={p.id} className="flex justify-between gap-3"><span>{p.eventType ?? "event"} · {p.provider}</span><span className="font-mono">{p.createdAt ? new Date(p.createdAt).toLocaleString("fr-FR") : ""}</span></li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </SectionCard>
 
       {/* ── Édition (superuser) ─────────────────────────────────────────── */}

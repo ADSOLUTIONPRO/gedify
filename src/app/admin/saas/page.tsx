@@ -9,6 +9,7 @@ import { SectionCard } from "@/components/ui/section-card";
 import { StatCard } from "@/components/ui/stat-card";
 import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
 import { listTenants } from "@/lib/tenant/tenant-store";
+import { getSubscriptionAlerts } from "@/lib/saas/subscriptions";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +38,15 @@ export default async function SaasDashboardPage() {
   const active = tenants.filter((t) => (t.status ?? "").toLowerCase() === "active").length;
   const trial = tenants.filter((t) => (t.status ?? "").toLowerCase() === "trial").length;
   const suspended = tenants.filter((t) => (t.status ?? "").toLowerCase() === "suspended").length;
+  const alerts = multiTenant ? await getSubscriptionAlerts().catch(() => null) : null;
+  const alertItems = alerts
+    ? [
+        { label: "Clients sans abonnement", list: alerts.noSubscription.map((x) => x.name ?? x.id) },
+        { label: "Abonnements past_due", list: alerts.pastDue.map((x) => x.name ?? x.id) },
+        { label: "Essais bientôt expirés", list: alerts.trialExpiringSoon.map((x) => x.name ?? x.id) },
+        { label: "Tenants suspendus", list: alerts.suspended.map((x) => x.name ?? x.id) },
+      ].filter((a) => a.list.length > 0)
+    : [];
 
   return (
     <PageShell>
@@ -55,6 +65,19 @@ export default async function SaasDashboardPage() {
           <StatCard label="Suspendus" value={suspended} icon={AlertTriangle} tone="violet" helper="status=suspended" />
         </section>
       )}
+
+      {alertItems.length > 0 ? (
+        <SectionCard icon={AlertTriangle} title="Alertes">
+          <ul className="space-y-1.5 text-[13px]">
+            {alertItems.map((a) => (
+              <li key={a.label} className="flex items-start gap-2">
+                <span className="mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-extrabold" style={{ background: "#FEF3C7", color: "#92400E" }}>{a.list.length}</span>
+                <span><strong>{a.label}</strong> — {a.list.slice(0, 8).join(", ")}{a.list.length > 8 ? "…" : ""}</span>
+              </li>
+            ))}
+          </ul>
+        </SectionCard>
+      ) : null}
 
       <SectionCard icon={BriefcaseBusiness} title="Sections">
         <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">

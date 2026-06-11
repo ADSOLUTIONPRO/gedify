@@ -107,8 +107,17 @@ export async function consume(input: ConsumeInput): Promise<PaperlessTask> {
       return task;
     }
 
-    // Quota SaaS : documents + stockage (no-op hors multi-tenant / sans tenant actif).
-    // QuotaError est capturée par le catch → tâche FAILURE avec message propre.
+    // Accès SaaS : refuse si tenant suspendu / abonnement bloquant (no-op hors
+    // multi-tenant). Puis quota documents + stockage. Les erreurs sont capturées
+    // par le catch → tâche FAILURE avec message propre.
+    if (process.env.MULTI_TENANT) {
+      const { getActiveTenantId } = await import("@/lib/tenant/get-current-tenant");
+      const tid = await getActiveTenantId();
+      if (tid) {
+        const { assertTenantCanUseSaas } = await import("@/lib/saas/subscriptions");
+        await assertTenantCanUseSaas(tid);
+      }
+    }
     const { enforceDocumentQuota } = await import("@/lib/saas/quota");
     await enforceDocumentQuota(input.buffer.length);
 
