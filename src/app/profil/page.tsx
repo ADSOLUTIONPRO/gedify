@@ -2,6 +2,7 @@ import { ExternalLink, KeyRound, Mail, ShieldCheck, UserCircle } from "lucide-re
 import { ErrorState } from "@/components/ui/error-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
+import { ChangePasswordForm } from "@/components/profil/change-password-form";
 import { getPaperlessPublicUrl } from "@/lib/paperless";
 import { formatPaperlessValue } from "@/lib/paperless-resources";
 import { safePaperlessObject } from "@/lib/paperless-resources";
@@ -71,6 +72,10 @@ export default async function ProfilPage() {
           />
         </section>
       )}
+
+      <div className="mt-6">
+        <ChangePasswordForm />
+      </div>
     </main>
   );
 }
