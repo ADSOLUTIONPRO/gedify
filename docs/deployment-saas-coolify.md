@@ -111,6 +111,34 @@ EMAILS_ENABLED=false
 STRIPE_MODE=test
 ```
 
+#### Connexion admin en staging (admin par défaut)
+
+En **staging uniquement** (`APP_ENV=staging` ou `NEXT_PUBLIC_APP_ENV=staging`), si
+aucun identifiant d'amorçage n'est fourni, l'application crée automatiquement un
+administrateur par défaut au premier accès :
+
+| Identifiant | Mot de passe |
+| ----------- | ------------ |
+| `admin`     | `admin`      |
+
+- Pré-requis : **`AUTH_SECRET` doit être défini** (sinon la connexion renvoie
+  « Authentification non configurée »).
+- Ce comportement est **strictement réservé au staging** (jamais en dev, en
+  production / `saas-production`, sur `main` ni sur Docker Synology, qui ne posent
+  jamais `APP_ENV=staging`).
+- **Surcharger** les identifiants par défaut :
+  ```dotenv
+  GEDIFY_ADMIN_USER=mon-admin
+  GEDIFY_ADMIN_PASSWORD=un-mot-de-passe-fort
+  ```
+- **Réinitialiser** un admin existant dont le mot de passe est perdu (volume
+  recréé, bascule de backend…) :
+  ```dotenv
+  GEDIFY_ADMIN_RESET=true
+  ```
+- ⚠️ `admin/admin` est volontairement faible : **changez le mot de passe** depuis
+  l'interface (ou via `GEDIFY_ADMIN_*`) dès la première connexion.
+
 ### Variables production
 
 ```dotenv

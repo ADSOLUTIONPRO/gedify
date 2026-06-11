@@ -3,7 +3,12 @@ import "server-only";
 import bcrypt from "bcryptjs";
 import { mutateList, nextId, readStore, STORE, type EngineUser } from "./stores";
 import { roleOf, type Role } from "@/lib/auth/permissions";
+import { isStaging } from "@/lib/config/environment";
 import type { PaperlessProfile } from "@/lib/paperless-types";
+
+/** Identifiants de l'admin par défaut amorcé UNIQUEMENT en staging (cf. ensureBootstrapAdmin). */
+const STAGING_DEFAULT_ADMIN_USER = "admin";
+const STAGING_DEFAULT_ADMIN_PASSWORD = "admin";
 
 /* ────────────────────────────────────────────────────────────────────────
    Utilisateurs locaux (remplacent les users Paperless). Mots de passe hashés
@@ -45,8 +50,26 @@ export async function ensureBootstrapAdmin(): Promise<void> {
   if (bootstrapAttempted) return;
   bootstrapAttempted = true;
 
-  const username = process.env.GEDIFY_ADMIN_USER?.trim();
-  const password = process.env.GEDIFY_ADMIN_PASSWORD;
+  let username = process.env.GEDIFY_ADMIN_USER?.trim();
+  let password = process.env.GEDIFY_ADMIN_PASSWORD;
+
+  // ── Admin par défaut « clé en main » UNIQUEMENT en staging ─────────────────
+  // Sur la version SaaS staging (APP_ENV / NEXT_PUBLIC_APP_ENV = staging), si
+  // aucun identifiant d'amorçage n'est fourni, on amorce un admin par défaut
+  // (admin / admin) pour pouvoir se connecter immédiatement aux données de test.
+  // STRICTEMENT gardé par isStaging() → aucun effet en développement, en
+  // production (saas-production), sur main ni sur Docker Synology (qui ne posent
+  // jamais APP_ENV=staging). Surchargeable via GEDIFY_ADMIN_USER /
+  // GEDIFY_ADMIN_PASSWORD ; réinitialisable via GEDIFY_ADMIN_RESET=true.
+  if ((!username || !password) && isStaging()) {
+    username = username || STAGING_DEFAULT_ADMIN_USER;
+    password = password || STAGING_DEFAULT_ADMIN_PASSWORD;
+    console.warn(
+      "[engine] STAGING : identifiants admin par défaut actifs (admin/admin). " +
+        "Changez le mot de passe depuis l'interface ou définissez GEDIFY_ADMIN_USER/GEDIFY_ADMIN_PASSWORD.",
+    );
+  }
+
   if (!username || !password) return; // pas d'admin env → flux /installation
 
   const users = await readStore<EngineUser[]>(STORE.users, []);
