@@ -99,12 +99,40 @@ et le **confinement des écritures** par tenant ne s'activent **que** si
 > **Rollback instantané** : `MULTI_TENANT=false` désactive TOUT le tenant-scoping
 > (lectures/écritures redeviennent à l'identique) sans redéploiement de code.
 
+### Tables couvertes & relations
+
+`tenant_id` (colonne nullable indexée, **pas** de FK dure — cohérent avec le
+style blob du schéma) sur : `documents`, `tags`, `correspondents`,
+`document_types`, `folders`, plus `document_files` et `document_correspondents`.
+
+> `document_tags` et `folder_documents` ne sont **pas** scopés : ces relations
+> sont **embarquées dans le blob du parent** (tags = `document.tags`, liens
+> dossier = `folder.linkedDocumentIds`) → déjà isolées via le `tenant_id` du
+> parent. `document_correspondents` (correspondants secondaires) suit un chemin
+> « replace complet » cohérent : la colonne est ajoutée + rattachée, mais le
+> stamping runtime reste à brancher (risque résiduel mineur, défense en
+> profondeur — isolation fonctionnelle déjà assurée par le document).
+
+### Helpers de requêtes (`tenant-scope.ts`)
+
+`isMultiTenantEnabled()`, `getTenantWhere(tenantId)`, `withTenantId(data, tenantId)`,
+`tenantScopedWhere(baseWhere, tenantId)`, `requireSameTenant(recordTenantId,
+currentTenantId)` — tous **no-op** si `tenantId` est null (mono-tenant) → pour
+adopter le scoping explicitement dans de futures routes sans répéter `tenant_id`.
+
+### Page admin — couverture
+
+`/admin/saas/tenant` affiche le **nombre de documents / tags / correspondants /
+types / dossiers** du tenant courant (`getTenantCounts`), en plus du diagnostic.
+
 ### Rattachement des données existantes
 
-Script idempotent `scripts/saas/backfill-tenant-id.ts` → bundle
-`scripts/saas/backfill-tenant-id.mjs` (`npm run saas:backfill-tenant`) : ajoute
-`tenant_id` si absent, crée l'index, et affecte `tenant_id = azserver-staging`
-(surchargeable via `TENANT_ID`) aux lignes `NULL`. Relançable sans effet.
+Script idempotent **complet** `scripts/saas/attach-existing-data-to-tenant.ts` →
+bundle `.mjs` (`npm run saas:attach-data`) : ajoute `tenant_id` si absent, crée
+l'index, et affecte `tenant_id = azserver-staging` (surchargeable via
+`TENANT_ID`) aux lignes `NULL` des 7 tables ci-dessus, avec un résumé par table.
+Relançable sans effet. (Le précédent `saas:backfill-tenant`, sous-ensemble des 5
+tables cœur, reste disponible.)
 
 ### Commandes (Coolify, après déploiement)
 

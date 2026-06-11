@@ -2,6 +2,8 @@ import "server-only";
 
 import { isMultiTenantEnabled } from "./tenant-config";
 
+export { isMultiTenantEnabled } from "./tenant-config";
+
 /* ────────────────────────────────────────────────────────────────────────
    Périmètre multi-tenant des tables métier (Phase 2).
 
@@ -43,5 +45,53 @@ export async function activeTenantIdFor(table: string): Promise<string | null> {
     return await getActiveTenantId();
   } catch {
     return null;
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+   Helpers de requêtes tenant — pour éviter de répéter `tenant_id` partout dans
+   les routes/fonctions qui adoptent le scoping de façon explicite. Tous sont
+   no-op si `tenantId` est null (mode mono-tenant / hors SaaS) → comportement
+   inchangé.
+   ──────────────────────────────────────────────────────────────────────── */
+
+/** Clause `where` tenant pour une requête (Prisma-like) : `{ tenantId }` ou `{}`. */
+export function getTenantWhere(tenantId: string | null): Record<string, unknown> {
+  return tenantId ? { tenantId } : {};
+}
+
+/** Estampille un objet de données avec le tenant courant (no-op si null). */
+export function withTenantId<T extends Record<string, unknown>>(
+  data: T,
+  tenantId: string | null,
+): T & { tenantId?: string } {
+  return tenantId ? { ...data, tenantId } : data;
+}
+
+/** Fusionne une clause `where` existante avec le filtre tenant (no-op si null). */
+export function tenantScopedWhere<T extends Record<string, unknown>>(
+  baseWhere: T,
+  tenantId: string | null,
+): T & { tenantId?: string } {
+  return tenantId ? { ...baseWhere, tenantId } : baseWhere;
+}
+
+/**
+ * Vérifie qu'un enregistrement appartient au tenant courant ; lève sinon.
+ * - mono-tenant (`currentTenantId` null) → aucune vérification ;
+ * - enregistrement non encore rattaché (`recordTenantId` null) → toléré
+ *   (legacy avant backfill) ;
+ * - sinon, exige l'égalité stricte.
+ */
+export function requireSameTenant(
+  recordTenantId: string | null | undefined,
+  currentTenantId: string | null,
+): void {
+  if (!currentTenantId) return;
+  if (recordTenantId == null) return;
+  if (recordTenantId !== currentTenantId) {
+    throw new Error(
+      `Accès refusé : ressource d'un autre tenant (${recordTenantId} ≠ ${currentTenantId}).`,
+    );
   }
 }

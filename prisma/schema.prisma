@@ -55,8 +55,10 @@ model DocumentFile {
   mimeType   String? @map("mime_type")
   sizeBytes  Int?    @map("size_bytes")
   raw        Json?
+  tenantId   String? @map("tenant_id") // multi-tenant Phase 2 (nullable, gated MULTI_TENANT)
 
   @@index([documentId])
+  @@index([tenantId])
   @@map("document_files")
 }
 
@@ -160,9 +162,11 @@ model DocumentCorrespondent {
   documentId      Int     @map("document_id")
   correspondentId Int     @map("correspondent_id")
   role            String? // primary | secondary
+  tenantId        String? @map("tenant_id") // multi-tenant Phase 2 (nullable, gated MULTI_TENANT)
 
   @@id([documentId, correspondentId])
   @@index([correspondentId])
+  @@index([tenantId])
   @@map("document_correspondents")
 }
 

@@ -1,4 +1,4 @@
-import { AlertTriangle, Building2, CheckCircle2, Gauge, ShieldCheck, Stethoscope, XCircle } from "lucide-react";
+import { AlertTriangle, Building2, CheckCircle2, Database, Gauge, ShieldCheck, Stethoscope, XCircle } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
 import { SectionCard } from "@/components/ui/section-card";
@@ -6,6 +6,7 @@ import { MetadataGrid } from "@/components/ui/metadata-grid";
 import { getCurrentRole } from "@/lib/auth/current-user";
 import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
 import { getCurrentTenant, getTenantDebug } from "@/lib/tenant/get-current-tenant";
+import { getTenantCounts, type TenantCounts } from "@/lib/tenant/tenant-store";
 import type { TenantContext } from "@/lib/tenant/types";
 
 export const dynamic = "force-dynamic";
@@ -71,6 +72,12 @@ export default async function SaasTenantPage() {
     error = e instanceof Error ? e.message : String(e);
   }
   const settings = ctx?.settings ?? null;
+
+  // Couverture des données par tenant (Phase 2) — uniquement en multi-tenant.
+  let counts: TenantCounts | null = null;
+  if (multiTenant && ctx) {
+    counts = await getTenantCounts(ctx.tenantId).catch(() => null);
+  }
 
   return (
     <PageShell>
@@ -147,6 +154,25 @@ export default async function SaasTenantPage() {
             )}
           </SectionCard>
         </>
+      ) : null}
+
+      {counts ? (
+        <SectionCard
+          icon={Database}
+          title="Couverture des données (tenant courant)"
+          description="Lignes rattachées à ce tenant. Lancez saas:attach-data si des données restent à 0."
+        >
+          <MetadataGrid
+            columns={3}
+            items={[
+              { label: "Documents", value: counts.documents },
+              { label: "Tags", value: counts.tags },
+              { label: "Correspondants", value: counts.correspondents },
+              { label: "Types de document", value: counts.documentTypes },
+              { label: "Dossiers", value: counts.folders },
+            ]}
+          />
+        </SectionCard>
       ) : null}
 
       <SectionCard

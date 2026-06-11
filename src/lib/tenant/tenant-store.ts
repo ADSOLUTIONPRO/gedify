@@ -116,3 +116,39 @@ export async function getTenantSettings(tenantId: string): Promise<TenantSetting
   ]);
   return rows.length ? rowToSettings(rows[0]) : null;
 }
+
+export type TenantCounts = {
+  documents: number;
+  tags: number;
+  correspondents: number;
+  documentTypes: number;
+  folders: number;
+};
+
+/**
+ * Compte les lignes rattachées au tenant `tenantId` par table métier scopée.
+ * Tolérant : une table/colonne absente compte 0 (jamais d'exception fatale).
+ */
+export async function getTenantCounts(tenantId: string): Promise<TenantCounts> {
+  assertPostgres();
+  const pool = await getPool();
+  async function countOf(table: string): Promise<number> {
+    try {
+      const { rows } = await pool.query(
+        `SELECT COUNT(*)::int AS n FROM "${table}" WHERE tenant_id = $1`,
+        [tenantId],
+      );
+      return Number(rows[0]?.n ?? 0);
+    } catch {
+      return 0;
+    }
+  }
+  const [documents, tags, correspondents, documentTypes, folders] = await Promise.all([
+    countOf("documents"),
+    countOf("tags"),
+    countOf("correspondents"),
+    countOf("document_types"),
+    countOf("folders"),
+  ]);
+  return { documents, tags, correspondents, documentTypes, folders };
+}
