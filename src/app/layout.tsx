@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import "./globals.css";
 import { AppShell } from "@/components/layout/app-shell";
+import { EnvironmentBanner } from "@/components/env/EnvironmentBanner";
 import { AuthSetupBanner } from "@/components/ui/auth-setup-banner";
 import { SessionExpiredBanner } from "@/components/ui/session-expired-banner";
 import { AssistantProvider } from "@/components/ai-assistant/assistant-provider";
@@ -53,6 +54,7 @@ export default async function RootLayout({
           style={{ background: "var(--bg-page)", color: "var(--text-main)" }}
         >
           <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+          <EnvironmentBanner />
           {children}
         </body>
       </html>
@@ -79,6 +81,7 @@ export default async function RootLayout({
         style={{ background: "var(--bg-page)", color: "var(--text-main)" }}
       >
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <EnvironmentBanner />
         <AssistantProvider>
           <AuthSetupBanner />
           <SessionExpiredBanner />
