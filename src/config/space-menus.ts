@@ -234,6 +234,7 @@ export const SPACE_MENUS: Record<string, SpaceMenu> = {
       { label: "Factures", href: "/admin/saas/billing/invoices", icon: FileText, group: "offres" },
       { label: "Profil émetteur", href: "/admin/saas/billing/profile", icon: Building2, group: "offres" },
       { label: "Stripe", href: "/admin/saas/stripe", icon: Banknote, group: "offres" },
+      { label: "Mailing", href: "/admin/saas/mailing", icon: Mail, group: "exploitation" },
       { label: "Périodes d'essai", href: "/admin/saas/trials", icon: Clock, group: "offres" },
       { label: "Invitations clients", href: "/admin/saas/invitations", icon: Send, group: "acces" },
       { label: "Membres clients", href: "/admin/saas/memberships", icon: Users, group: "acces" },

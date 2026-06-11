@@ -28,7 +28,7 @@ export const viewport: Viewport = {
 };
 
 /** Routes rendues sans AppShell (0 chrome : fond + contenu uniquement). */
-const BARE_ROUTES = ["/login", "/installation"];
+const BARE_ROUTES = ["/login", "/installation", "/unsubscribe"];
 
 /** Applique le thème (clair/sombre) AVANT le rendu pour éviter tout flash. */
 const THEME_INIT_SCRIPT =

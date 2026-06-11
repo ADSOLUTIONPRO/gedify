@@ -36,6 +36,9 @@ const PUBLIC_PREFIXES = [
   // Webhook Stripe : appelé par Stripe SANS session. Sécurisé par la vérification
   // de signature (STRIPE_WEBHOOK_SECRET) dans la route elle-même.
   "/api/saas/stripe/webhook",
+  // Désinscription email : lien public reçu par email (sécurisé par token opaque
+  // dans la route/page elle-même). Doit rester accessible sans session.
+  "/unsubscribe",
   "/_next/",
   "/favicon",
 ];

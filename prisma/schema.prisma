@@ -850,3 +850,119 @@ model SubscriptionGrant {
   @@index([tenantId])
   @@map("subscription_grants")
 }
+
+/**
+ * ── Mailing transactionnel & campagnes (mini-Brevo) ───────────────────────
+ * Envoi via SMTP o2switch. Aucun secret stocké en base (env only).
+ */
+model MailLayout {
+  id          String   @id
+  name        String
+  isDefault   Boolean  @default(false) @map("is_default")
+  htmlWrapper String   @map("html_wrapper") // doit contenir {{content}}
+  raw         Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("mail_layouts")
+}
+
+model MailTemplate {
+  id          String   @id
+  key         String   @unique // ex: billing.invoice_issued
+  name        String
+  category    String   @default("system") // account|billing|subscription|support|system|marketing
+  subject     String
+  htmlBody    String   @map("html_body")
+  textBody    String?  @map("text_body")
+  locale      String   @default("fr-FR")
+  enabled     Boolean  @default(true)
+  layoutId    String?  @map("layout_id")
+  description String?
+  variables   Json? // liste indicative des variables
+  isMarketing Boolean  @default(false) @map("is_marketing")
+  raw         Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@index([category])
+  @@map("mail_templates")
+}
+
+model MailQueue {
+  id                String    @id
+  tenantId          String?   @map("tenant_id")
+  toEmail           String    @map("to_email")
+  toName            String?   @map("to_name")
+  templateKey       String?   @map("template_key")
+  category          String    @default("system")
+  subject           String
+  htmlBody          String    @map("html_body")
+  textBody          String?   @map("text_body")
+  status            String    @default("pending") // pending|sending|sent|failed|canceled|skipped
+  attempts          Int       @default(0)
+  maxAttempts       Int       @default(5) @map("max_attempts")
+  lastError         String?   @map("last_error")
+  scheduledAt       DateTime  @default(now()) @map("scheduled_at")
+  sentAt            DateTime? @map("sent_at")
+  providerMessageId String?   @map("provider_message_id")
+  campaignId        String?   @map("campaign_id")
+  dedupeKey         String?   @unique @map("dedupe_key")
+  meta              Json?
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([tenantId])
+  @@index([campaignId])
+  @@map("mail_queue")
+}
+
+model MailEvent {
+  id        String   @id
+  queueId   String?  @map("queue_id")
+  tenantId  String?  @map("tenant_id")
+  type      String // queued|sent|failed|skipped|retry|opened|unsubscribed
+  detail    String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([queueId])
+  @@index([tenantId])
+  @@map("mail_events")
+}
+
+model MailPreference {
+  id           String   @id
+  email        String
+  tenantId     String?  @map("tenant_id")
+  token        String   @unique // pour lien de désinscription
+  unsubAll     Boolean  @default(false) @map("unsub_all")
+  unsubMarketing Boolean @default(false) @map("unsub_marketing")
+  categories   Json? // map catégorie -> bool (désinscrit)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@unique([email, tenantId])
+  @@map("mail_preferences")
+}
+
+model MailCampaign {
+  id          String    @id
+  name        String
+  templateKey String?   @map("template_key")
+  subject     String?
+  htmlBody    String?   @map("html_body")
+  category    String    @default("marketing")
+  status      String    @default("draft") // draft|scheduled|sending|sent|canceled
+  audience    Json? // { scope: "all"|"plan"|"status", value?: string }
+  scheduledAt DateTime? @map("scheduled_at")
+  sentCount   Int       @default(0) @map("sent_count")
+  failedCount Int       @default(0) @map("failed_count")
+  createdByUserId Int?  @map("created_by_user_id")
+  raw         Json?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@map("mail_campaigns")
+}

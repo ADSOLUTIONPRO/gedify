@@ -7,7 +7,9 @@ import { getPool } from "@/lib/db/pg";
 import { postgresActive } from "@/lib/db/pg-store";
 import { getDataDir } from "@/lib/storage/data-dir";
 import { recordAudit } from "@/lib/audit/audit-store";
-import { getTenantById } from "@/lib/tenant/tenant-store";
+import { getTenantById, listTenantMembersWithUser } from "@/lib/tenant/tenant-store";
+import { enqueueMail } from "@/lib/saas/mailing/queue";
+import { getAppBaseUrl } from "@/lib/saas/mailing/config";
 import { getDefaultBillingProfile } from "./profile-store";
 import { reserveInvoiceNumber, reserveCreditNoteNumber } from "./invoice-numbering";
 import { buildLegalMentions } from "./legal-mentions";
@@ -19,6 +21,23 @@ export type InvoiceRecord = Record<string, unknown> & { id: string; tenant_id: s
 
 function iso(v: unknown): string | null {
   return v ? (v instanceof Date ? v.toISOString() : String(v)) : null;
+}
+
+/** Email de contact d'un tenant (owner → admin → 1er membre). Best-effort. */
+async function tenantContact(tenantId: string): Promise<{ email: string; name: string | null } | null> {
+  try {
+    const members = await listTenantMembersWithUser(tenantId);
+    const m = members.find((x) => x.role === "owner" && x.email)
+      ?? members.find((x) => x.role === "admin" && x.email)
+      ?? members.find((x) => x.email);
+    return m?.email ? { email: m.email, name: m.username } : null;
+  } catch {
+    return null;
+  }
+}
+
+function fmtMoney(cents: unknown, currency = "EUR"): string {
+  return `${(Number(cents ?? 0) / 100).toFixed(2)} ${currency}`;
 }
 function assertPg() {
   if (!postgresActive()) throw new Error("Postgres requis (facturation).");
@@ -201,6 +220,27 @@ export async function issueInvoice(id: string): Promise<void> {
   const refreshed = await getInvoice(id);
   if (refreshed) await renderAndStore(refreshed.invoice, refreshed.lines);
   await recordAudit({ action: "plan_updated", target: `invoice:${number}`, details: "facture émise" });
+
+  // Notification client (best-effort, ne bloque jamais l'émission).
+  try {
+    const inv = refreshed?.invoice;
+    if (inv) {
+      const contact = await tenantContact(String(inv.tenant_id));
+      if (contact) {
+        await enqueueMail({
+          to: contact.email, toName: contact.name, templateKey: "billing.invoice_issued",
+          category: "billing", tenantId: String(inv.tenant_id), dedupeKey: `invoice_issued:${id}`,
+          vars: {
+            recipientName: contact.name ?? "",
+            invoiceNumber: number,
+            amount: fmtMoney(inv.total_ttc_cents, String(inv.currency ?? "EUR")),
+            dueDate: inv.due_date ? new Date(String(inv.due_date)).toLocaleDateString("fr-FR") : "",
+            invoiceUrl: `${getAppBaseUrl()}/admin/saas/billing/invoices/${id}/pdf`,
+          },
+        });
+      }
+    }
+  } catch { /* notification best-effort */ }
 }
 
 /** Crée un avoir référant une facture émise. */
@@ -246,6 +286,26 @@ export async function markInvoicePaid(id: string): Promise<void> {
   const pool = await getPool();
   await pool.query("UPDATE invoices SET status='paid', paid_at=now(), amount_paid=total_ttc_cents, updated_at=now() WHERE id=$1", [id]);
   await recordAudit({ action: "plan_updated", target: `invoice:${id}`, details: "marquée payée" });
+
+  // Confirmation de paiement (best-effort).
+  try {
+    const data = await getInvoice(id);
+    const inv = data?.invoice;
+    if (inv) {
+      const contact = await tenantContact(String(inv.tenant_id));
+      if (contact) {
+        await enqueueMail({
+          to: contact.email, toName: contact.name, templateKey: "billing.payment_succeeded",
+          category: "billing", tenantId: String(inv.tenant_id), dedupeKey: `invoice_paid:${id}`,
+          vars: {
+            recipientName: contact.name ?? "",
+            amount: fmtMoney(inv.total_ttc_cents, String(inv.currency ?? "EUR")),
+            invoiceNumber: String(inv.invoice_number ?? ""),
+          },
+        });
+      }
+    }
+  } catch { /* notification best-effort */ }
 }
 
 export async function voidInvoice(id: string): Promise<void> {
