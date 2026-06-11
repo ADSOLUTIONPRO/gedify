@@ -231,10 +231,53 @@ et `test-client`, vérifie qu'une requête scopée à un tenant ne voit jamais l
 témoins de l'autre (et voit bien les siens), puis nettoie. **exit 0 si OK,
 exit 1 si fuite.**
 
-## Étapes suivantes (hors Phase 4)
+## Phase 5 — Résolution & sélection du tenant
+
+### Tenant actif (stockage)
+
+Cookie **httpOnly** `gedify-tenant` (`TENANT_COOKIE_NAME`), posé **côté serveur**
+par une server action après **validation du membership** ; `secure`/`sameSite=lax`/
+`path=/`/30 j. Il reste **revalidé** à chaque résolution (`getCurrentTenant`) →
+un cookie trafiqué vers un tenant non-membre est ignoré (retombe sur le 1ᵉʳ
+membership). Aucune route métier ne prend de `tenant_id` du frontend sans cette
+validation serveur.
+
+### Résolution (`getCurrentTenant` / `getTenantNav`)
+
+Ordre : MULTI_TENANT off → mono-tenant ; user absent → erreur/redirect login ;
+tenant sélectionné (cookie/header) **validé membership** → lui ; sinon **un seul**
+tenant accessible → auto ; sinon (plusieurs, aucun) → **sélection requise**.
+`getTenantNav()` (1 résolution/requête) alimente le layout (redirect) et le badge.
+
+### Flux d'interface
+
+- `/select-tenant` (server action `selectTenantAction`) : liste les espaces
+  accessibles (nom, slug, rôle, plan, statut). **1 espace → entrée directe** ;
+  **plusieurs → choix**. Écran dédié (sans AppShell) mais authentifié.
+- Le **layout** redirige vers `/select-tenant` quand une sélection est requise
+  (exempté : `/select-tenant` et `/admin/saas/*`).
+- **`TenantBadge`** (bandeau slim, multi-tenant only) : « Nom · rôle » +
+  « Changer d'espace » si plusieurs espaces.
+
+### Comportements
+
+- **admin (superuser, 1 membership azserver-staging)** : entre directement dans
+  AzServer Staging ; accède à `/admin/saas/tenants` (global) ; diagnostique les
+  autres tenants en lecture seule (les actions métier restent sur son tenant).
+- **clienttest (1 membership test-client)** : entre **automatiquement** dans
+  Client Test ; **pas** d'accès `/admin/saas/tenants` ; ne peut pas sélectionner
+  AzServer Staging (non-membre) ; ne voit aucune donnée d'AzServer Staging.
+
+### Sous-domaines (préparé, NON actif)
+
+`resolveTenantFromHost(host)` (`src/lib/tenant/resolve-host.ts`) déduit un slug
+depuis `client.gedify.fr` ; les domaines portail (`app/staging.gedify.fr`)
+renvoient null. **Non branché** — la résolution reste par membership.
+
+## Étapes suivantes (hors Phase 5)
 
 - Étendre `tenant_id` aux autres tables métier (budget, mails, reminders, tasks…).
-- Sélecteur de tenant superuser pour AGIR dans un tenant (avec audit), résolution
-  par sous-domaine.
+- Sélecteur superuser pour AGIR dans un tenant (avec audit) ; activation
+  sous-domaines.
 - CRUD tenants/memberships + invitations + **application des limites**
   (max_users / max_documents / max_storage_mb) ; Stripe ; inscription publique.

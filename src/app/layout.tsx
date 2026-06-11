@@ -8,7 +8,9 @@ import { AuthSetupBanner } from "@/components/ui/auth-setup-banner";
 import { SessionExpiredBanner } from "@/components/ui/session-expired-banner";
 import { AssistantProvider } from "@/components/ai-assistant/assistant-provider";
 import { Toaster } from "@/components/ui/toaster";
+import { TenantBadge } from "@/components/tenant/tenant-badge";
 import { readSession } from "@/lib/auth/session";
+import { getTenantNav } from "@/lib/tenant/get-current-tenant";
 
 export const metadata: Metadata = {
   title: "Gedify",
@@ -71,6 +73,31 @@ export default async function RootLayout({
     redirect(`/login?next=${encodeURIComponent(pathname)}&reason=auth_required`);
   }
 
+  // ── Phase 5 — écran de sélection d'espace (multi-tenant) ───────────────────
+  // Rendu SANS AppShell (écran dédié, mais authentifié — pas une route publique).
+  if (pathname === "/select-tenant") {
+    return (
+      <html lang="fr">
+        <body
+          className="min-h-screen antialiased"
+          style={{ background: "var(--bg-page)", color: "var(--text-main)" }}
+        >
+          <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+          <EnvironmentBanner />
+          {children}
+        </body>
+      </html>
+    );
+  }
+
+  // Résolution tenant (UNE fois par requête). Neutre/instantané en mono-tenant.
+  const tenantNav = await getTenantNav();
+  // Plusieurs espaces et aucun sélectionné → sélection obligatoire. On exempte
+  // l'admin SaaS global (superuser) qui n'a pas besoin d'un tenant actif.
+  if (tenantNav.needsSelection && !pathname.startsWith("/admin/saas")) {
+    redirect("/select-tenant");
+  }
+
   // ── App normale (session valide) ───────────────────────────────────────────
   // Plus de sidebar gauche : navigation via le lanceur d'applications de la
   // topbar. Le contenu occupe toute la largeur (centré, max 1600px).
@@ -82,6 +109,7 @@ export default async function RootLayout({
       >
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <EnvironmentBanner />
+        <TenantBadge nav={tenantNav} />
         <AssistantProvider>
           <AuthSetupBanner />
           <SessionExpiredBanner />

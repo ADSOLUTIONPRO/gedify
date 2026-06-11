@@ -6,12 +6,13 @@ import { readSession } from "@/lib/auth/session";
 import {
   DEFAULT_TENANT,
   DEFAULT_TENANT_ID,
+  TENANT_COOKIE_NAME,
   isMultiTenantEnabled,
   tenantRoleSatisfies,
 } from "./tenant-config";
 import { getTenantById, getTenantSettings, listMembershipsForUser } from "./tenant-store";
 import { getAmbientTenantId } from "./tenant-context";
-import type { TenantContext, TenantRole } from "./types";
+import type { Membership, Tenant, TenantContext, TenantRole } from "./types";
 
 /* ────────────────────────────────────────────────────────────────────────
    Résolution du tenant courant (Phase 1).
@@ -23,7 +24,7 @@ import type { TenantContext, TenantRole } from "./types";
      première). Lève une erreur claire si non connecté ou sans tenant.
    ──────────────────────────────────────────────────────────────────────── */
 
-const TENANT_COOKIE = "gedify-tenant";
+const TENANT_COOKIE = TENANT_COOKIE_NAME;
 const TENANT_HEADER = "x-tenant-id";
 
 export class TenantAccessError extends Error {
@@ -234,4 +235,67 @@ export async function assertTenantAccess(tenantId: string): Promise<TenantContex
     );
   }
   return ctx;
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+   Phase 5 — flux de sélection de tenant.
+   ──────────────────────────────────────────────────────────────────────── */
+
+export type AccessibleTenant = { tenant: Tenant; role: TenantRole };
+
+/** Tenants accessibles à l'utilisateur courant (via ses memberships). */
+export async function listAccessibleTenants(): Promise<AccessibleTenant[]> {
+  if (!isMultiTenantEnabled()) return [];
+  const user = await getCurrentUser();
+  if (!user) return [];
+  const memberships = await listMembershipsForUser(user.id);
+  const out: AccessibleTenant[] = [];
+  for (const m of memberships) {
+    const tenant = await getTenantById(m.tenantId);
+    if (tenant) out.push({ tenant, role: m.role });
+  }
+  return out;
+}
+
+export type TenantNav = {
+  multiTenant: boolean;
+  tenant: Tenant | null;
+  role: TenantRole | null;
+  accessibleCount: number;
+  /** multi-tenant + >1 tenant accessible + aucun tenant actif valide. */
+  needsSelection: boolean;
+};
+
+/**
+ * État de navigation tenant pour le layout/header — UNE résolution par requête.
+ * Ordre : MULTI_TENANT off → neutre ; sinon résout l'utilisateur, ses
+ * memberships, le tenant sélectionné (cookie/header validé) ; si un seul tenant
+ * → auto ; si plusieurs sans sélection → needsSelection.
+ */
+export async function getTenantNav(): Promise<TenantNav> {
+  const empty: TenantNav = {
+    multiTenant: false,
+    tenant: null,
+    role: null,
+    accessibleCount: 0,
+    needsSelection: false,
+  };
+  if (!isMultiTenantEnabled()) return empty;
+  const user = await getCurrentUser();
+  if (!user) return { ...empty, multiTenant: true };
+  const memberships = await listMembershipsForUser(user.id);
+  const accessibleCount = memberships.length;
+  if (accessibleCount === 0) return { ...empty, multiTenant: true };
+  const selected = await readSelectedTenant();
+  const chosen: Membership | null =
+    (selected ? memberships.find((m) => m.tenantId === selected) ?? null : null) ??
+    (accessibleCount === 1 ? memberships[0] : null);
+  const tenant = chosen ? await getTenantById(chosen.tenantId) : null;
+  return {
+    multiTenant: true,
+    tenant,
+    role: chosen?.role ?? null,
+    accessibleCount,
+    needsSelection: !chosen,
+  };
 }

@@ -17,6 +17,10 @@ export function isMultiTenantEnabled(): boolean {
 /** Identifiant/slug du tenant par défaut en mode mono-tenant (SaaS désactivé). */
 export const DEFAULT_TENANT_ID = "default";
 
+/** Cookie httpOnly portant le tenant ACTIF sélectionné (toujours validé contre
+ *  les memberships côté serveur — jamais de confiance aveugle au client). */
+export const TENANT_COOKIE_NAME = "gedify-tenant";
+
 /**
  * Tenant synthétique renvoyé en mode mono-tenant (SaaS désactivé) : permet à
  * getCurrentTenant() de répondre SANS accès base, donc 100 % inerte pour les
