@@ -33,6 +33,8 @@ const entries = [
   ["scripts/saas/backfill-tenant-id.ts", "scripts/saas/backfill-tenant-id.mjs"],
   ["scripts/saas/attach-existing-data-to-tenant.ts", "scripts/saas/attach-existing-data-to-tenant.mjs"],
   ["scripts/saas/check-tenant-isolation.ts", "scripts/saas/check-tenant-isolation.mjs"],
+  ["scripts/saas/create-test-tenant.ts", "scripts/saas/create-test-tenant.mjs"],
+  ["scripts/saas/test-two-tenant-isolation.ts", "scripts/saas/test-two-tenant-isolation.mjs"],
 ];
 
 for (const [entry, outfile] of entries) {

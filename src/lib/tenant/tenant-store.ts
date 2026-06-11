@@ -87,6 +87,72 @@ export async function listTenants(): Promise<Tenant[]> {
   return rows.map(rowToTenant);
 }
 
+/** Nombre d'adhésions (utilisateurs) d'un tenant. */
+export async function countTenantMembers(tenantId: string): Promise<number> {
+  assertPostgres();
+  const pool = await getPool();
+  try {
+    const { rows } = await pool.query(
+      "SELECT COUNT(*)::int AS n FROM memberships WHERE tenant_id = $1",
+      [tenantId],
+    );
+    return Number(rows[0]?.n ?? 0);
+  } catch {
+    return 0;
+  }
+}
+
+export type TenantMember = {
+  userId: number;
+  role: TenantRole;
+  username: string | null;
+  email: string | null;
+};
+
+/** Membres d'un tenant enrichis du username/email (jamais de secret). */
+export async function listTenantMembersWithUser(tenantId: string): Promise<TenantMember[]> {
+  assertPostgres();
+  const pool = await getPool();
+  const { rows } = await pool.query(
+    `SELECT m.user_id, m.role, u.username, u.email
+       FROM memberships m
+       LEFT JOIN users u ON u.id = m.user_id
+      WHERE m.tenant_id = $1
+      ORDER BY m.created_at, m.id`,
+    [tenantId],
+  );
+  return rows.map((r) => ({
+    userId: Number(r.user_id),
+    role: (String(r.role) as TenantRole) || "member",
+    username: (r.username as string | null) ?? null,
+    email: (r.email as string | null) ?? null,
+  }));
+}
+
+export type RecentDocument = { id: number; title: string | null; created: string | null };
+
+/** Derniers documents (non supprimés) d'un tenant — pour le diagnostic superuser. */
+export async function getRecentDocuments(tenantId: string, limit = 10): Promise<RecentDocument[]> {
+  assertPostgres();
+  const pool = await getPool();
+  try {
+    const { rows } = await pool.query(
+      `SELECT raw FROM documents WHERE tenant_id = $1 ORDER BY id DESC LIMIT $2`,
+      [tenantId, limit],
+    );
+    return rows
+      .map((r) => (r.raw ?? {}) as Record<string, unknown>)
+      .filter((d) => d.deleted !== true)
+      .map((d) => ({
+        id: Number(d.id),
+        title: (d.title as string | null) ?? null,
+        created: (d.created as string | null) ?? (d.createdDate as string | null) ?? null,
+      }));
+  } catch {
+    return [];
+  }
+}
+
 /** Adhésions d'un utilisateur (tous tenants confondus). */
 export async function listMembershipsForUser(userId: number): Promise<Membership[]> {
   assertPostgres();

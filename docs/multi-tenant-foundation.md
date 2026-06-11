@@ -193,10 +193,48 @@ cœur reste assurée centralement par la couche de stockage (engine-pg/pg-store)
   relations document_correspondents ↔ document/correspondant), **exit 0 si OK,
   exit 1 si fuite/incohérence**.
 
-## Étapes suivantes (hors Phase 3)
+## Phase 4 — 2ᵉ tenant & vérification d'isolation
+
+### Tenant de test
+
+`npm run saas:create-test-tenant` (`scripts/saas/create-test-tenant.ts`,
+idempotent) crée : l'utilisateur **clienttest** / `clienttest@gedify.local`
+(**non superuser**, mot de passe `ClientTest123!`), le tenant **test-client**
+(Client Test, plan `test`, actif), un membership **owner**, et ses
+`tenant_settings` (max_users 3, max_documents 50, max_storage_mb 500, IA+OCR+
+OnlyOffice activés, import email désactivé).
+
+### Pages superuser globales
+
+- `/admin/saas/tenants` — liste de tous les tenants (slug, plan, statut, nb
+  users/documents/tags/correspondants) + lien détails. **Accès `is_superuser`
+  uniquement** (un owner de tenant non-superuser est refusé).
+- `/admin/saas/tenants/[tenantId]` — diagnostic d'un tenant (infos, memberships,
+  compteurs/limites, lignes sans tenant_id, derniers documents). **Superuser
+  uniquement.** Lecture seule (aucune action métier) → le superuser diagnostique
+  sans changer son tenant d'action.
+
+### Résolution du tenant (interface)
+
+`getCurrentTenant()` résout via **membership** : le cookie `gedify-tenant` /
+l'en-tête `x-tenant-id` ne peuvent désigner qu'un tenant dont l'utilisateur est
+**membre** (`memberships.find(... === selected)`). Un utilisateur non-superuser
+ne peut donc **jamais** choisir librement un `tenant_id`. Le superuser passe par
+les pages de diagnostic (par paramètre, en lecture seule) ; les actions métier
+restent scopées à son propre tenant.
+
+### Test d'isolation 2 tenants
+
+`npm run saas:test-two-tenants` (`scripts/saas/test-two-tenant-isolation.ts`) :
+crée des lignes-témoins (documents/tags/correspondents) dans `azserver-staging`
+et `test-client`, vérifie qu'une requête scopée à un tenant ne voit jamais les
+témoins de l'autre (et voit bien les siens), puis nettoie. **exit 0 si OK,
+exit 1 si fuite.**
+
+## Étapes suivantes (hors Phase 4)
 
 - Étendre `tenant_id` aux autres tables métier (budget, mails, reminders, tasks…).
-- Sélecteur de tenant (UI) + résolution par sous-domaine.
-- CRUD tenants/memberships + invitations + application des limites.
-- Création/validation d'un **2ᵉ tenant** (Phase 4) une fois `saas:check-isolation`
-  vert.
+- Sélecteur de tenant superuser pour AGIR dans un tenant (avec audit), résolution
+  par sous-domaine.
+- CRUD tenants/memberships + invitations + **application des limites**
+  (max_users / max_documents / max_storage_mb) ; Stripe ; inscription publique.

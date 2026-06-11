@@ -15,6 +15,8 @@
     "saas:backfill-tenant": "node scripts/saas/backfill-tenant-id.mjs",
     "saas:attach-data": "node scripts/saas/attach-existing-data-to-tenant.mjs",
     "saas:check-isolation": "node scripts/saas/check-tenant-isolation.mjs",
+    "saas:create-test-tenant": "node scripts/saas/create-test-tenant.mjs",
+    "saas:test-two-tenants": "node scripts/saas/test-two-tenant-isolation.mjs",
     "prisma:generate": "prisma generate",
     "prisma:sql": "node scripts/gen-sql.mjs",
     "build:scripts": "node scripts/build-scripts.mjs",
