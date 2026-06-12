@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { AlertTriangle, Plus, ShieldCheck } from "lucide-react";
+import { AlertTriangle, LayoutGrid, Plus, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
 import { listTenants, getTenantCounts, countTenantMembers } from "@/lib/tenant/tenant-store";
-import { AdminCard, AdminBadge, AdminDataTable, type AdminColumn } from "@/components/admin-ui";
+import { AdminCard, AdminBadge, AdminDataTable, type AdminColumn, SuperAdminHero } from "@/components/admin-ui";
 
 export const dynamic = "force-dynamic";
 
@@ -47,10 +47,12 @@ export default async function SaasTenantsPage() {
 
   return (
     <PageShell>
-      <PageHeader
+      <SuperAdminHero
         breadcrumb={breadcrumb}
+        eyebrow="Administration SaaS"
         title="Clients / Espaces"
-        description={`Vue globale (superuser) — ${tenants.length} client(s).`}
+        subtitle={`Vue globale (superuser) — ${tenants.length} client(s).`}
+        icon={<LayoutGrid className="h-9 w-9" strokeWidth={1.9} aria-hidden="true" />}
         actions={<Link href="/admin/saas/create-tenant" className="au-btn au-btn--primary"><Plus className="h-4 w-4" strokeWidth={2.25} aria-hidden="true" /> Créer un client</Link>}
       />
       <AdminDataTable<Row>

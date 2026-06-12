@@ -36,7 +36,8 @@ export default async function SaasAdminLayout({ children }: { children: ReactNod
       </PageShell>
     );
   }
-  // `au-scope` : applique le design system Admin (champs/tables lisibles) à
-  // toutes les pages /admin/saas/* sans les réécrire une par une.
-  return <div className="au-scope">{children}</div>;
+  // `au-scope` : design system Admin (champs/tables lisibles).
+  // `sa-page` : fond premium SuperAdmin (langage visuel validé), appliqué à
+  // toutes les pages /admin/saas/* globales — jamais aux settings tenant.
+  return <div className="au-scope sa-page">{children}</div>;
 }

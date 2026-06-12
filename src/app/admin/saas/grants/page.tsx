@@ -3,6 +3,7 @@ import { AlertTriangle, Gift } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
 import { SectionCard } from "@/components/ui/section-card";
+import { SuperAdminHero } from "@/components/admin-ui";
 import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
 import { listGrants, isGrantActive } from "@/lib/saas/grants";
 
@@ -28,7 +29,7 @@ export default async function SaasGrantsPage() {
 
   return (
     <PageShell>
-      <PageHeader breadcrumb={breadcrumb} title="Gratuités offertes" description="Plans offerts manuellement. L'attribution se fait depuis la fiche d'un client." />
+      <SuperAdminHero breadcrumb={breadcrumb} eyebrow="Administration SaaS" title="Gratuités offertes" subtitle="Plans offerts manuellement. L'attribution se fait depuis la fiche d'un client." icon={<Gift className="h-9 w-9" strokeWidth={1.9} aria-hidden="true" />} />
       <SectionCard icon={Gift} title={`Gratuités (${grants.length})`} bodyClassName="p-0">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-[13px]">

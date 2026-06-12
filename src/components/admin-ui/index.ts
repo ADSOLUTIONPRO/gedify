@@ -7,6 +7,6 @@ export { AdminCard, AdminStatCard, AdminStats, AdminBadge, AdminAlert, AdminEmpt
 export { AdminDataTable, type AdminColumn } from "./table";
 export {
   SuperAdminPageShell, SuperAdminHero, SuperAdminMetricGrid, SuperAdminMetricCard,
-  SuperAdminPanel, SuperAdminSectionHeader, SuperAdminGrid, SuperAdminActionCard,
+  SuperAdminPanel, SuperAdminSectionHeader, SuperAdminGrid, SuperAdminQuickBar, SuperAdminActionCard,
   SuperAdminAlertList, SuperAdminTableCard, type SuperAdminMetricVariant,
 } from "./superadmin";

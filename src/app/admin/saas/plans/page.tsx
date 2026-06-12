@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
 import {
   AdminCard, AdminAlert, AdminBadge, AdminField, AdminInput, AdminCheckbox,
-  AdminButton, AdminFormSection,
+  AdminButton, AdminFormSection, SuperAdminHero,
 } from "@/components/admin-ui";
 import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
 import { listPlanDefinitions, type PlanDefinition } from "@/lib/saas/plan-store";
@@ -89,10 +89,12 @@ export default async function SaasPlansPage({ searchParams }: { searchParams: Pr
 
   return (
     <PageShell>
-      <PageHeader
+      <SuperAdminHero
         breadcrumb={breadcrumb}
+        eyebrow="Administration SaaS"
         title="Plans & offres"
-        description="Plans administrables (table saas_plans, fallback config). Limites + fonctionnalités par offre."
+        subtitle="Plans administrables (table saas_plans, fallback config). Limites + fonctionnalités par offre."
+        icon={<Sliders className="h-9 w-9" strokeWidth={1.9} aria-hidden="true" />}
         actions={<a href="#custom-plan" className="au-btn au-btn--primary">Créer un plan</a>}
       />
       {error ? <AdminAlert tone="danger">{error}</AdminAlert> : null}

@@ -3,7 +3,7 @@ import { AlertTriangle, Building2, FilePlus2, FileText, LayoutTemplate, Receipt 
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
 import { SectionCard } from "@/components/ui/section-card";
-import { AdminNavGrid, AdminNavTile } from "@/components/admin-ui";
+import { AdminNavGrid, AdminNavTile, SuperAdminHero } from "@/components/admin-ui";
 import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { listInvoices } from "@/lib/saas/billing/invoice-service";
@@ -52,7 +52,7 @@ export default async function SaasBillingPage() {
 
   return (
     <PageShell>
-      <PageHeader breadcrumb={breadcrumb} title="Facturation" description="Factures, avoirs et mentions légales (génération HTML/PDF)." />
+      <SuperAdminHero breadcrumb={breadcrumb} eyebrow="Administration SaaS" title="Facturation" subtitle="Factures, avoirs et mentions légales (génération HTML/PDF)." icon={<Receipt className="h-9 w-9" strokeWidth={1.9} aria-hidden="true" />} />
 
       {issues.length > 0 ? (
         <Link href="/admin/saas/billing/profile" className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-900">

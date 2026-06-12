@@ -15,9 +15,9 @@ export function SuperAdminPageShell({ children }: { children: ReactNode }) {
 
 type Crumb = { href?: string; label: string };
 
-/** Hero de page : fil d'Ariane optionnel, eyebrow, titre, sous-titre, orbe. */
-export function SuperAdminHero({ eyebrow, title, subtitle, icon, breadcrumb }: {
-  eyebrow?: string; title: string; subtitle?: string; icon?: ReactNode; breadcrumb?: Crumb[];
+/** Hero de page : fil d'Ariane optionnel, eyebrow, titre, sous-titre, actions, orbe. */
+export function SuperAdminHero({ eyebrow, title, subtitle, icon, breadcrumb, actions }: {
+  eyebrow?: string; title: string; subtitle?: string; icon?: ReactNode; breadcrumb?: Crumb[]; actions?: ReactNode;
 }) {
   return (
     <section className="sa-hero">
@@ -38,6 +38,7 @@ export function SuperAdminHero({ eyebrow, title, subtitle, icon, breadcrumb }: {
         {eyebrow ? <span className="sa-hero__eyebrow">{eyebrow}</span> : null}
         <h1>{title}</h1>
         {subtitle ? <p>{subtitle}</p> : null}
+        {actions ? <div className="sa-hero__actions">{actions}</div> : null}
       </div>
       {icon ? <div className="sa-hero__orb" aria-hidden="true">{icon}</div> : null}
     </section>
@@ -91,10 +92,11 @@ export function SuperAdminMetricCard({
   return href ? <Link href={href} className={cls}>{inner}</Link> : <article className={cls}>{inner}</article>;
 }
 
-/** Panneau (carte large) avec en-tête optionnel (titre + actions). */
-export function SuperAdminPanel({ title, actions, children }: { title?: string; actions?: ReactNode; children: ReactNode }) {
+/** Panneau (carte large) avec en-tête optionnel (titre + actions). `slim` = en-tête
+    compact (label discret + padding réduit), pour les barres d'accès rapides. */
+export function SuperAdminPanel({ title, actions, slim, children }: { title?: string; actions?: ReactNode; slim?: boolean; children: ReactNode }) {
   return (
-    <section className="sa-panel">
+    <section className={`sa-panel${slim ? " sa-panel--slim" : ""}`}>
       {title || actions ? (
         <div className="sa-panel__head">
           {title ? <h2>{title}</h2> : <span />}
@@ -121,10 +123,15 @@ export function SuperAdminGrid({ columns = 4, children }: { columns?: 2 | 3 | 4;
   return <div className={`sa-grid sa-grid--${columns}`}>{children}</div>;
 }
 
-/** Carte d'action / accès rapide (badge + libellé + chip optionnel). */
-export function SuperAdminActionCard({ href, label, icon, badge }: { href: string; label: string; icon?: ReactNode; badge?: string }) {
+/** Barre d'accès rapides : pills auto-largeur qui s'enroulent (compact, haut de page). */
+export function SuperAdminQuickBar({ children }: { children: ReactNode }) {
+  return <div className="sa-quickbar">{children}</div>;
+}
+
+/** Carte d'action / accès rapide (badge + libellé + chip optionnel). `compact` = pill. */
+export function SuperAdminActionCard({ href, label, icon, badge, compact }: { href: string; label: string; icon?: ReactNode; badge?: string; compact?: boolean }) {
   return (
-    <Link href={href} className="sa-quick__link">
+    <Link href={href} className={`sa-quick__link${compact ? " sa-quick__link--sm" : ""}`}>
       <span className="sa-quick__badge" aria-hidden="true">{icon ?? "→"}</span>
       <span className="sa-quick__label">{label}</span>
       {badge ? <span className="sa-quick__chip">{badge}</span> : null}

@@ -5,7 +5,7 @@ import {
 import { AdminAlert } from "@/components/admin-ui";
 import {
   SuperAdminPageShell, SuperAdminHero, SuperAdminMetricGrid, SuperAdminMetricCard,
-  SuperAdminPanel, SuperAdminAlertList, SuperAdminGrid, SuperAdminActionCard,
+  SuperAdminPanel, SuperAdminAlertList, SuperAdminQuickBar, SuperAdminActionCard,
 } from "@/components/admin-ui";
 import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
 import { listTenants } from "@/lib/tenant/tenant-store";
@@ -85,6 +85,21 @@ export default async function SaasDashboardPage() {
     <SuperAdminPageShell>
       <SuperAdminHero breadcrumb={breadcrumb} eyebrow="Administration SaaS" title="Tableau de bord SaaS" subtitle={subtitle} icon={HERO_ICON} />
 
+      <SuperAdminPanel slim title="Accès rapides">
+        <SuperAdminQuickBar>
+          {LINKS.map(({ href, label, icon: Icon, soon }) => (
+            <SuperAdminActionCard
+              key={href}
+              compact
+              href={href}
+              label={label}
+              icon={<Icon className="h-[15px] w-[15px]" strokeWidth={1.9} aria-hidden="true" />}
+              badge={soon ? "Bientôt" : undefined}
+            />
+          ))}
+        </SuperAdminQuickBar>
+      </SuperAdminPanel>
+
       <SuperAdminMetricGrid>
         <SuperAdminMetricCard
           variant="blue" href="/admin/saas/tenants"
@@ -114,20 +129,6 @@ export default async function SaasDashboardPage() {
 
       <SuperAdminPanel title="Alertes">
         <SuperAdminAlertList items={alertTiles} />
-      </SuperAdminPanel>
-
-      <SuperAdminPanel title="Sections">
-        <SuperAdminGrid columns={4}>
-          {LINKS.map(({ href, label, icon: Icon, soon }) => (
-            <SuperAdminActionCard
-              key={href}
-              href={href}
-              label={label}
-              icon={<Icon className="h-[18px] w-[18px]" strokeWidth={1.9} aria-hidden="true" />}
-              badge={soon ? "Bientôt" : undefined}
-            />
-          ))}
-        </SuperAdminGrid>
       </SuperAdminPanel>
     </SuperAdminPageShell>
   );

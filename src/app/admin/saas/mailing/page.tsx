@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
 import { SectionCard } from "@/components/ui/section-card";
 import { MetadataGrid } from "@/components/ui/metadata-grid";
-import { AdminNavGrid, AdminNavTile } from "@/components/admin-ui";
+import { AdminNavGrid, AdminNavTile, SuperAdminHero } from "@/components/admin-ui";
 import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getSmtpStatus } from "@/lib/saas/mailing/config";
@@ -40,7 +40,7 @@ export default async function MailingPage({ searchParams }: { searchParams: Prom
 
   return (
     <PageShell>
-      <PageHeader breadcrumb={breadcrumb} title="Mailing / Notifications" description="Emails transactionnels (SMTP o2switch), relances de paiement et campagnes." />
+      <SuperAdminHero breadcrumb={breadcrumb} eyebrow="Administration SaaS" title="Mailing / Notifications" subtitle="Emails transactionnels (SMTP o2switch), relances de paiement et campagnes." icon={<Send className="h-9 w-9" strokeWidth={1.9} aria-hidden="true" />} />
 
       {sp.test ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">Email de test : {sp.test}.</div> : null}
       {sp.smtp === "ok" ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">Connexion SMTP vérifiée.</div> : null}

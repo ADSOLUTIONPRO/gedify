@@ -2,6 +2,7 @@ import { AlertTriangle, Tag } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
 import { SectionCard } from "@/components/ui/section-card";
+import { SuperAdminHero } from "@/components/admin-ui";
 import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
 import { listPromoCodes, DISCOUNT_TYPES } from "@/lib/saas/promo-codes";
 import { PLAN_IDS } from "@/lib/saas/plans";
@@ -30,7 +31,7 @@ export default async function SaasPromoCodesPage({ searchParams }: { searchParam
 
   return (
     <PageShell>
-      <PageHeader breadcrumb={breadcrumb} title="Codes promo" description="Réductions et périodes gratuites (préparé pour Stripe coupon/promotion code)." />
+      <SuperAdminHero breadcrumb={breadcrumb} eyebrow="Administration SaaS" title="Codes promo" subtitle="Réductions et périodes gratuites (préparé pour Stripe coupon/promotion code)." icon={<Tag className="h-9 w-9" strokeWidth={1.9} aria-hidden="true" />} />
       {error ? (
         <div className="flex items-start gap-2 rounded-2xl border border-rose-300 bg-rose-50 px-3 py-2.5 text-xs font-semibold text-rose-900">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden="true" /><span>{error}</span>

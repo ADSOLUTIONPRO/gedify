@@ -3,6 +3,7 @@ import { AlertTriangle, Repeat } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
 import { SectionCard } from "@/components/ui/section-card";
+import { SuperAdminHero } from "@/components/admin-ui";
 import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
 import { listTenants } from "@/lib/tenant/tenant-store";
 import { listSubscriptions, SUBSCRIPTION_STATUSES } from "@/lib/saas/subscriptions";
@@ -34,7 +35,7 @@ export default async function SaasSubscriptionsPage() {
 
   return (
     <PageShell>
-      <PageHeader breadcrumb={breadcrumb} title="Abonnements" description="État commercial par client. Actions manuelles (provider=manual)." />
+      <SuperAdminHero breadcrumb={breadcrumb} eyebrow="Administration SaaS" title="Abonnements" subtitle="État commercial par client. Actions manuelles (provider=manual)." icon={<Repeat className="h-9 w-9" strokeWidth={1.9} aria-hidden="true" />} />
       <SectionCard icon={Repeat} title="Abonnements" bodyClassName="p-0">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-[13px]">

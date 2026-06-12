@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Gauge } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
 import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
 import { listTenants } from "@/lib/tenant/tenant-store";
 import { getTenantPlanLimits, getTenantUsage } from "@/lib/saas/quota";
-import { AdminCard, AdminBadge, AdminDataTable, type AdminColumn } from "@/components/admin-ui";
+import { AdminCard, AdminBadge, AdminDataTable, type AdminColumn, SuperAdminHero } from "@/components/admin-ui";
 
 export const dynamic = "force-dynamic";
 
@@ -48,7 +48,7 @@ export default async function SaasUsagePage() {
 
   return (
     <PageShell>
-      <PageHeader breadcrumb={breadcrumb} title="Quotas & usages" description="Consommation par client : documents, stockage, utilisateurs et fonctionnalités." />
+      <SuperAdminHero breadcrumb={breadcrumb} eyebrow="Administration SaaS" title="Quotas & usages" subtitle="Consommation par client : documents, stockage, utilisateurs et fonctionnalités." icon={<Gauge className="h-9 w-9" strokeWidth={1.9} aria-hidden="true" />} />
       <AdminDataTable<Row> title="Usage par client" columns={columns} rows={rows} rowKey={(r) => r.tenant.id} emptyTitle="Aucun client" />
       <p className="text-[12px] text-slate-500">CLI : <code className="font-mono">npm run saas:check-quotas</code> (exit 1 si dépassement). Stockage = best-effort.</p>
     </PageShell>
