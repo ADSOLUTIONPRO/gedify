@@ -881,6 +881,9 @@ model MailTemplate {
   description String?
   variables   Json? // liste indicative des variables
   isMarketing Boolean  @default(false) @map("is_marketing")
+  preheader   String?
+  // Variantes responsive éditées séparément : { desktop:{html,css}, tablet:{…}, mobile:{…} }.
+  responsiveVariants Json? @map("responsive_variants")
   raw         Json?
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")

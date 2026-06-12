@@ -5181,6 +5181,14 @@ async function main() {
     console.log(`   \u2022 Campagnes           : ${campaigns}`);
     console.log(`   \u2022 Pr\xE9f\xE9rences (d\xE9sinscrits) : ${prefs} (${unsub})`);
     if (templates === 0) console.log("\n   \u26A0\uFE0F  Aucun mod\xE8le en base \u2014 lancez `npm run saas:seed-mail-templates`.");
+    const dangerous = await n("SELECT COUNT(*)::int n FROM mail_templates WHERE html_body ILIKE '%<script%' OR html_body ILIKE '%javascript:%'");
+    const emptyHtml = await n("SELECT COUNT(*)::int n FROM mail_templates WHERE html_body IS NULL OR html_body=''");
+    const withVariants = await n("SELECT COUNT(*)::int n FROM mail_templates WHERE responsive_variants IS NOT NULL");
+    console.log("\n\xC9diteur / responsive :");
+    console.log(`   \u2022 Mod\xE8les avec variantes responsive : ${withVariants}/${templates}`);
+    if (emptyHtml > 0) console.log(`   \u26A0\uFE0F  Mod\xE8les au HTML vide : ${emptyHtml}`);
+    if (dangerous > 0) console.log(`   \u274C Mod\xE8les contenant du HTML dangereux (script/js) : ${dangerous}`);
+    else console.log("   \u2705 Aucun HTML dangereux d\xE9tect\xE9.");
     console.log("\n\u2705 check-mailing termin\xE9 (aucun email envoy\xE9).");
   } finally {
     await client.end();

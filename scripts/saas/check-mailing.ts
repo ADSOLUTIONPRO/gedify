@@ -48,6 +48,17 @@ async function main() {
     console.log(`   • Campagnes           : ${campaigns}`);
     console.log(`   • Préférences (désinscrits) : ${prefs} (${unsub})`);
     if (templates === 0) console.log("\n   ⚠️  Aucun modèle en base — lancez `npm run saas:seed-mail-templates`.");
+
+    // Sécurité / responsive des modèles
+    const dangerous = await n("SELECT COUNT(*)::int n FROM mail_templates WHERE html_body ILIKE '%<script%' OR html_body ILIKE '%javascript:%'");
+    const emptyHtml = await n("SELECT COUNT(*)::int n FROM mail_templates WHERE html_body IS NULL OR html_body=''");
+    const withVariants = await n("SELECT COUNT(*)::int n FROM mail_templates WHERE responsive_variants IS NOT NULL");
+    console.log("\nÉditeur / responsive :");
+    console.log(`   • Modèles avec variantes responsive : ${withVariants}/${templates}`);
+    if (emptyHtml > 0) console.log(`   ⚠️  Modèles au HTML vide : ${emptyHtml}`);
+    if (dangerous > 0) console.log(`   ❌ Modèles contenant du HTML dangereux (script/js) : ${dangerous}`);
+    else console.log("   ✅ Aucun HTML dangereux détecté.");
+
     console.log("\n✅ check-mailing terminé (aucun email envoyé).");
   } finally {
     await client.end();

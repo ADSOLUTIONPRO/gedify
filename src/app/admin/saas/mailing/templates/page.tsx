@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { LayoutTemplate, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
@@ -73,11 +74,14 @@ export default async function MailTemplatesPage({ searchParams }: { searchParams
                       </span>
                     </td>
                     <td className="px-4 py-2 text-right">
-                      <form action={toggleTemplateAction}>
-                        <input type="hidden" name="key" value={t.key} />
-                        <input type="hidden" name="enabled" value={t.enabled ? "0" : "1"} />
-                        <button className="h-8 rounded-lg border px-2.5 text-[11px] font-semibold" style={{ borderColor: "var(--border)" }}>{t.enabled ? "Désactiver" : "Activer"}</button>
-                      </form>
+                      <div className="flex justify-end gap-1.5">
+                        <Link href={`/admin/saas/mailing/templates/${encodeURIComponent(t.key)}`} className="h-8 rounded-lg border px-2.5 text-[11px] font-semibold leading-8" style={{ borderColor: "var(--border)" }}>Éditer</Link>
+                        <form action={toggleTemplateAction}>
+                          <input type="hidden" name="key" value={t.key} />
+                          <input type="hidden" name="enabled" value={t.enabled ? "0" : "1"} />
+                          <button className="h-8 rounded-lg border px-2.5 text-[11px] font-semibold" style={{ borderColor: "var(--border)" }}>{t.enabled ? "Désactiver" : "Activer"}</button>
+                        </form>
+                      </div>
                     </td>
                   </tr>
                 ))}
