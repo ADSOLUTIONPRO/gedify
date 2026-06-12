@@ -38,6 +38,8 @@ export async function AppShell({ children }: AppShellProps) {
   // instance multi-tenant (jamais en local/Synology/mono-tenant).
   const me = await getCurrentUser().catch(() => null);
   const saasAdmin = isMultiTenantEnabled() && Boolean(me?.is_superuser);
+  // Client = utilisateur multi-tenant non-superuser → menu « Paramètres » (pas « Administration »).
+  const tenantClient = isMultiTenantEnabled() && Boolean(me) && !me?.is_superuser;
 
   return (
     <div
@@ -60,7 +62,7 @@ export async function AppShell({ children }: AppShellProps) {
           className="sticky z-40 hidden md:block"
           style={{ top: "var(--titlebar-h,0px)", background: "var(--surface)" }}
         >
-          <Topbar saasAdmin={saasAdmin} />
+          <Topbar saasAdmin={saasAdmin} tenantClient={tenantClient} />
         </div>
         <MobileAppHeader />
         {/* pb-24 sous `md` : réserve la place de la barre d'onglets fixe */}

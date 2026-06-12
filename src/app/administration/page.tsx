@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import {
-  Activity, Bell, ChevronRight, DatabaseBackup, Download, FileUp, Gauge, LifeBuoy, RefreshCw, ScrollText,
+  Activity, Bell, ChevronRight, DatabaseBackup, Download, RefreshCw, ScrollText,
   Trash2, UserCog, UserPlus,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
@@ -15,8 +16,6 @@ import { ScopedResetButton } from "@/components/admin/scoped-reset-button";
 import { listAudit, type AuditEntry } from "@/lib/audit/audit-store";
 import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { getCurrentTenant } from "@/lib/tenant/get-current-tenant";
-import { getSecurityEvents } from "@/lib/saas/security/security-events";
 
 export const dynamic = "force-dynamic";
 
@@ -41,69 +40,14 @@ function relTime(iso: string): string {
 
 export default async function AdministrationPage() {
   const me = await getCurrentUser();
-  // En multi-tenant, un utilisateur NON-superuser est un client : administration
-  // strictement tenant-scopée (pas de données ni d'actions globales).
-  const tenantClient = isMultiTenantEnabled() && !me?.is_superuser;
+  // En multi-tenant, un client (non-superuser) n'a PAS d'administration globale :
+  // on le renvoie vers son espace Paramètres tenant-scopé.
+  if (isMultiTenantEnabled() && !me?.is_superuser) redirect("/settings");
 
-  const [flags, ctx] = await Promise.all([
+  const [flags] = await Promise.all([
     getGedifyFeatureFlags().catch(() => ({ financeSpaceEnabled: true, autoBudgetClassificationEnabled: true, autoAiAnalysisEnabled: true, autoContactSyncEnabled: true })),
-    tenantClient ? getCurrentTenant().catch(() => null) : Promise.resolve(null),
   ]);
-  // Source d'activités : audit GLOBAL pour le superuser, événements de sécurité
-  // du TENANT pour un client (jamais d'autres tenants).
-  const audit: AuditEntry[] = tenantClient
-    ? []
-    : await listAudit(6).catch(() => [] as AuditEntry[]);
-  const tenantEvents = tenantClient && ctx ? await getSecurityEvents({ tenantId: ctx.tenantId, limit: 6 }).catch(() => []) : [];
-
-  if (tenantClient) {
-    return (
-      <PageShell>
-        <PageHeader
-          breadcrumb={[{ href: "/dashboard", label: "Accueil" }, { label: "Administration" }]}
-          title="Administration de l'espace"
-          description={ctx ? `Gestion de ${ctx.tenant.name ?? ctx.tenantId}.` : "Votre espace."}
-        />
-        <div className="space-y-5">
-          <Card icon={Activity} title="Actions rapides">
-            <div className="grid grid-cols-1 gap-2.5 py-1 sm:grid-cols-2 lg:grid-cols-4">
-              <Quick href="/settings/team" icon={UserPlus} title="Mon équipe" sub="Membres et invitations de votre espace." />
-              <Quick href="/documents" icon={FileUp} title="Importer un document" sub="Ajouter des fichiers à la GED." />
-              <Quick href="/admin/saas/tenant" icon={Gauge} title="Voir les quotas" sub="Usage et offre de votre espace." />
-              <Quick href="/support" icon={LifeBuoy} title="Support" sub="Contacter un conseiller." />
-            </div>
-          </Card>
-
-          <Card icon={ScrollText} title="Activités récentes de votre espace">
-            {tenantEvents.length === 0 ? (
-              <p className="py-3 text-[13px]" style={{ color: "var(--text-muted)" }}>Aucune activité récente.</p>
-            ) : (
-              <ul>
-                {tenantEvents.map((e) => (
-                  <li key={String(e.id)} className="grid grid-cols-[34px_minmax(0,1fr)_auto] items-center gap-2.5 border-b py-2.5 last:border-0" style={{ borderColor: "var(--border-soft)" }}>
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: "var(--bg-card-soft)", color: "var(--text-muted)" }}><Activity className="h-4 w-4" strokeWidth={1.85} aria-hidden="true" /></span>
-                    <span className="min-w-0">
-                      <span className="block truncate text-[13px] font-bold" style={{ color: "var(--text-main)" }}>{String(e.event_type)}</span>
-                      <span className="block truncate text-[11.5px]" style={{ color: "var(--text-muted)" }}>{e.created_at ? relTime(new Date(String(e.created_at)).toISOString()) : ""}</span>
-                    </span>
-                    <span className="shrink-0 text-[11px]" style={{ color: "var(--text-muted)" }}>{String(e.severity)}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
-
-          <section id="notifications" className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Bell className="h-4 w-4" strokeWidth={1.85} style={{ color: "var(--accent)" }} aria-hidden="true" />
-              <h2 className="text-[15px] font-extrabold" style={{ color: "var(--text-main)" }}>Mes notifications</h2>
-            </div>
-            <NotificationSettings />
-          </section>
-        </div>
-      </PageShell>
-    );
-  }
+  const audit: AuditEntry[] = await listAudit(6).catch(() => [] as AuditEntry[]);
 
   return (
     <PageShell>

@@ -4,10 +4,18 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import {
+  Bell,
   ChevronDown,
+  CreditCard,
+  Database,
   ExternalLink as ExternalLinkIcon,
   LayoutGrid,
+  LifeBuoy,
+  Receipt,
+  Settings,
+  ShieldCheck,
   SlidersHorizontal,
+  Users,
   X,
 } from "lucide-react";
 import {
@@ -21,7 +29,25 @@ type AdministrationDropdownProps = {
   paperlessUrl: string | null;
   /** Superuser plateforme (multi-tenant) : affiche l'accès « Gestion clients ». */
   saasAdmin?: boolean;
+  /** Client (multi-tenant non-superuser) : menu « Paramètres » au lieu d'« Administration ». */
+  isClient?: boolean;
 };
+
+/** Menu « Paramètres » présenté aux clients (jamais d'admin globale). */
+const CLIENT_SETTINGS: { section: string; items: NavigationItem[] }[] = [
+  {
+    section: "Mon espace",
+    items: [
+      { label: "Mon offre", href: "/settings/myplan", icon: CreditCard, description: "Plan, quotas, abonnement et factures." },
+      { label: "Utilisateurs & équipe", href: "/settings/team", icon: Users, description: "Membres et invitations de votre espace." },
+      { label: "Notifications", href: "/settings/notifications", icon: Bell, description: "Vos préférences d'alertes." },
+      { label: "Sécurité du compte", href: "/account/security", icon: ShieldCheck, description: "Mot de passe, MFA, connexions." },
+      { label: "Factures", href: "/settings/billing", icon: Receipt, description: "Vos factures." },
+      { label: "Support", href: "/settings/support", icon: LifeBuoy, description: "Aide et assistance." },
+      { label: "Export de mes données", href: "/settings/data", icon: Database, description: "Récupérez vos données." },
+    ],
+  },
+];
 
 /**
  * Pages techniques masquées du menu Administration pour offrir une interface
@@ -50,25 +76,32 @@ function resolveItemHref(item: NavigationItem, paperlessUrl: string | null): str
   return item.href;
 }
 
-export function AdministrationDropdown({ paperlessUrl, saasAdmin = false }: AdministrationDropdownProps) {
+export function AdministrationDropdown({ paperlessUrl, saasAdmin = false, isClient = false }: AdministrationDropdownProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const panelId = useId();
-  const isActiveRoute = isAdministrationRoute(pathname);
+  const menuLabel = isClient ? "Paramètres" : "Administration";
+  const MenuIcon = isClient ? Settings : SlidersHorizontal;
+  const isActiveRoute = isClient ? pathname.startsWith("/settings") : isAdministrationRoute(pathname);
 
-  // Filtre les pages techniques (web ET bureau) ; supprime les sections vides.
-  const sections = administrationDropdownNavigation
-    .map((s) => ({ ...s, items: s.items.filter((i) => !HIDDEN_TECHNICAL.has(i.href)) }))
-    .filter((s) => s.items.length > 0);
-
-  // Superadmin plateforme uniquement : accès direct à la console SaaS.
-  if (saasAdmin) {
-    sections.unshift({
-      section: "Plateforme SaaS",
-      items: [{ label: "Gestion clients", href: "/admin/saas", icon: LayoutGrid, description: "Console SaaS : clients, plans, facturation, sécurité (superadmin)." }],
-    });
+  // Client : menu « Paramètres » strictement tenant-scopé (aucune admin globale).
+  // Sinon : menu Administration classique (filtré des pages techniques).
+  let sections: { section: string; items: NavigationItem[] }[];
+  if (isClient) {
+    sections = CLIENT_SETTINGS;
+  } else {
+    sections = administrationDropdownNavigation
+      .map((s) => ({ ...s, items: s.items.filter((i) => !HIDDEN_TECHNICAL.has(i.href)) }))
+      .filter((s) => s.items.length > 0);
+    // Superadmin plateforme uniquement : accès direct à la console SaaS.
+    if (saasAdmin) {
+      sections.unshift({
+        section: "Plateforme SaaS",
+        items: [{ label: "Gestion clients", href: "/admin/saas", icon: LayoutGrid, description: "Console SaaS : clients, plans, facturation, sécurité (superadmin)." }],
+      });
+    }
   }
 
   // Close on Escape + click outside
@@ -129,7 +162,7 @@ export function AdministrationDropdown({ paperlessUrl, saasAdmin = false }: Admi
           color: isActiveRoute || open ? "var(--blue-600)" : "var(--text-main)",
         }}
       >
-        <SlidersHorizontal
+        <MenuIcon
           className="h-4 w-4"
           strokeWidth={1.75}
           aria-hidden="true"
@@ -137,7 +170,7 @@ export function AdministrationDropdown({ paperlessUrl, saasAdmin = false }: Admi
             color: isActiveRoute || open ? "var(--blue-600)" : "var(--text-muted)",
           }}
         />
-        <span className="hidden sm:inline">Administration</span>
+        <span className="hidden sm:inline">{menuLabel}</span>
         <ChevronDown
           className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`}
           strokeWidth={2}
@@ -171,7 +204,7 @@ export function AdministrationDropdown({ paperlessUrl, saasAdmin = false }: Admi
                 className="text-sm font-extrabold"
                 style={{ color: "var(--text-main)" }}
               >
-                Administration
+                {menuLabel}
               </p>
               <button
                 type="button"

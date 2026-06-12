@@ -10,7 +10,7 @@ import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { getPaperlessPublicUrl } from "@/lib/paperless";
 import { readSession } from "@/lib/auth/session";
 
-export async function Topbar({ saasAdmin = false }: { saasAdmin?: boolean }) {
+export async function Topbar({ saasAdmin = false, tenantClient = false }: { saasAdmin?: boolean; tenantClient?: boolean }) {
   const paperlessUrl = getPaperlessPublicUrl();
   const session = await readSession().catch(() => null);
   const username = session?.username ?? null;
@@ -70,7 +70,7 @@ export async function Topbar({ saasAdmin = false }: { saasAdmin?: boolean }) {
 
           {/* Administration */}
           <div className="hidden md:block">
-            <AdministrationDropdown paperlessUrl={paperlessUrl} saasAdmin={saasAdmin} />
+            <AdministrationDropdown paperlessUrl={paperlessUrl} saasAdmin={saasAdmin} isClient={tenantClient} />
           </div>
 
           {/* Bascule thème clair / sombre */}
