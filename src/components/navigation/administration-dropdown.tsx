@@ -6,6 +6,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import {
   ChevronDown,
   ExternalLink as ExternalLinkIcon,
+  LayoutGrid,
   SlidersHorizontal,
   X,
 } from "lucide-react";
@@ -18,6 +19,8 @@ import {
 type AdministrationDropdownProps = {
   /** URL publique Gedify résolue côté serveur (peut être null). */
   paperlessUrl: string | null;
+  /** Superuser plateforme (multi-tenant) : affiche l'accès « Gestion clients ». */
+  saasAdmin?: boolean;
 };
 
 /**
@@ -47,7 +50,7 @@ function resolveItemHref(item: NavigationItem, paperlessUrl: string | null): str
   return item.href;
 }
 
-export function AdministrationDropdown({ paperlessUrl }: AdministrationDropdownProps) {
+export function AdministrationDropdown({ paperlessUrl, saasAdmin = false }: AdministrationDropdownProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
@@ -59,6 +62,14 @@ export function AdministrationDropdown({ paperlessUrl }: AdministrationDropdownP
   const sections = administrationDropdownNavigation
     .map((s) => ({ ...s, items: s.items.filter((i) => !HIDDEN_TECHNICAL.has(i.href)) }))
     .filter((s) => s.items.length > 0);
+
+  // Superadmin plateforme uniquement : accès direct à la console SaaS.
+  if (saasAdmin) {
+    sections.unshift({
+      section: "Plateforme SaaS",
+      items: [{ label: "Gestion clients", href: "/admin/saas", icon: LayoutGrid, description: "Console SaaS : clients, plans, facturation, sécurité (superadmin)." }],
+    });
+  }
 
   // Close on Escape + click outside
   useEffect(() => {

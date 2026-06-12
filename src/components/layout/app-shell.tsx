@@ -53,14 +53,14 @@ export async function AppShell({ children }: AppShellProps) {
       ) : null}
 
       <AppsRail userInitials={initials} financeEnabled={financeSpaceEnabled} saasAdmin={saasAdmin} />
-      <SpaceMenuSidebar financeEnabled={financeSpaceEnabled} />
+      <SpaceMenuSidebar financeEnabled={financeSpaceEnabled} saasAdmin={saasAdmin} />
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Bureau (≥ md) : topbar STICKY (reste visible au scroll) */}
         <div
           className="sticky z-40 hidden md:block"
           style={{ top: "var(--titlebar-h,0px)", background: "var(--surface)" }}
         >
-          <Topbar />
+          <Topbar saasAdmin={saasAdmin} />
         </div>
         <MobileAppHeader />
         {/* pb-24 sous `md` : réserve la place de la barre d'onglets fixe */}

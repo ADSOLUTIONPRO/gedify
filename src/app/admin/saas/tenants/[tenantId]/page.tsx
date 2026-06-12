@@ -22,10 +22,14 @@ import { createManualSubscriptionAction, setSubscriptionStatusAction } from "@/a
 import { applyGrantFormAction, revokeGrantFormAction } from "./actions";
 import { getTenantEntitlements } from "@/lib/saas/entitlements";
 import { getSecurityEvents } from "@/lib/saas/security/security-events";
+import { isStripeEnabled } from "@/lib/saas/stripe/config";
+import { getTenantStripeCustomerId } from "@/lib/saas/stripe/sync";
+import { stripeCustomerUrl, stripeSubscriptionUrl } from "@/lib/saas/stripe/links";
+import { getPool as getPoolForStripe } from "@/lib/db/pg";
 import { listTenantGrants, isGrantActive } from "@/lib/saas/grants";
 import { FEATURE_CATEGORIES } from "@/lib/saas/features";
 import { PLAN_IDS } from "@/lib/saas/plans";
-import { Gift, Repeat, Sparkles } from "lucide-react";
+import { Gift, Repeat, Sparkles, Banknote } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -104,6 +108,18 @@ export default async function SaasTenantDetailPage({
     listTenantGrants(tenantId).catch(() => []),
     getSecurityEvents({ tenantId, limit: 8 }).catch(() => []),
   ]);
+
+  // Liens profonds Stripe (on n'affiche que des liens vers le Dashboard Stripe).
+  const stripeOn = isStripeEnabled();
+  const stripeCustomer = stripeOn ? await getTenantStripeCustomerId(tenantId).catch(() => null) : null;
+  let stripeSubId: string | null = null;
+  if (stripeOn) {
+    try {
+      const pool = await getPoolForStripe();
+      const { rows } = await pool.query("SELECT provider_subscription_id FROM subscriptions WHERE tenant_id=$1 AND provider='stripe' AND provider_subscription_id IS NOT NULL ORDER BY updated_at DESC LIMIT 1", [tenantId]);
+      stripeSubId = rows[0]?.provider_subscription_id ? String(rows[0].provider_subscription_id) : null;
+    } catch { /* ignore */ }
+  }
   const tenantPageUrl = `/admin/saas/tenants/${encodeURIComponent(tenantId)}`;
   const fmtLimit = (used: number | undefined, limit: number | null | undefined) =>
     `${used ?? 0} / ${limit == null ? "∞" : limit}`;
@@ -428,6 +444,16 @@ export default async function SaasTenantDetailPage({
           />
         ) : null}
       </SectionCard>
+
+      {stripeOn && (stripeCustomer || stripeSubId) ? (
+        <SectionCard icon={Banknote} title="Stripe">
+          <div className="flex flex-wrap items-center gap-2">
+            {stripeSubId ? <a href={stripeSubscriptionUrl(stripeSubId) ?? "#"} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-[12px] font-semibold" style={{ borderColor: "var(--border)" }}>Abonnement dans Stripe ↗</a> : null}
+            {stripeCustomer ? <a href={stripeCustomerUrl(stripeCustomer) ?? "#"} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-[12px] font-semibold" style={{ borderColor: "var(--border)" }}>Client dans Stripe ↗</a> : null}
+            <Link href="/admin/saas/stripe" className="inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-[12px] font-semibold" style={{ borderColor: "var(--border)" }}>Miroir Stripe</Link>
+          </div>
+        </SectionCard>
+      ) : null}
 
       <SectionCard icon={ShieldCheck} title="Sécurité (derniers événements)" bodyClassName="p-0">
         {securityEvents.length === 0 ? (

@@ -55,6 +55,8 @@ export type SpaceMenuItem = {
   group?: string;
   /** Sous-titre explicatif (affiché si la sidebar est assez large). */
   subtitle?: string;
+  /** Réservé aux superusers plateforme (masqué aux clients/tenants). */
+  superuserOnly?: boolean;
 };
 export type SpaceMenuAction = { label: string; href: string; icon: LucideIcon };
 export type SpaceMenuGroup = { id: string; title: string; subtitle?: string };
@@ -204,12 +206,15 @@ export const SPACE_MENUS: Record<string, SpaceMenu> = {
     groups: [
       { id: "configuration", title: "Configuration système" },
       { id: "support", title: "Support & maintenance" },
+      { id: "plateforme", title: "Plateforme SaaS" },
     ],
     items: [
       // Configuration système
       { label: "Sauvegardes & restauration", href: "/administration/sauvegarde", icon: DatabaseBackup, group: "configuration" },
       // Support & maintenance
       { label: "Outils de maintenance", href: "/administration#maintenance", icon: Wrench, group: "support" },
+      // Plateforme SaaS — superuser uniquement (jamais pour un client/tenant)
+      { label: "Gestion clients", href: "/admin/saas", icon: LayoutGrid, group: "plateforme", subtitle: "Console SaaS (superadmin)", superuserOnly: true },
     ],
   },
 

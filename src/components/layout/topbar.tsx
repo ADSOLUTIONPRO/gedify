@@ -10,7 +10,7 @@ import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { getPaperlessPublicUrl } from "@/lib/paperless";
 import { readSession } from "@/lib/auth/session";
 
-export async function Topbar() {
+export async function Topbar({ saasAdmin = false }: { saasAdmin?: boolean }) {
   const paperlessUrl = getPaperlessPublicUrl();
   const session = await readSession().catch(() => null);
   const username = session?.username ?? null;
@@ -23,7 +23,7 @@ export async function Topbar() {
     >
       <div className="flex h-10 items-center gap-3">
         {/* Menu de l'espace (mobile / tablette) — ouvre le drawer Zone 2 */}
-        <MobileSpaceMenu />
+        <MobileSpaceMenu saasAdmin={saasAdmin} />
 
         {/* Marque : neutralisée (Topbar masquée < md ; le rail/sidebar portent la marque ≥ md) */}
         <Link href="/" className="flex shrink-0 items-center md:hidden" aria-label="Accueil Gedify">
@@ -70,7 +70,7 @@ export async function Topbar() {
 
           {/* Administration */}
           <div className="hidden md:block">
-            <AdministrationDropdown paperlessUrl={paperlessUrl} />
+            <AdministrationDropdown paperlessUrl={paperlessUrl} saasAdmin={saasAdmin} />
           </div>
 
           {/* Bascule thème clair / sombre */}

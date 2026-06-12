@@ -71,11 +71,13 @@ function MenuRow({ item, active, onNavigate }: { item: SpaceMenuItem; active: bo
 
 /* ── Contenu réutilisable (colonne desktop + drawer mobile) ────────────── */
 
-function SpaceMenuInner({ onNavigate }: { onNavigate?: () => void }) {
+function SpaceMenuInner({ onNavigate, saasAdmin = false }: { onNavigate?: () => void; saasAdmin?: boolean }) {
   const pathname = usePathname();
   const search = useSearchParams().toString();
   const activeId = getActiveSpaceId(pathname);
-  const menu = getSpaceMenu(activeId);
+  const baseMenu = getSpaceMenu(activeId);
+  // Masque les entrées réservées superadmin pour les clients/tenants.
+  const menu: SpaceMenu = { ...baseMenu, items: baseMenu.items.filter((it) => !it.superuserOnly || saasAdmin) };
   const space = getSpaceById(activeId);
   const color = menu.color ?? space?.color ?? "#F75C8D";
   const HeaderIcon = space?.icon ?? Home;
@@ -180,7 +182,7 @@ function SpaceMenuInner({ onNavigate }: { onNavigate?: () => void }) {
  * Sidebar dédiée à l'espace actif. Le menu change selon la route courante
  * (`getActiveSpaceId`). Masquée sous `lg` → accessible via `MobileSpaceMenu`.
  */
-export function SpaceMenuSidebar({ financeEnabled = true }: { financeEnabled?: boolean }) {
+export function SpaceMenuSidebar({ financeEnabled = true, saasAdmin = false }: { financeEnabled?: boolean; saasAdmin?: boolean }) {
   const pathname = usePathname();
   // Accueil / Dashboard : pas de sidebar secondaire (redondante avec le rail
   // principal). Le contenu du tableau de bord occupe toute la largeur libérée.
@@ -203,7 +205,7 @@ export function SpaceMenuSidebar({ financeEnabled = true }: { financeEnabled?: b
       aria-label="Menu de l'espace actif"
     >
       <Suspense fallback={null}>
-        <SpaceMenuInner />
+        <SpaceMenuInner saasAdmin={saasAdmin} />
       </Suspense>
     </aside>
   );
@@ -212,7 +214,7 @@ export function SpaceMenuSidebar({ financeEnabled = true }: { financeEnabled?: b
 /* ── Déclinaison mobile : bouton (topbar) + drawer coulissant ──────────── */
 
 /** Bouton + drawer pour accéder au menu de l'espace sur mobile / tablette. */
-export function MobileSpaceMenu() {
+export function MobileSpaceMenu({ saasAdmin = false }: { saasAdmin?: boolean }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   // Accueil / Dashboard : aucun menu d'espace secondaire (cohérent desktop).
@@ -249,7 +251,7 @@ export function MobileSpaceMenu() {
             </div>
             <div className="min-h-0 flex-1">
               <Suspense fallback={null}>
-                <SpaceMenuInner onNavigate={() => setOpen(false)} />
+                <SpaceMenuInner onNavigate={() => setOpen(false)} saasAdmin={saasAdmin} />
               </Suspense>
             </div>
           </div>
