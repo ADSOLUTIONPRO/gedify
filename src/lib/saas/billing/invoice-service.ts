@@ -215,9 +215,15 @@ export async function issueInvoice(id: string): Promise<void> {
   const due = new Date();
   due.setDate(due.getDate() + profile.paymentTermsDays);
   const pool = await getPool();
+  // Snapshot du modèle de facture par défaut (fige la mise en page de cette facture).
+  let templateId: string | null = null;
+  try {
+    const { getDefaultInvoiceTemplate } = await import("./invoice-template-store");
+    templateId = (await getDefaultInvoiceTemplate())?.id ?? null;
+  } catch { /* best-effort */ }
   await pool.query(
-    "UPDATE invoices SET invoice_number=$2, status='issued', issue_date=now(), due_date=$3, updated_at=now() WHERE id=$1",
-    [id, number, due],
+    "UPDATE invoices SET invoice_number=$2, status='issued', issue_date=now(), due_date=$3, template_id=COALESCE($4, template_id), updated_at=now() WHERE id=$1",
+    [id, number, due, templateId],
   );
   const refreshed = await getInvoice(id);
   if (refreshed) await renderAndStore(refreshed.invoice, refreshed.lines);

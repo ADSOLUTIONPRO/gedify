@@ -5192,6 +5192,16 @@ async function main() {
     const dupNum = await n("SELECT COUNT(*)::int n FROM (SELECT invoice_number FROM invoices WHERE invoice_number IS NOT NULL GROUP BY invoice_number HAVING COUNT(*)>1) d");
     if (dupNum > 0) console.log(`   \u26A0\uFE0F  Num\xE9ros de facture en doublon : ${dupNum}`);
     else console.log("   \u2705 Num\xE9rotation unique.");
+    const tpl = await n("SELECT COUNT(*)::int n FROM invoice_templates");
+    const tplDefault = await n("SELECT COUNT(*)::int n FROM invoice_templates WHERE is_default = true");
+    console.log("\nMod\xE8les de facture :");
+    console.log(`   \u2022 Mod\xE8les            : ${tpl}`);
+    if (tpl === 0) console.log("   \u26A0\uFE0F  Aucun mod\xE8le (un gabarit int\xE9gr\xE9 s'applique) \u2014 cr\xE9ez-en un via /admin/saas/billing/templates.");
+    if (tpl > 0 && tplDefault === 0) console.log("   \u26A0\uFE0F  Aucun mod\xE8le par d\xE9faut d\xE9fini.");
+    if (tplDefault > 1) console.log(`   \u26A0\uFE0F  Plusieurs mod\xE8les par d\xE9faut (${tplDefault}) \u2014 un seul attendu.`);
+    if (tpl > 0 && tplDefault === 1) console.log("   \u2705 Un mod\xE8le par d\xE9faut unique.");
+    const issuedWithTpl = await n("SELECT COUNT(*)::int n FROM invoices WHERE status<>'draft' AND template_id IS NOT NULL");
+    console.log(`   \u2022 Factures \xE9mises avec snapshot mod\xE8le : ${issuedWithTpl}`);
     console.log("\n\u2705 check-billing termin\xE9.");
   } finally {
     await client.end();

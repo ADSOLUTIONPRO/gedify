@@ -64,6 +64,18 @@ async function main() {
     if (dupNum > 0) console.log(`   ⚠️  Numéros de facture en doublon : ${dupNum}`);
     else console.log("   ✅ Numérotation unique.");
 
+    // Modèles de facture
+    const tpl = await n("SELECT COUNT(*)::int n FROM invoice_templates");
+    const tplDefault = await n("SELECT COUNT(*)::int n FROM invoice_templates WHERE is_default = true");
+    console.log("\nModèles de facture :");
+    console.log(`   • Modèles            : ${tpl}`);
+    if (tpl === 0) console.log("   ⚠️  Aucun modèle (un gabarit intégré s'applique) — créez-en un via /admin/saas/billing/templates.");
+    if (tpl > 0 && tplDefault === 0) console.log("   ⚠️  Aucun modèle par défaut défini.");
+    if (tplDefault > 1) console.log(`   ⚠️  Plusieurs modèles par défaut (${tplDefault}) — un seul attendu.`);
+    if (tpl > 0 && tplDefault === 1) console.log("   ✅ Un modèle par défaut unique.");
+    const issuedWithTpl = await n("SELECT COUNT(*)::int n FROM invoices WHERE status<>'draft' AND template_id IS NOT NULL");
+    console.log(`   • Factures émises avec snapshot modèle : ${issuedWithTpl}`);
+
     console.log("\n✅ check-billing terminé.");
   } finally {
     await client.end();
