@@ -34,9 +34,14 @@ export async function GET(request: NextRequest) {
       const { expireOldInvitations } = await import("@/lib/saas/invitations");
       expiredInvitations = await expireOldInvitations();
     } catch { /* best-effort */ }
+    let trials: { reminders: number; expired: number } = { reminders: 0, expired: 0 };
+    try {
+      const { runTrialReminders } = await import("@/lib/saas/trials");
+      trials = await runTrialReminders();
+    } catch { /* best-effort */ }
     const reminders = await runPaymentReminders();
     const queue = await processMailQueue(100);
-    return NextResponse.json({ expiredInvitations, reminders, queue });
+    return NextResponse.json({ expiredInvitations, trials, reminders, queue });
   } catch (error) {
     return jsonError("Traitement du mailing planifié échoué", error);
   }

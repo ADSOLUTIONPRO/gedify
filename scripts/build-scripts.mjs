@@ -55,6 +55,7 @@ const entries = [
   ["scripts/saas/check-memberships.ts", "scripts/saas/check-memberships.mjs"],
   ["scripts/saas/check-invitations.ts", "scripts/saas/check-invitations.mjs"],
   ["scripts/saas/expire-invitations.ts", "scripts/saas/expire-invitations.mjs"],
+  ["scripts/saas/check-trials.ts", "scripts/saas/check-trials.mjs"],
 ];
 
 for (const [entry, outfile] of entries) {
