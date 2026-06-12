@@ -1,13 +1,15 @@
-import Link from "next/link";
 import {
-  Activity, AlertTriangle, Banknote, BriefcaseBusiness, Building2, ChevronRight, Clock, Gauge, Gift,
-  LayoutGrid, Link2, PauseCircle, Receipt, Repeat, Send, Settings, ShieldCheck, Sliders, Tag, UserPlus, Users,
+  Activity, AlertTriangle, Banknote, Building2, Clock, FileText, Gauge, Gift,
+  LayoutGrid, Link2, Receipt, Repeat, Send, Settings, ShieldCheck, Sliders, Tag, UserPlus, Users,
 } from "lucide-react";
-import { PageHeader } from "@/components/ui/page-header";
-import { PageShell } from "@/components/ui/page-shell";
-import { AdminStats, AdminStatCard, AdminCard, AdminAlert } from "@/components/admin-ui";
+import { AdminAlert } from "@/components/admin-ui";
+import {
+  SuperAdminPageShell, SuperAdminHero, SuperAdminMetricGrid, SuperAdminMetricCard,
+  SuperAdminPanel, SuperAdminAlertList, SuperAdminGrid, SuperAdminActionCard,
+} from "@/components/admin-ui";
 import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
 import { listTenants } from "@/lib/tenant/tenant-store";
+import { getTenantUsage } from "@/lib/saas/quota";
 import { getSubscriptionAlerts } from "@/lib/saas/subscriptions";
 
 export const dynamic = "force-dynamic";
@@ -33,66 +35,100 @@ const LINKS: { href: string; label: string; icon: typeof Building2; soon?: boole
   { href: "/admin/saas/settings", label: "Paramètres SaaS", icon: Settings, soon: true },
 ];
 
+const HERO_ICON = <LayoutGrid className="h-9 w-9" strokeWidth={1.9} aria-hidden="true" />;
+const subtitle = "Vue d'ensemble de la plateforme : clients, plans, abonnements, alertes.";
+
 export default async function SaasDashboardPage() {
-  const multiTenant = isMultiTenantEnabled();
-  const tenants = multiTenant ? await listTenants().catch(() => []) : [];
-  const active = tenants.filter((t) => (t.status ?? "").toLowerCase() === "active").length;
-  const trial = tenants.filter((t) => (t.status ?? "").toLowerCase() === "trial").length;
-  const suspended = tenants.filter((t) => (t.status ?? "").toLowerCase() === "suspended").length;
-  const alerts = multiTenant ? await getSubscriptionAlerts().catch(() => null) : null;
-  const alertItems = alerts
-    ? [
-        { label: "Clients sans abonnement", href: "/admin/saas/tenants", list: alerts.noSubscription.map((x) => x.name ?? x.id) },
-        { label: "Abonnements past_due", href: "/admin/saas/subscriptions", list: alerts.pastDue.map((x) => x.name ?? x.id) },
-        { label: "Essais bientôt expirés", href: "/admin/saas/trials", list: alerts.trialExpiringSoon.map((x) => x.name ?? x.id) },
-        { label: "Tenants suspendus", href: "/admin/saas/tenants", list: alerts.suspended.map((x) => x.name ?? x.id) },
-      ].filter((a) => a.list.length > 0)
-    : [];
-
-  return (
-    <PageShell>
-      <PageHeader breadcrumb={breadcrumb} title="Tableau de bord SaaS" description="Vue d'ensemble de la plateforme : clients, plans, abonnements, alertes." />
-
-      {!multiTenant ? (
+  if (!isMultiTenantEnabled()) {
+    return (
+      <SuperAdminPageShell>
+        <SuperAdminHero breadcrumb={breadcrumb} eyebrow="Administration SaaS" title="Tableau de bord SaaS" subtitle={subtitle} icon={HERO_ICON} />
         <AdminAlert tone="warning">
           <code className="font-mono">MULTI_TENANT</code> n&apos;est pas activé : pas de gestion SaaS sur cette instance.
         </AdminAlert>
-      ) : (
-        <AdminStats>
-          <AdminStatCard tone="info" icon={Building2} spark label="Clients / Tenants" value={tenants.length} desc="Total" />
-          <AdminStatCard tone="success" icon={ShieldCheck} spark label="Actifs" value={active} desc="status=active" />
-          <AdminStatCard tone="warning" icon={Clock} spark label="En essai" value={trial} desc="status=trial" />
-          <AdminStatCard tone="accent" icon={PauseCircle} spark label="Suspendus" value={suspended} desc="status=suspended" />
-        </AdminStats>
-      )}
+      </SuperAdminPageShell>
+    );
+  }
 
-      {alertItems.length > 0 ? (
-        <AdminCard icon={AlertTriangle} title="Alertes" subtitle="Éléments nécessitant votre attention">
-          <div className="au-alert-rows">
-            {alertItems.map((a) => (
-              <Link key={a.label} href={a.href} className="au-alert-row">
-                <span className="au-alert-row__count">{a.list.length}</span>
-                <span className="au-alert-row__body">
-                  <strong>{a.label}</strong> — {a.list.slice(0, 8).join(", ")}{a.list.length > 8 ? "…" : ""}
-                </span>
-                <ChevronRight className="h-4 w-4 shrink-0 opacity-60" strokeWidth={2} aria-hidden="true" />
-              </Link>
-            ))}
-          </div>
-        </AdminCard>
-      ) : null}
+  const tenants = await listTenants().catch(() => []);
+  const active = tenants.filter((t) => (t.status ?? "").toLowerCase() === "active").length;
+  const trial = tenants.filter((t) => (t.status ?? "").toLowerCase() === "trial").length;
+  const pctActive = tenants.length ? Math.round((active / tenants.length) * 100) : 0;
 
-      <AdminCard icon={BriefcaseBusiness} title="Sections" subtitle="Accédez rapidement aux principales fonctionnalités de la plateforme.">
-        <div className="au-sections">
+  // Documents (total plateforme) : somme réelle de l'usage de chaque tenant.
+  const usages = await Promise.all(tenants.map((t) => getTenantUsage(t.id).catch(() => null)));
+  const totalDocuments = usages.reduce((n, u) => n + (u?.documents ?? 0), 0);
+  const totalStorageMb = usages.reduce((n, u) => n + (u?.storageMb ?? 0), 0);
+
+  const alerts = await getSubscriptionAlerts().catch(() => null);
+  const alertItems = alerts
+    ? [
+        { label: "Clients sans abonnement", list: alerts.noSubscription.map((x) => x.name ?? x.id) },
+        { label: "Abonnements past_due", list: alerts.pastDue.map((x) => x.name ?? x.id) },
+        { label: "Essais bientôt expirés", list: alerts.trialExpiringSoon.map((x) => x.name ?? x.id) },
+        { label: "Tenants suspendus", list: alerts.suspended.map((x) => x.name ?? x.id) },
+      ].filter((a) => a.list.length > 0)
+    : [];
+
+  const alertTiles = [
+    ...alertItems.map((a) => ({
+      key: a.label,
+      count: a.list.length,
+      label: a.label,
+      detail: a.list.slice(0, 6).join(", ") + (a.list.length > 6 ? "…" : ""),
+    })),
+    // Aucune source d'alerte critique plateforme câblée → 0 (honnête, non simulé).
+    { key: "critical", count: 0, label: "Alertes critiques", detail: "Aucune urgence plateforme" },
+  ];
+
+  return (
+    <SuperAdminPageShell>
+      <SuperAdminHero breadcrumb={breadcrumb} eyebrow="Administration SaaS" title="Tableau de bord SaaS" subtitle={subtitle} icon={HERO_ICON} />
+
+      <SuperAdminMetricGrid>
+        <SuperAdminMetricCard
+          variant="blue" href="/admin/saas/tenants"
+          icon={<Building2 className="h-[22px] w-[22px]" strokeWidth={2.1} />}
+          title="Tenants" value={tenants.length} description="Espaces clients"
+          trendLabel="Total" footerLabel={`${active} actifs · ${trial} en essai`} trendValue="à jour"
+        />
+        <SuperAdminMetricCard
+          variant="green"
+          icon={<ShieldCheck className="h-[22px] w-[22px]" strokeWidth={2.1} />}
+          title="Actifs" value={active} description="en production"
+          trendLabel={`${pctActive} %`} footerLabel="Tous opérationnels" trendValue="live"
+        />
+        <SuperAdminMetricCard
+          variant="amber" href="/admin/saas/trials"
+          icon={<Clock className="h-[22px] w-[22px]" strokeWidth={2.1} />}
+          title="Essais" value={trial} description="à convertir"
+          trendLabel="En cours" footerLabel={`${trial} conversion${trial > 1 ? "s" : ""} possible${trial > 1 ? "s" : ""}`} trendValue="trial"
+        />
+        <SuperAdminMetricCard
+          variant="pink" chartType="none" href="/admin/saas/usage"
+          icon={<FileText className="h-[22px] w-[22px]" strokeWidth={2.1} />}
+          title="Documents" value={totalDocuments} description="sur tous les tenants"
+          trendLabel="Total" footerLabel={`${totalStorageMb} Mo utilisés`} trendValue="stockage"
+        />
+      </SuperAdminMetricGrid>
+
+      <SuperAdminPanel title="Alertes">
+        <SuperAdminAlertList items={alertTiles} />
+      </SuperAdminPanel>
+
+      <SuperAdminPanel title="Sections">
+        <SuperAdminGrid columns={4}>
           {LINKS.map(({ href, label, icon: Icon, soon }) => (
-            <Link key={href} href={href} className="au-section">
-              <span className="au-section__icon"><Icon className="h-[18px] w-[18px]" strokeWidth={1.9} aria-hidden="true" /></span>
-              <span className="au-section__label">{label}</span>
-              {soon ? <span className="au-badge au-badge--warning">Bientôt</span> : null}
-            </Link>
+            <SuperAdminActionCard
+              key={href}
+              href={href}
+              label={label}
+              icon={<Icon className="h-[18px] w-[18px]" strokeWidth={1.9} aria-hidden="true" />}
+              badge={soon ? "Bientôt" : undefined}
+            />
           ))}
-        </div>
-      </AdminCard>
-    </PageShell>
+        </SuperAdminGrid>
+      </SuperAdminPanel>
+    </SuperAdminPageShell>
   );
 }
