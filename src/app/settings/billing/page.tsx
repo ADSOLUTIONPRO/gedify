@@ -1,14 +1,12 @@
 import Link from "next/link";
 import { Receipt } from "lucide-react";
-import { PageHeader } from "@/components/ui/page-header";
-import { PageShell } from "@/components/ui/page-shell";
 import { SectionCard } from "@/components/ui/section-card";
 import { requireTenantMember } from "@/lib/auth/guards";
 import { listInvoices } from "@/lib/saas/billing/invoice-service";
+import { SettingsSubPage } from "@/components/settings/settings-ui";
 
 export const dynamic = "force-dynamic";
 
-const breadcrumb = [{ href: "/dashboard", label: "Accueil" }, { href: "/settings", label: "Paramètres" }, { label: "Factures" }];
 function money(c: unknown, cur = "EUR"): string { return `${(Number(c ?? 0) / 100).toFixed(2)} ${cur}`; }
 function date(v: unknown): string { return v ? new Date(String(v)).toLocaleDateString("fr-FR") : "—"; }
 
@@ -18,8 +16,7 @@ export default async function SettingsBillingPage() {
   const invoices = await listInvoices(ctx.tenantId).catch(() => []);
 
   return (
-    <PageShell>
-      <PageHeader breadcrumb={breadcrumb} title="Mes factures" description="Factures émises pour votre espace." />
+    <SettingsSubPage title="Mes factures" subtitle="Factures émises pour votre espace.">
       <SectionCard icon={Receipt} title={`${invoices.length} facture(s)`} bodyClassName="p-0">
         {invoices.length === 0 ? (
           <p className="px-4 py-8 text-center text-sm text-slate-500">Aucune facture pour le moment. <Link href="/settings/myplan" style={{ color: "var(--accent)" }}>Voir mon offre</Link>.</p>
@@ -47,6 +44,6 @@ export default async function SettingsBillingPage() {
         )}
       </SectionCard>
       <p className="text-[12px] text-slate-500">Le téléchargement PDF/HTML est sécurisé : seul le propriétaire de l&apos;espace y accède.</p>
-    </PageShell>
+    </SettingsSubPage>
   );
 }

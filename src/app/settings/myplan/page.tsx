@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { CreditCard, Gauge, Sparkles } from "lucide-react";
-import { PageHeader } from "@/components/ui/page-header";
-import { PageShell } from "@/components/ui/page-shell";
 import { SectionCard } from "@/components/ui/section-card";
 import { MetadataGrid } from "@/components/ui/metadata-grid";
+import { SettingsSubPage } from "@/components/settings/settings-ui";
 import { requireTenantMember } from "@/lib/auth/guards";
 import { getTenantEntitlements } from "@/lib/saas/entitlements";
 import { getTenantPlanLimits, getTenantUsage } from "@/lib/saas/quota";
@@ -14,7 +13,6 @@ import { getTenantStripeCustomerId } from "@/lib/saas/stripe/sync";
 
 export const dynamic = "force-dynamic";
 
-const breadcrumb = [{ href: "/dashboard", label: "Accueil" }, { href: "/settings", label: "Paramètres" }, { label: "Mon offre" }];
 function money(c: unknown, cur: unknown): string { return c == null ? "—" : `${(Number(c) / 100).toFixed(2)} ${String(cur ?? "EUR").toUpperCase()}`; }
 function date(v: unknown): string { return v ? new Date(String(v)).toLocaleDateString("fr-FR") : "—"; }
 const lim = (used: number | undefined, limit: number | null | undefined) => `${used ?? 0} / ${limit == null ? "∞" : limit}`;
@@ -32,9 +30,7 @@ export default async function MyPlanPage() {
   ]);
 
   return (
-    <PageShell>
-      <PageHeader breadcrumb={breadcrumb} title="Mon offre" description="Votre plan, vos quotas et vos factures." />
-
+    <SettingsSubPage title="Mon offre" subtitle="Votre plan, vos quotas et vos factures.">
       <SectionCard icon={Sparkles} title="Offre & abonnement">
         <MetadataGrid columns={3} items={[
           { label: "Plan effectif", value: ent?.plan.name ?? ent?.planCode ?? "—" },
@@ -85,6 +81,6 @@ export default async function MyPlanPage() {
         )}
         <p className="px-3 py-2 text-[12px] text-slate-500">Factures détaillées : <Link href="/settings/billing" style={{ color: "var(--accent)" }}>Mes factures</Link>.</p>
       </SectionCard>
-    </PageShell>
+    </SettingsSubPage>
   );
 }

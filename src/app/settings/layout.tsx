@@ -1,8 +1,11 @@
 import type { ReactNode } from "react";
+import "@/components/settings/settings-ui.css";
 
-/* Enveloppe `au-scope` : applique le design system Admin (champs et tables
-   lisibles) à toutes les pages /settings/* du client, sans les réécrire.
-   Les gardes d'accès (membre du tenant) restent dans chaque page/redirection. */
-export default function SettingsLayout({ children }: { children: ReactNode }) {
-  return <div className="au-scope">{children}</div>;
+/* SettingsTenantCleanLayout — layout dédié à /settings (espace tenant).
+   AUCUNE sidebar GED, aucun rail d'icônes, aucune topbar globale, aucun menu
+   SuperAdmin : le chrome global (AppShell) est désactivé pour /settings/* dans
+   le layout racine (src/app/layout.tsx). `au-scope` garde les champs et tables
+   des pages internes lisibles, sans réintroduire de chrome. */
+export default function SettingsTenantCleanLayout({ children }: { children: ReactNode }) {
+  return <main className="st-only au-scope">{children}</main>;
 }

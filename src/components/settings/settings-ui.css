@@ -1,0 +1,52 @@
+/* ============================================================================
+   settings-ui.css — layout PROPRE de /settings (espace tenant).
+   Porté de la maquette validée (public/settings-tenants-clean-only).
+   100% scopé via des classes `.st-*` uniques : aucun sélecteur d'élément nu
+   → zéro impact hors /settings. AUCUNE sidebar / topbar / menu SuperAdmin ici.
+   ============================================================================ */
+:root {
+  --st-bg:#f7f9ff; --st-panel:#fff; --st-ink:#111827; --st-muted:#667085; --st-line:#e3e8f4;
+  --st-pink:#ef4d83; --st-shadow:0 26px 70px rgba(18,32,70,.08); --st-radius:26px;
+}
+
+.st-only { position:relative; min-height:100vh; padding:44px 38px 72px; background:linear-gradient(180deg,#fbfcff 0%,var(--st-bg) 100%); color:var(--st-ink); }
+.st-only::before { content:""; position:absolute; inset:0; pointer-events:none; z-index:0; background:radial-gradient(circle at 70% 10%, rgba(239,77,131,.06), transparent 28%),radial-gradient(circle at 20% 30%, rgba(29,78,216,.045), transparent 24%); }
+.st-shell { position:relative; z-index:1; width:min(1280px,100%); margin:0 auto; }
+
+.st-top { display:flex; align-items:flex-start; justify-content:space-between; gap:24px; margin-bottom:24px; }
+.st-title h1 { font-size:28px; line-height:1.1; margin:0 0 7px; font-weight:850; letter-spacing:-.04em; color:#111827; }
+.st-title p { font-size:15px; margin:0; color:#5f6b80; }
+.st-badge { display:inline-flex; align-items:center; gap:8px; margin-top:8px; padding:9px 17px; border:1px solid #f6c992; border-radius:999px; background:#fff7ec; color:#a33a1f; font-weight:800; font-size:13px; box-shadow:0 8px 25px rgba(163,58,31,.07); white-space:nowrap; }
+
+.st-card { position:relative; border:1px solid #dde6f8; border-radius:var(--st-radius); background:rgba(255,255,255,.74); box-shadow:var(--st-shadow); padding:28px; overflow:hidden; }
+
+.st-hero { position:relative; min-height:122px; border-radius:22px; background:linear-gradient(96deg,#111827 0%,#18233b 49%,#2e294b 76%,#873b6a 100%); color:#fff; padding:29px 34px; display:flex; align-items:center; justify-content:space-between; gap:24px; overflow:hidden; margin-bottom:24px; }
+.st-hero::after { content:""; position:absolute; right:-34px; top:-72px; width:270px; height:270px; border-radius:50%; background:rgba(239,77,131,.27); }
+.st-hero__main { position:relative; z-index:1; min-width:0; }
+.st-hero h2 { margin:0 0 8px; font-size:28px; line-height:1; font-weight:850; letter-spacing:-.035em; }
+.st-hero p { margin:0; color:rgba(255,255,255,.82); font-size:15px; }
+.st-hero__pill { position:relative; z-index:1; flex:0 0 auto; border:1px solid rgba(255,255,255,.22); background:rgba(255,255,255,.10); border-radius:999px; color:#fff; padding:13px 24px; font-size:13px; font-weight:800; box-shadow:inset 0 1px 0 rgba(255,255,255,.12); white-space:nowrap; }
+
+.st-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.st-tile { min-height:92px; display:flex; align-items:center; gap:18px; border:1px solid var(--st-line); background:var(--st-panel); border-radius:18px; padding:18px 24px; box-shadow:0 12px 35px rgba(24,39,75,.035); transition:.18s ease; text-decoration:none; }
+.st-tile:hover { transform:translateY(-2px); border-color:#f7b5ca; box-shadow:0 22px 45px rgba(239,77,131,.08); }
+.st-tile__icon { width:52px; height:52px; border-radius:17px; display:grid; place-items:center; flex:0 0 auto; background:linear-gradient(180deg,#f8f9ff,#f1f4ff); border:1px solid #e7ecf8; color:var(--st-pink); }
+.st-tile__copy { min-width:0; }
+.st-tile__copy h3 { margin:0 0 4px; font-size:18px; line-height:1.2; font-weight:850; letter-spacing:-.025em; color:#111827; }
+.st-tile__copy p { margin:0; font-size:14.5px; color:#667085; }
+
+.st-note { margin-top:18px; border:1px solid #cfe8ff; background:linear-gradient(90deg,#f6fbff,#eef7ff); color:#15337a; border-radius:14px; padding:16px 20px; font-size:15px; line-height:1.35; font-weight:850; }
+
+.st-backlink { display:inline-flex; align-items:center; gap:8px; color:#c9386b; font-weight:800; margin-bottom:18px; font-size:14px; text-decoration:none; }
+.st-backlink:hover { color:#a82a55; }
+.st-substack { display:grid; gap:16px; }
+
+@media (max-width:900px) {
+  .st-only { padding:28px 16px 64px; }
+  .st-top { display:block; }
+  .st-badge { margin-top:16px; }
+  .st-card { padding:18px; }
+  .st-hero { display:block; padding:24px; }
+  .st-hero__pill { display:inline-flex; margin-top:20px; }
+  .st-grid { grid-template-columns:1fr; }
+}

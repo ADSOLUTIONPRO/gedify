@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { ShieldAlert, UserPlus, Users, Send } from "lucide-react";
-import { PageHeader } from "@/components/ui/page-header";
-import { PageShell } from "@/components/ui/page-shell";
 import { SectionCard } from "@/components/ui/section-card";
+import { SettingsSubPage } from "@/components/settings/settings-ui";
 import { getCurrentTenant } from "@/lib/tenant/get-current-tenant";
 import { isFeatureEnabled } from "@/lib/saas/entitlements";
 import { listTenantMembersWithUser } from "@/lib/tenant/tenant-store";
@@ -13,7 +12,6 @@ import { inviteMemberAction, changeMemberRoleAction, removeMemberAction, resendI
 
 export const dynamic = "force-dynamic";
 
-const breadcrumb = [{ href: "/dashboard", label: "Accueil" }, { label: "Mon équipe" }];
 const inp = "h-9 rounded-lg border px-2 text-[13px]";
 const bd = { borderColor: "var(--border)" };
 const ROLE: Record<string, string> = { owner: "Propriétaire", admin: "Admin", member: "Membre", viewer: "Lecteur" };
@@ -22,7 +20,7 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
   const sp = await searchParams;
   const ctx = await getCurrentTenant().catch(() => null);
   if (!ctx) {
-    return <PageShell><PageHeader breadcrumb={breadcrumb} title="Mon équipe" /><SectionCard icon={Users} title="Aucun espace"><p className="text-sm text-slate-600">Sélectionnez un espace.</p></SectionCard></PageShell>;
+    return <SettingsSubPage title="Mon équipe"><SectionCard icon={Users} title="Aucun espace"><p className="text-sm text-slate-600">Sélectionnez un espace.</p></SectionCard></SettingsSubPage>;
   }
   const manage = canManageTenantMembers(ctx.role);
   const [members, invitations, limits, canInvite] = await Promise.all([
@@ -35,8 +33,7 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
   const roles = assignableRoles(ctx.role);
 
   return (
-    <PageShell>
-      <PageHeader breadcrumb={breadcrumb} title="Mon équipe" description={`Membres de ${ctx.tenant.name ?? ctx.tenantId}.`} />
+    <SettingsSubPage title="Mon équipe" subtitle={`Membres de ${ctx.tenant.name ?? ctx.tenantId}.`}>
       {sp.ok ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">Opération effectuée.</div> : null}
       {sp.error ? <div className="rounded-2xl border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-900">{sp.error}</div> : null}
 
@@ -114,6 +111,6 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
           </div>
         </SectionCard>
       ) : null}
-    </PageShell>
+    </SettingsSubPage>
   );
 }

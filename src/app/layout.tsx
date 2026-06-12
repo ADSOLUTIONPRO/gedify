@@ -118,6 +118,32 @@ export default async function RootLayout({
     redirect("/select-tenant");
   }
 
+  // ── Espace paramètres tenant (/settings/*) : layout PROPRE, sans chrome ────
+  // Aucune sidebar GED, aucun rail d'icônes, aucune topbar globale, aucun menu
+  // SuperAdmin. Les gardes d'auth / MFA / sélection de tenant ci-dessus restent
+  // appliquées ; seul l'AppShell (chrome) est retiré. Le rendu propre vient du
+  // layout dédié src/app/settings/layout.tsx + des composants `.st-*`.
+  if (pathname === "/settings" || pathname.startsWith("/settings/")) {
+    return (
+      <html lang="fr">
+        <body
+          className="min-h-screen antialiased"
+          style={{ background: "var(--bg-page)", color: "var(--text-main)" }}
+        >
+          <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+          <EnvironmentBanner />
+          <AssistantProvider>
+            <AuthSetupBanner />
+            <SessionExpiredBanner />
+            {children}
+            {isMultiTenantEnabled() ? <SupportWidget /> : null}
+            <Toaster />
+          </AssistantProvider>
+        </body>
+      </html>
+    );
+  }
+
   // ── App normale (session valide) ───────────────────────────────────────────
   // Plus de sidebar gauche : navigation via le lanceur d'applications de la
   // topbar. Le contenu occupe toute la largeur (centré, max 1600px).
