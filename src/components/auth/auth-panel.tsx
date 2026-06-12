@@ -91,6 +91,8 @@ function LoginForm({ next, oauthEnabled, onRouter }: { next: string; oauthEnable
   const [show, setShow] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [mfaStep, setMfaStep] = useState(false);
+  const [mfaCode, setMfaCode] = useState("");
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -98,11 +100,12 @@ function LoginForm({ next, oauthEnabled, onRouter }: { next: string; oauthEnable
     setLoading(true);
     try {
       const res = await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: email, password }) });
+      const data = (await res.json().catch(() => ({}))) as { error?: string; mfaRequired?: boolean };
       if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
         setError(data.error ?? "Identifiant ou mot de passe incorrect.");
         return;
       }
+      if (data.mfaRequired) { setMfaStep(true); return; }
       onRouter.push(next);
       onRouter.refresh();
     } catch {
@@ -110,6 +113,40 @@ function LoginForm({ next, oauthEnabled, onRouter }: { next: string; oauthEnable
     } finally {
       setLoading(false);
     }
+  }
+
+  async function submitMfa(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/mfa/verify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: mfaCode }) });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) { setError(data.error ?? "Code incorrect."); return; }
+      onRouter.push(next);
+      onRouter.refresh();
+    } catch {
+      setError("Erreur réseau. Veuillez réessayer.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (mfaStep) {
+    return (
+      <form onSubmit={submitMfa} className="space-y-4">
+        {error ? <ErrorBox message={error} /> : null}
+        <div className="space-y-1.5">
+          <label htmlFor="mfa-code" className="block text-[12.5px] font-semibold" style={{ color: "var(--text-main)" }}>Code de vérification</label>
+          <input id="mfa-code" inputMode="numeric" autoComplete="one-time-code" autoFocus maxLength={6} value={mfaCode} onChange={(e) => setMfaCode(e.target.value)} placeholder="000000" className="h-12 w-full rounded-xl border px-3 text-center text-[20px] font-bold tracking-[0.4em]" style={fieldStyle} />
+          <p className="text-[11.5px]" style={{ color: "var(--text-hint)" }}>Saisissez le code de votre application d&apos;authentification, ou un code de secours.</p>
+        </div>
+        <button type="submit" disabled={loading} className="flex h-11 w-full items-center justify-center gap-2 rounded-xl text-[14px] font-bold text-white shadow-sm transition hover:opacity-90 disabled:opacity-70" style={{ background: "var(--accent)" }}>
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+          {loading ? "Vérification…" : "Vérifier"}
+        </button>
+      </form>
+    );
   }
 
   return (

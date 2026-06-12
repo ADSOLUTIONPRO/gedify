@@ -50,6 +50,18 @@ export async function removeMemberAction(formData: FormData): Promise<void> {
   redirect("/admin/saas/memberships?ok=1");
 }
 
+export async function resetMfaAction(formData: FormData): Promise<void> {
+  const me = await su();
+  const userId = Number(s(formData.get("userId")));
+  if (!userId) redirect("/admin/saas/memberships");
+  const { resetMfa } = await import("@/lib/saas/mfa/mfa-store");
+  await resetMfa(userId);
+  const { logSecurityEvent } = await import("@/lib/saas/security/security-events");
+  await logSecurityEvent({ eventType: "mfa_reset", category: "auth", severity: "warning", actorUserId: me.id, userId, message: `MFA réinitialisée par l'admin pour l'utilisateur ${userId}` });
+  revalidatePath("/admin/saas/memberships");
+  redirect("/admin/saas/memberships?ok=1");
+}
+
 export async function transferOwnerAction(formData: FormData): Promise<void> {
   const me = await su();
   const tenantId = s(formData.get("tenantId"));

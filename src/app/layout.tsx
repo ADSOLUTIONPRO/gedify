@@ -75,6 +75,22 @@ export default async function RootLayout({
     redirect(`/login?next=${encodeURIComponent(pathname)}&reason=auth_required`);
   }
 
+  // ── MFA obligatoire pour les superusers en production ──────────────────────
+  // Tant que la MFA n'est pas configurée, on force l'écran d'enrôlement.
+  if (process.env.APP_ENV?.trim().toLowerCase() === "production"
+      && pathname !== "/account/security" && !pathname.startsWith("/api/")) {
+    let superuserNeedsMfa = false;
+    try {
+      const { getCurrentUser } = await import("@/lib/auth/current-user");
+      const u = await getCurrentUser();
+      if (u?.is_superuser) {
+        const { isMfaEnabled } = await import("@/lib/saas/mfa/mfa-store");
+        superuserNeedsMfa = !(await isMfaEnabled(u.id));
+      }
+    } catch { /* ne bloque pas le rendu si la vérif échoue */ }
+    if (superuserNeedsMfa) redirect("/account/security?enroll=mfa");
+  }
+
   // ── Phase 5 — écran de sélection d'espace (multi-tenant) ───────────────────
   // Rendu SANS AppShell (écran dédié, mais authentifié — pas une route publique).
   if (pathname === "/select-tenant") {

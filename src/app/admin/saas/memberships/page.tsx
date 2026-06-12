@@ -8,7 +8,7 @@ import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { listTenants, listTenantMembersWithUser } from "@/lib/tenant/tenant-store";
 import { listAllInvitations } from "@/lib/saas/invitations";
-import { addMemberAction, changeRoleAction, removeMemberAction } from "./actions";
+import { addMemberAction, changeRoleAction, removeMemberAction, resetMfaAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -88,7 +88,10 @@ export default async function MembershipsPage({ searchParams }: { searchParams: 
                       </form>
                     </td>
                     <td className="px-3 py-2 text-right">
-                      <form action={removeMemberAction}><input type="hidden" name="tenantId" value={tenant.id} /><input type="hidden" name="userId" value={m.userId} /><button className="h-7 rounded border px-2 text-[11px] font-semibold" style={{ borderColor: "#FCA5A5", color: "#B91C1C" }}>Retirer</button></form>
+                      <div className="flex justify-end gap-1.5">
+                        <form action={resetMfaAction}><input type="hidden" name="userId" value={m.userId} /><button className="h-7 rounded border px-2 text-[11px] font-semibold" style={bd} title="Réinitialiser la double authentification">Reset MFA</button></form>
+                        <form action={removeMemberAction}><input type="hidden" name="tenantId" value={tenant.id} /><input type="hidden" name="userId" value={m.userId} /><button className="h-7 rounded border px-2 text-[11px] font-semibold" style={{ borderColor: "#FCA5A5", color: "#B91C1C" }}>Retirer</button></form>
+                      </div>
                     </td>
                   </tr>
                 ))}

@@ -21,6 +21,9 @@ const PUBLIC_PREFIXES = [
   "/api/auth/setup",
   "/api/auth/login",
   "/api/auth/signup",
+  // Étape 2 de connexion (validation MFA) : appelée avec le cookie de défi MFA,
+  // PAS encore de session. Sécurisée par ce jeton court signé.
+  "/api/auth/mfa/verify",
   "/api/auth/logout",
   "/api/auth/session",
   // Liveness publique (healthcheck Docker/Synology, reverse proxy) — aucune donnée

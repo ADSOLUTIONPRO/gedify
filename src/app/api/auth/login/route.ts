@@ -75,8 +75,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const userId = await resolveUserId(username);
+
+    // ── MFA : si activée, on n'ouvre PAS encore la session ──
+    if (userId != null) {
+      try {
+        const { isMfaEnabled } = await import("@/lib/saas/mfa/mfa-store");
+        if (await isMfaEnabled(userId)) {
+          const { signMfaChallenge, mfaCookieOpts } = await import("@/lib/auth/mfa-challenge");
+          const challenge = await signMfaChallenge(username, userId);
+          const res = NextResponse.json({ ok: true, mfaRequired: true });
+          res.cookies.set(mfaCookieOpts(challenge));
+          return res;
+        }
+      } catch { /* en cas d'erreur MFA, on retombe sur la connexion classique */ }
+    }
+
     const token = await signSession({ username });
-    await logSecurityEvent({ eventType: "login_success", category: "auth", severity: "info", userId: await resolveUserId(username), message: `Connexion réussie : « ${username} »`, ...reqMeta(req) });
+    await logSecurityEvent({ eventType: "login_success", category: "auth", severity: "info", userId, message: `Connexion réussie : « ${username} »`, ...reqMeta(req) });
     const res = NextResponse.json({ ok: true });
     res.cookies.set(cookieOpts(token));
     return res;

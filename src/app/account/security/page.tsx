@@ -1,10 +1,13 @@
 import Link from "next/link";
-import { ShieldCheck, LogIn } from "lucide-react";
+import { ShieldCheck, LogIn, KeyRound } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
 import { SectionCard } from "@/components/ui/section-card";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getSecurityEvents } from "@/lib/saas/security/security-events";
+import { getMfaState } from "@/lib/saas/mfa/mfa-store";
+import { getAppEnv } from "@/lib/config/environment";
+import { MfaSettings } from "@/components/auth/mfa-settings";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +19,10 @@ export default async function AccountSecurityPage() {
   if (!me) {
     return <PageShell><PageHeader breadcrumb={breadcrumb} title="Sécurité du compte" /><SectionCard icon={ShieldCheck} title="Non connecté"><p className="text-sm text-slate-600">Veuillez vous connecter.</p></SectionCard></PageShell>;
   }
+  const mfa = await getMfaState(me.id).catch(() => ({ enabled: false, pending: false, backupRemaining: 0 }));
+  const isProd = getAppEnv() === "production";
+  const mandatory = Boolean(me.is_superuser);
+  const canDisable = !(me.is_superuser && isProd); // superadmin en prod : MFA non désactivable
   // Un utilisateur ne voit QUE ses propres événements (jamais ceux d'un autre).
   const events = (await getSecurityEvents({ limit: 100 }).catch(() => [])).filter((e) => Number(e.user_id) === me.id);
   const logins = events.filter((e) => e.event_type === "login_success").slice(0, 15);
@@ -23,7 +30,11 @@ export default async function AccountSecurityPage() {
 
   return (
     <PageShell>
-      <PageHeader breadcrumb={breadcrumb} title="Sécurité du compte" description="Activité récente de votre compte." />
+      <PageHeader breadcrumb={breadcrumb} title="Sécurité du compte" description="Double authentification et activité récente de votre compte." />
+
+      <SectionCard icon={KeyRound} title="Double authentification (MFA)">
+        <MfaSettings initialEnabled={mfa.enabled} backupRemaining={mfa.backupRemaining} mandatory={mandatory} canDisable={canDisable} />
+      </SectionCard>
 
       <SectionCard icon={LogIn} title="Dernières connexions" bodyClassName="p-0">
         {logins.length === 0 ? (
