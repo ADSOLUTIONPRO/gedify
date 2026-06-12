@@ -12,7 +12,7 @@ import { logSecurityEvent } from "@/lib/saas/security/security-events";
 
 export default async function SaasAdminLayout({ children }: { children: ReactNode }) {
   const pathname = (await headers()).get("x-pathname") ?? "";
-  if (pathname === "/admin/saas/tenant") return <>{children}</>;
+  if (pathname === "/admin/saas/tenant") return <div className="au-scope">{children}</div>;
 
   const me = await getCurrentUser();
   if (!me?.is_superuser) {
@@ -36,5 +36,7 @@ export default async function SaasAdminLayout({ children }: { children: ReactNod
       </PageShell>
     );
   }
-  return <>{children}</>;
+  // `au-scope` : applique le design system Admin (champs/tables lisibles) à
+  // toutes les pages /admin/saas/* sans les réécrire une par une.
+  return <div className="au-scope">{children}</div>;
 }

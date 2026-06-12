@@ -78,5 +78,5 @@ export function AdminToolbarSpacer() { return <span className="au-toolbar__space
 
 /** Badge d'espace courant pour la topbar (Superadmin vs Tenant). */
 export function AdminScopeBadge({ variant, children }: { variant: "admin" | "tenant"; children: ReactNode }) {
-  return <span className={`au-scope au-scope--${variant}`}>{children}</span>;
+  return <span className={`au-badge-scope au-badge-scope--${variant}`}>{children}</span>;
 }

@@ -144,6 +144,45 @@
 .au-toolbar__spacer { flex:1 1 auto; }
 
 /* ── Badge d'espace (topbar) ────────────────────────────────────────────── */
-.au-scope { display:inline-flex; align-items:center; gap:7px; padding:5px 12px; border-radius:999px; font-size:12.5px; font-weight:700; }
-.au-scope--admin { background:var(--au-navy); color:#fff; }
-.au-scope--tenant { background:var(--au-pink-soft); color:#BE2A63; }
+.au-badge-scope { display:inline-flex; align-items:center; gap:7px; padding:5px 12px; border-radius:999px; font-size:12.5px; font-weight:700; }
+.au-badge-scope--admin { background:var(--au-navy); color:#fff; }
+.au-badge-scope--tenant { background:var(--au-pink-soft); color:#BE2A63; }
+
+/* ============================================================================
+   COUVERTURE GLOBALE — `.au-scope` enveloppe les pages /admin/saas/* et
+   /settings/* (via leurs layouts). Les sélecteurs ci-dessous (descendants de
+   .au-scope uniquement) garantissent des CHAMPS et TABLES lisibles sur TOUTES
+   ces pages, même celles non encore migrées en composants. Aucun impact hors
+   admin/paramètres. `:where()` = spécificité nulle ; !important pour battre les
+   styles inline de bordure clairs hérités.
+   ============================================================================ */
+.au-scope :where(input[type="text"], input[type="email"], input[type="password"],
+  input[type="number"], input[type="search"], input[type="url"], input[type="tel"],
+  input[type="date"], input[type="datetime-local"], input[type="time"], input:not([type]),
+  select, textarea) {
+  border:1px solid var(--au-border-strong) !important;
+  border-radius:10px !important;
+  background:#fff;
+  color:var(--au-text);
+  min-height:40px;
+  padding:8px 12px;
+  font-size:14px;
+  transition:border-color .15s, box-shadow .15s;
+}
+.au-scope :where(textarea) { min-height:84px; line-height:1.6; }
+.au-scope :where(input, select, textarea):focus {
+  border-color:var(--au-pink) !important;
+  box-shadow:0 0 0 3px var(--au-pink-soft) !important;
+  outline:none;
+}
+.au-scope :where(input, select, textarea)::placeholder { color:var(--au-placeholder); }
+.au-scope :where(input:disabled, select:disabled, textarea:disabled) { background:#F3F4F6; color:var(--au-text-3); }
+/* Les composants admin-ui gardent leur propre rendu (déjà cohérent). */
+.au-scope :where(.au-input, .au-select, .au-textarea) { min-height:44px; }
+
+/* Tables natives (non migrées) : lisibilité de base, scopée. */
+.au-scope :where(table) { width:100%; border-collapse:collapse; }
+.au-scope :where(thead th) { background:#F8FAFC; color:var(--au-text-3); font-size:11px; text-transform:uppercase; letter-spacing:.05em; }
+
+/* Liens d'action discrets cohérents. */
+.au-scope a { color:inherit; }
