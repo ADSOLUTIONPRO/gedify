@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { AlertTriangle, BellRing, LayoutTemplate, Mail, Megaphone, Send, ShieldCheck, Inbox } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
 import { SectionCard } from "@/components/ui/section-card";
 import { MetadataGrid } from "@/components/ui/metadata-grid";
+import { AdminNavGrid, AdminNavTile } from "@/components/admin-ui";
 import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getSmtpStatus } from "@/lib/saas/mailing/config";
@@ -88,15 +88,11 @@ export default async function MailingPage({ searchParams }: { searchParams: Prom
         </div>
       </SectionCard>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <AdminNavGrid columns={3}>
         {LINKS.map((l) => (
-          <Link key={l.href} href={l.href} className="rounded-2xl border p-4 transition hover:shadow-sm" style={{ borderColor: "var(--border)" }}>
-            <l.icon className="h-5 w-5" style={{ color: "var(--blue-600)" }} />
-            <div className="mt-2 text-[14px] font-bold" style={{ color: "var(--text-main)" }}>{l.title}</div>
-            <div className="mt-0.5 text-[12px] text-slate-500">{l.desc}</div>
-          </Link>
+          <AdminNavTile key={l.href} href={l.href} icon={l.icon} title={l.title} desc={l.desc} />
         ))}
-      </div>
+      </AdminNavGrid>
     </PageShell>
   );
 }

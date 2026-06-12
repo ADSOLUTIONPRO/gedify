@@ -3,5 +3,5 @@
    Usage : import { AdminCard, AdminInput, AdminDataTable, … } from "@/components/admin-ui"; */
 
 export { AdminField, AdminInput, AdminSelect, AdminTextarea, AdminCheckbox, AdminSwitch, AdminButton, AdminFormSection, AdminFormActions } from "./form";
-export { AdminCard, AdminStatCard, AdminStats, AdminBadge, AdminAlert, AdminEmptyState, AdminTabs, AdminToolbar, AdminToolbarSpacer, AdminScopeBadge } from "./layout";
+export { AdminCard, AdminStatCard, AdminStats, AdminBadge, AdminAlert, AdminEmptyState, AdminNavTile, AdminNavGrid, AdminTabs, AdminToolbar, AdminToolbarSpacer, AdminScopeBadge } from "./layout";
 export { AdminDataTable, type AdminColumn } from "./table";

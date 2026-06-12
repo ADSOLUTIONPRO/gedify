@@ -162,6 +162,26 @@
 .au-badge-scope--admin { background:var(--au-navy); color:#fff; }
 .au-badge-scope--tenant { background:var(--au-pink-soft); color:#BE2A63; }
 
+/* ── Boutons de navigation pleins (bleu nuit / rose Gedify) ─────────────── */
+.au-navgrid { display:grid; gap:12px; }
+.au-navgrid--2 { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.au-navgrid--3 { grid-template-columns:repeat(3,minmax(0,1fr)); }
+.au-navgrid--4 { grid-template-columns:repeat(4,minmax(0,1fr)); }
+@media (max-width:900px){ .au-navgrid--3,.au-navgrid--4 { grid-template-columns:repeat(2,1fr); } }
+@media (max-width:560px){ .au-navgrid--2,.au-navgrid--3,.au-navgrid--4 { grid-template-columns:1fr; } }
+.au-navtile { display:flex; align-items:center; gap:12px; padding:16px 18px; border-radius:14px; text-decoration:none; transition:filter .15s, box-shadow .15s, transform .05s; }
+.au-navtile:hover { filter:brightness(1.07); }
+.au-navtile:active { transform:translateY(1px); }
+.au-navtile__icon { display:flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:11px; flex:0 0 auto; background:rgba(255,255,255,.16); color:#fff; }
+.au-navtile__body { display:flex; flex-direction:column; gap:2px; flex:1 1 auto; min-width:0; }
+.au-navtile__title { font-size:14px; font-weight:800; color:#fff; }
+.au-navtile__desc { font-size:12px; color:rgba(255,255,255,.78); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.au-navtile__chevron { color:rgba(255,255,255,.65); flex:0 0 auto; }
+.au-navtile--navy { background:var(--au-navy); }
+.au-navtile--navy:hover { box-shadow:0 10px 26px rgba(11,16,40,.24); }
+.au-navtile--pink { background:var(--au-pink); }
+.au-navtile--pink:hover { box-shadow:0 10px 26px rgba(246,80,138,.30); }
+
 /* ── Dashboard SaaS : grille « Sections » (accès rapides) ───────────────── */
 .au-sections { display:grid; gap:12px; grid-template-columns:repeat(3,minmax(0,1fr)); }
 @media (max-width:900px){ .au-sections { grid-template-columns:repeat(2,1fr); } }

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
-import { Info, CheckCircle2, AlertTriangle, XCircle, Inbox } from "lucide-react";
+import { Info, CheckCircle2, AlertTriangle, XCircle, Inbox, ChevronRight } from "lucide-react";
 
 /* Cartes, stats, badges, alertes, tabs, empty-state — design system Admin. */
 
@@ -86,6 +86,28 @@ export function AdminEmptyState({ icon: Icon = Inbox, title, children }: { icon?
       {children ? <div className="mt-1 text-[13px]">{children}</div> : null}
     </div>
   );
+}
+
+/** Bouton de navigation plein (bleu nuit ou rose Gedify) — remplace les
+    « widgets » cliquables plats par de vrais boutons identifiables. */
+export function AdminNavTile({ href, icon: Icon, title, desc, tone = "navy" }: {
+  href: string; icon?: LucideIcon; title: string; desc?: string; tone?: "navy" | "pink";
+}) {
+  return (
+    <a href={href} className={`au-navtile au-navtile--${tone}`}>
+      {Icon ? <span className="au-navtile__icon"><Icon className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden="true" /></span> : null}
+      <span className="au-navtile__body">
+        <span className="au-navtile__title">{title}</span>
+        {desc ? <span className="au-navtile__desc">{desc}</span> : null}
+      </span>
+      <ChevronRight className="au-navtile__chevron h-4 w-4" strokeWidth={2} aria-hidden="true" />
+    </a>
+  );
+}
+
+/** Grille responsive de boutons de navigation (AdminNavTile). */
+export function AdminNavGrid({ columns = 4, children }: { columns?: 2 | 3 | 4; children: ReactNode }) {
+  return <div className={`au-navgrid au-navgrid--${columns}`}>{children}</div>;
 }
 
 export function AdminTabs({ tabs }: { tabs: { href: string; label: string; active?: boolean }[] }) {

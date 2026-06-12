@@ -3,6 +3,7 @@ import { AlertTriangle, Building2, FilePlus2, FileText, LayoutTemplate, Receipt 
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
 import { SectionCard } from "@/components/ui/section-card";
+import { AdminNavGrid, AdminNavTile } from "@/components/admin-ui";
 import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { listInvoices } from "@/lib/saas/billing/invoice-service";
@@ -20,10 +21,10 @@ function money(c: unknown, cur = "EUR"): string { return `${(Number(c ?? 0) / 10
 function date(v: unknown): string { return v ? new Date(String(v)).toLocaleDateString("fr-FR") : "—"; }
 
 const LINKS = [
-  { href: "/admin/saas/billing/profile", icon: Building2, title: "Profil émetteur", desc: "Coordonnées et mentions légales de l'entreprise." },
-  { href: "/admin/saas/billing/invoices", icon: FileText, title: "Factures", desc: "Liste des factures et avoirs." },
-  { href: "/admin/saas/billing/invoices/new", icon: FilePlus2, title: "Nouvelle facture", desc: "Créer une facture manuelle." },
-  { href: "/admin/saas/billing/templates", icon: LayoutTemplate, title: "Modèles", desc: "Gabarits de mise en page." },
+  { href: "/admin/saas/billing/profile", icon: Building2, title: "Profil émetteur", desc: "Coordonnées et mentions légales de l'entreprise.", tone: "navy" as const },
+  { href: "/admin/saas/billing/invoices", icon: FileText, title: "Factures", desc: "Liste des factures et avoirs.", tone: "navy" as const },
+  { href: "/admin/saas/billing/invoices/new", icon: FilePlus2, title: "Nouvelle facture", desc: "Créer une facture manuelle.", tone: "pink" as const },
+  { href: "/admin/saas/billing/templates", icon: LayoutTemplate, title: "Modèles", desc: "Gabarits de mise en page.", tone: "navy" as const },
 ];
 
 export default async function SaasBillingPage() {
@@ -60,15 +61,11 @@ export default async function SaasBillingPage() {
         </Link>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <AdminNavGrid columns={4}>
         {LINKS.map((l) => (
-          <Link key={l.href} href={l.href} className="rounded-2xl border p-4 transition hover:shadow-sm" style={{ borderColor: "var(--border)" }}>
-            <l.icon className="h-5 w-5" style={{ color: "var(--blue-600)" }} />
-            <div className="mt-2 text-[14px] font-bold" style={{ color: "var(--text-main)" }}>{l.title}</div>
-            <div className="mt-0.5 text-[12px] text-slate-500">{l.desc}</div>
-          </Link>
+          <AdminNavTile key={l.href} href={l.href} icon={l.icon} title={l.title} desc={l.desc} tone={l.tone} />
         ))}
-      </div>
+      </AdminNavGrid>
 
       <SectionCard icon={Receipt} title={`Factures récentes (${invoices.length})`} bodyClassName={recent.length ? "p-0" : "p-5"}>
         {recent.length === 0 ? (
