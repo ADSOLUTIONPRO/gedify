@@ -75,6 +75,10 @@
 .au-card__sub { font-size:12.5px; color:var(--au-text-3); }
 .au-card__body { padding:24px; }
 .au-card__body--flush { padding:0; }
+/* Carte mise en avant (plan personnalisé, encart distinct). */
+.au-card--accent { border-color:var(--au-pink); box-shadow:0 1px 2px rgba(246,80,138,.06), 0 10px 30px rgba(246,80,138,.10); }
+.au-card--accent .au-card__head { background:linear-gradient(180deg,var(--au-pink-soft),transparent); border-bottom-color:#FBCFE0; }
+.au-card--accent .au-card__icon { background:#fff; color:var(--au-pink); border:1px solid #FBCFE0; }
 
 .au-form-section { display:grid; gap:16px; }
 .au-grid { display:grid; gap:16px; }
@@ -97,6 +101,16 @@
 .au-stat--success { border-left:3px solid var(--au-green); }
 .au-stat--warning { border-left:3px solid var(--au-orange); }
 .au-stat--danger { border-left:3px solid var(--au-red); }
+
+/* Stat card enrichie : pastille d'icône (par tonalité) + sparkline décoratif. */
+.au-stat__top { display:flex; align-items:center; gap:10px; }
+.au-stat__icon { display:flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:11px; flex:0 0 auto; background:#F1F5F9; color:var(--au-text-2); }
+.au-stat__icon--info { background:var(--au-blue-soft); color:var(--au-blue); }
+.au-stat__icon--success { background:var(--au-green-soft); color:#15803D; }
+.au-stat__icon--warning { background:#FEF3C7; color:#B45309; }
+.au-stat__icon--accent { background:var(--au-pink-soft); color:#BE2A63; }
+.au-stat__icon--danger { background:var(--au-red-soft); color:#B91C1C; }
+.au-stat__spark { margin-left:auto; flex:0 0 auto; }
 
 /* ── Badges ─────────────────────────────────────────────────────────────── */
 .au-badge { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:999px; font-size:11.5px; font-weight:700; }
@@ -147,6 +161,35 @@
 .au-badge-scope { display:inline-flex; align-items:center; gap:7px; padding:5px 12px; border-radius:999px; font-size:12.5px; font-weight:700; }
 .au-badge-scope--admin { background:var(--au-navy); color:#fff; }
 .au-badge-scope--tenant { background:var(--au-pink-soft); color:#BE2A63; }
+
+/* ── Dashboard SaaS : grille « Sections » (accès rapides) ───────────────── */
+.au-sections { display:grid; gap:12px; grid-template-columns:repeat(3,minmax(0,1fr)); }
+@media (max-width:900px){ .au-sections { grid-template-columns:repeat(2,1fr); } }
+@media (max-width:560px){ .au-sections { grid-template-columns:1fr; } }
+.au-section { display:flex; align-items:center; gap:12px; padding:14px 16px; border:1px solid var(--au-border); border-radius:14px; background:#fff; text-decoration:none; transition:border-color .15s, box-shadow .15s; }
+.au-section:hover { border-color:#FBCFE0; box-shadow:var(--au-shadow); }
+.au-section__icon { display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:11px; flex:0 0 auto; background:var(--au-pink-soft); color:#BE2A63; }
+.au-section__label { flex:1 1 auto; min-width:0; font-size:14px; font-weight:700; color:var(--au-navy); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* ── Dashboard SaaS : lignes d'alerte cliquables ────────────────────────── */
+.au-alert-rows { display:flex; flex-direction:column; gap:8px; }
+.au-alert-row { display:flex; align-items:center; gap:12px; padding:12px 14px; border:1px solid var(--au-border); border-radius:12px; background:#fff; text-decoration:none; color:var(--au-text-2); font-size:13.5px; transition:border-color .15s, background .15s; }
+.au-alert-row:hover { border-color:#FCD34D; background:#FFFBEB; }
+.au-alert-row__count { display:inline-flex; align-items:center; justify-content:center; min-width:24px; height:24px; padding:0 7px; border-radius:999px; background:#FEF3C7; color:#92400E; font-size:11px; font-weight:800; flex:0 0 auto; }
+.au-alert-row__body { flex:1 1 auto; min-width:0; }
+.au-alert-row__body strong { color:var(--au-navy); }
+
+/* ── Page Plans : checkboxes de statut, fonctionnalités, ligne Stripe ───── */
+.au-plan-checks { display:flex; flex-wrap:wrap; gap:18px; }
+.au-plan-features { border:1px solid var(--au-border); border-radius:12px; padding:14px 16px; }
+.au-plan-features > summary { cursor:pointer; font-size:13.5px; font-weight:700; color:var(--au-navy); list-style:none; }
+.au-plan-features > summary::-webkit-details-marker { display:none; }
+.au-plan-features__grid { margin-top:12px; display:grid; gap:12px; grid-template-columns:repeat(2,minmax(0,1fr)); }
+@media (max-width:700px){ .au-plan-features__grid { grid-template-columns:1fr; } }
+.au-plan-features__cat { border:1px solid var(--au-border); border-radius:10px; padding:10px 12px; }
+.au-plan-features__cat-title { font-size:12px; font-weight:800; color:var(--au-navy); margin-bottom:6px; }
+.au-stripe-row { margin-top:18px; padding-top:16px; border-top:1px solid var(--au-border); }
+.au-stripe-meta { font-family:ui-monospace,SFMono-Regular,monospace; font-size:11px; color:var(--au-text-3); margin-top:4px; word-break:break-all; }
 
 /* ============================================================================
    COUVERTURE GLOBALE — `.au-scope` enveloppe les pages /admin/saas/* et

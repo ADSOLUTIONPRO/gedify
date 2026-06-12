@@ -1,7 +1,10 @@
 import { AlertTriangle, Sliders } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
-import { SectionCard } from "@/components/ui/section-card";
+import {
+  AdminCard, AdminAlert, AdminBadge, AdminField, AdminInput, AdminCheckbox,
+  AdminButton, AdminFormSection,
+} from "@/components/admin-ui";
 import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
 import { listPlanDefinitions, type PlanDefinition } from "@/lib/saas/plan-store";
 import { FEATURE_CATEGORIES } from "@/lib/saas/features";
@@ -15,49 +18,56 @@ const breadcrumb = [
   { href: "/admin/saas", label: "Gestion clients" },
   { label: "Plans & offres" },
 ];
-const inputCls = "h-9 w-full rounded-lg border px-2 text-[13px]";
+const FEATURE_COUNT = FEATURE_CATEGORIES.reduce((n, c) => n + c.features.length, 0);
 
 function PlanForm({ plan }: { plan: PlanDefinition | null }) {
   const p = plan;
   return (
-    <form action={upsertPlanFormAction} className="space-y-4">
+    <form action={upsertPlanFormAction} className="space-y-5">
       <input type="hidden" name="code" value={p?.code ?? ""} />
-      <div className="grid gap-3 sm:grid-cols-3">
-        {!p ? <input name="code" required placeholder="code (ex. custom_x)" className={inputCls} style={{ borderColor: "var(--border)" }} /> : <div className="self-center font-mono text-[13px] font-bold">{p.code}</div>}
-        <input name="name" defaultValue={p?.name ?? ""} placeholder="Nom" className={inputCls} style={{ borderColor: "var(--border)" }} />
-        <input name="sortOrder" type="number" defaultValue={p?.sortOrder ?? 0} placeholder="ordre" className={inputCls} style={{ borderColor: "var(--border)" }} />
-        <input name="maxUsers" type="number" min={0} defaultValue={p?.maxUsers ?? ""} placeholder="max users (∞)" className={inputCls} style={{ borderColor: "var(--border)" }} />
-        <input name="maxDocuments" type="number" min={0} defaultValue={p?.maxDocuments ?? ""} placeholder="max docs (∞)" className={inputCls} style={{ borderColor: "var(--border)" }} />
-        <input name="maxStorageMb" type="number" min={0} defaultValue={p?.maxStorageMb ?? ""} placeholder="max Mo (∞)" className={inputCls} style={{ borderColor: "var(--border)" }} />
-        <input name="monthlyPriceCents" type="number" min={0} defaultValue={p?.monthlyPriceCents ?? ""} placeholder="prix mensuel (cents)" className={inputCls} style={{ borderColor: "var(--border)" }} />
-        <input name="yearlyPriceCents" type="number" min={0} defaultValue={p?.yearlyPriceCents ?? ""} placeholder="prix annuel (cents)" className={inputCls} style={{ borderColor: "var(--border)" }} />
-        <input name="supportLevel" defaultValue={p?.supportLevel ?? ""} placeholder="support" className={inputCls} style={{ borderColor: "var(--border)" }} />
+      <AdminFormSection columns={3}>
+        {p ? (
+          <AdminField label="Code">
+            <div className="flex min-h-[44px] items-center font-mono text-[14px] font-bold" style={{ color: "var(--au-navy, #0B1028)" }}>{p.code}</div>
+          </AdminField>
+        ) : (
+          <AdminInput name="code" label="Code" required placeholder="ex. custom_x" />
+        )}
+        <AdminInput name="name" label="Nom" defaultValue={p?.name ?? ""} placeholder="Nom du plan" />
+        <AdminInput name="sortOrder" type="number" label="Position" defaultValue={p?.sortOrder ?? 0} />
+        <AdminInput name="monthlyPriceCents" type="number" min={0} label="Prix mensuel (cents)" defaultValue={p?.monthlyPriceCents ?? ""} placeholder="0" />
+        <AdminInput name="yearlyPriceCents" type="number" min={0} label="Prix annuel (cents)" defaultValue={p?.yearlyPriceCents ?? ""} placeholder="0" />
+        <AdminInput name="supportLevel" label="Quota / support par défaut" defaultValue={p?.supportLevel ?? ""} placeholder="ex. standard" />
+        <AdminInput name="maxUsers" type="number" min={0} label="Max utilisateurs" hint="vide = illimité" defaultValue={p?.maxUsers ?? ""} placeholder="∞" />
+        <AdminInput name="maxDocuments" type="number" min={0} label="Max documents" hint="vide = illimité" defaultValue={p?.maxDocuments ?? ""} placeholder="∞" />
+        <AdminInput name="maxStorageMb" type="number" min={0} label="Max stockage (Mo)" hint="vide = illimité" defaultValue={p?.maxStorageMb ?? ""} placeholder="∞" />
+      </AdminFormSection>
+
+      <div className="au-plan-checks">
+        <AdminCheckbox name="isActive" defaultChecked={p?.isActive ?? true} label="Actif" />
+        <AdminCheckbox name="isPublic" defaultChecked={p?.isPublic ?? false} label="Public" />
+        <AdminCheckbox name="isDefault" defaultChecked={p?.isDefault ?? false} label="Par défaut" />
       </div>
-      <div className="flex flex-wrap gap-4 text-[13px]">
-        <label className="inline-flex items-center gap-2"><input type="checkbox" name="isActive" defaultChecked={p?.isActive ?? true} /> Actif</label>
-        <label className="inline-flex items-center gap-2"><input type="checkbox" name="isPublic" defaultChecked={p?.isPublic ?? false} /> Public</label>
-        <label className="inline-flex items-center gap-2"><input type="checkbox" name="isDefault" defaultChecked={p?.isDefault ?? false} /> Par défaut</label>
-      </div>
-      <details className="rounded-xl border p-3" style={{ borderColor: "var(--border-soft)" }}>
-        <summary className="cursor-pointer text-[13px] font-bold">Fonctionnalités ({FEATURE_CATEGORIES.reduce((n, c) => n + c.features.length, 0)})</summary>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+
+      <details className="au-plan-features">
+        <summary>Fonctionnalités ({FEATURE_COUNT})</summary>
+        <div className="au-plan-features__grid">
           {FEATURE_CATEGORIES.map((cat) => (
-            <div key={cat.id} className="rounded-lg border px-3 py-2" style={{ borderColor: "var(--border-soft)" }}>
-              <div className="mb-1 text-[12px] font-bold" style={{ color: "var(--text-main)" }}>{cat.label}</div>
-              <div className="flex flex-col gap-0.5">
+            <div key={cat.id} className="au-plan-features__cat">
+              <div className="au-plan-features__cat-title">{cat.label}</div>
+              <div className="flex flex-col gap-1.5">
                 {cat.features.map((f) => (
-                  <label key={f.key} className="inline-flex items-center gap-2 text-[12px]">
-                    <input type="checkbox" name={`feature_${f.key}`} defaultChecked={p ? p.features[f.key] : true} /> {f.label}
-                  </label>
+                  <AdminCheckbox key={f.key} name={`feature_${f.key}`} defaultChecked={p ? p.features[f.key] : true} label={<span className="text-[13px]">{f.label}</span>} />
                 ))}
               </div>
             </div>
           ))}
         </div>
       </details>
-      <button type="submit" className="h-9 rounded-lg px-4 text-[13px] font-bold text-white" style={{ background: "var(--blue-600)" }}>
-        {p ? "Enregistrer le plan" : "Créer le plan"}
-      </button>
+
+      <div>
+        <AdminButton type="submit" variant="primary">{p ? "Enregistrer le plan" : "Créer le plan"}</AdminButton>
+      </div>
     </form>
   );
 }
@@ -67,7 +77,9 @@ export default async function SaasPlansPage({ searchParams }: { searchParams: Pr
     return (
       <PageShell>
         <PageHeader breadcrumb={breadcrumb} title="Plans & offres" />
-        <SectionCard icon={AlertTriangle} title="Mode mono-tenant"><p className="text-sm text-slate-600"><code className="font-mono text-[12px]">MULTI_TENANT</code> n&apos;est pas activé.</p></SectionCard>
+        <AdminCard icon={AlertTriangle} title="Mode mono-tenant">
+          <p className="text-sm text-slate-600"><code className="font-mono text-[12px]">MULTI_TENANT</code> n&apos;est pas activé.</p>
+        </AdminCard>
       </PageShell>
     );
   }
@@ -77,34 +89,49 @@ export default async function SaasPlansPage({ searchParams }: { searchParams: Pr
 
   return (
     <PageShell>
-      <PageHeader breadcrumb={breadcrumb} title="Plans & offres" description="Plans administrables (table saas_plans, fallback config). Limites + fonctionnalités par offre." />
-      {error ? <div className="rounded-2xl border border-rose-300 bg-rose-50 px-3 py-2.5 text-xs font-semibold text-rose-900">{error}</div> : null}
-      {updated ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">Plan enregistré.</div> : null}
+      <PageHeader
+        breadcrumb={breadcrumb}
+        title="Plans & offres"
+        description="Plans administrables (table saas_plans, fallback config). Limites + fonctionnalités par offre."
+        actions={<a href="#custom-plan" className="au-btn au-btn--primary">Créer un plan</a>}
+      />
+      {error ? <AdminAlert tone="danger">{error}</AdminAlert> : null}
+      {updated ? <AdminAlert tone="success">Plan enregistré.</AdminAlert> : null}
 
       {plans.map((p) => (
-        <SectionCard key={p.code} icon={Sliders} title={`${p.name} (${p.code})`} description={`${p.source === "db" ? "table" : "config par défaut"} · ${p.isActive ? "actif" : "inactif"}${p.isPublic ? " · public" : ""}`}>
+        <AdminCard
+          key={p.code}
+          icon={Sliders}
+          title={`${p.name} (${p.code})`}
+          subtitle={p.source === "db" ? "table saas_plans" : "config par défaut"}
+          actions={
+            <>
+              {p.isActive ? <AdminBadge tone="success">Actif</AdminBadge> : <AdminBadge tone="neutral">Inactif</AdminBadge>}
+              {p.isPublic ? <AdminBadge tone="info">Public</AdminBadge> : null}
+              {p.isDefault ? <AdminBadge tone="accent">Par défaut</AdminBadge> : null}
+            </>
+          }
+        >
           <PlanForm plan={p} />
-          <div className="mt-3 border-t pt-3 text-[12px]" style={{ borderColor: "var(--border-soft)" }}>
-            <div className="mb-2 flex flex-wrap items-center gap-2">
-              <span className="font-semibold" style={{ color: "var(--text-main)" }}>Stripe ({getStripeMode()})</span>
-              <span className={p.stripeProductId ? "text-emerald-700" : "text-slate-400"}>{p.stripeProductId ? "synchronisé" : "non synchronisé"}</span>
+          <div className="au-stripe-row">
+            <div className="flex flex-wrap items-center gap-2 text-[13px]">
+              <span className="font-bold" style={{ color: "var(--au-navy, #0B1028)" }}>Stripe ({getStripeMode()})</span>
+              {p.stripeProductId ? <AdminBadge tone="success">synchronisé</AdminBadge> : <AdminBadge tone="neutral">non synchronisé</AdminBadge>}
             </div>
-            <div className="font-mono text-[11px] text-slate-500">
-              product={p.stripeProductId ?? "—"} · monthly={p.stripeMonthlyPriceId ?? "—"} · yearly={p.stripeYearlyPriceId ?? "—"}
-            </div>
-            <form action={syncPlanStripeFormAction} className="mt-2">
+            <div className="au-stripe-meta">product={p.stripeProductId ?? "—"} · monthly={p.stripeMonthlyPriceId ?? "—"} · yearly={p.stripeYearlyPriceId ?? "—"}</div>
+            <form action={syncPlanStripeFormAction} className="mt-3">
               <input type="hidden" name="code" value={p.code} />
-              <button type="submit" disabled={!stripeOn} className="h-9 rounded-lg border px-3 text-[12px] font-semibold disabled:cursor-not-allowed disabled:opacity-50" style={{ borderColor: "var(--border)", color: "var(--accent)" }}>
+              <AdminButton type="submit" variant="secondary" sm disabled={!stripeOn}>
                 {stripeOn ? "Synchroniser avec Stripe" : "Stripe désactivé"}
-              </button>
+              </AdminButton>
             </form>
           </div>
-        </SectionCard>
+        </AdminCard>
       ))}
 
-      <SectionCard icon={Sliders} title="Créer un plan personnalisé">
+      <AdminCard id="custom-plan" accent icon={Sliders} title="Créer un plan personnalisé" subtitle="Plan sur-mesure — définissez une offre adaptée à vos besoins.">
         <PlanForm plan={null} />
-      </SectionCard>
+      </AdminCard>
     </PageShell>
   );
 }

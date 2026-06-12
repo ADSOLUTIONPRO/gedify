@@ -4,11 +4,11 @@ import { Info, CheckCircle2, AlertTriangle, XCircle, Inbox } from "lucide-react"
 
 /* Cartes, stats, badges, alertes, tabs, empty-state — design system Admin. */
 
-export function AdminCard({ icon: Icon, title, subtitle, actions, flush, children }: {
-  icon?: LucideIcon; title?: string; subtitle?: string; actions?: ReactNode; flush?: boolean; children: ReactNode;
+export function AdminCard({ icon: Icon, title, subtitle, actions, flush, accent, id, children }: {
+  icon?: LucideIcon; title?: string; subtitle?: string; actions?: ReactNode; flush?: boolean; accent?: boolean; id?: string; children: ReactNode;
 }) {
   return (
-    <section className="au-card">
+    <section className={`au-card${accent ? " au-card--accent" : ""}`} id={id}>
       {title || actions ? (
         <div className="au-card__head">
           {Icon ? <span className="au-card__icon"><Icon className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden="true" /></span> : null}
@@ -25,10 +25,35 @@ export function AdminCard({ icon: Icon, title, subtitle, actions, flush, childre
 }
 
 type Tone = "neutral" | "accent" | "success" | "warning" | "danger" | "info";
-export function AdminStatCard({ label, value, desc, tone = "neutral" }: { label: string; value: ReactNode; desc?: string; tone?: Tone }) {
+
+const SPARK_COLOR: Record<Tone, string> = {
+  neutral: "#94A3B8", accent: "#F6508A", success: "#10B981", warning: "#F59E0B", danger: "#EF4444", info: "#2563EB",
+};
+/** Sparkline purement décoratif (pas de données) — repère visuel sur les stat cards. */
+function AuSpark({ tone }: { tone: Tone }) {
+  const c = SPARK_COLOR[tone];
+  return (
+    <svg className="au-stat__spark" width="62" height="22" viewBox="0 0 62 22" fill="none" aria-hidden="true">
+      <path d="M1 17 L11 13 L21 15 L31 8 L42 10 L52 4 L61 6 L61 21 L1 21 Z" fill={c} opacity="0.10" />
+      <path d="M1 17 L11 13 L21 15 L31 8 L42 10 L52 4 L61 6" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function AdminStatCard({ label, value, desc, tone = "neutral", icon: Icon, spark }: {
+  label: string; value: ReactNode; desc?: string; tone?: Tone; icon?: LucideIcon; spark?: boolean;
+}) {
   return (
     <div className={`au-stat${tone !== "neutral" ? ` au-stat--${tone}` : ""}`}>
-      <div className="au-stat__label">{label}</div>
+      {Icon || spark ? (
+        <div className="au-stat__top">
+          {Icon ? <span className={`au-stat__icon au-stat__icon--${tone}`}><Icon className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden="true" /></span> : null}
+          <span className="au-stat__label" style={{ flex: "1 1 auto" }}>{label}</span>
+          {spark ? <AuSpark tone={tone} /> : null}
+        </div>
+      ) : (
+        <div className="au-stat__label">{label}</div>
+      )}
       <div className="au-stat__value">{value}</div>
       {desc ? <div className="au-stat__desc">{desc}</div> : null}
     </div>
