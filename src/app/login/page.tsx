@@ -8,6 +8,9 @@ import { readSession } from "@/lib/auth/session";
 import { hasAnyUser } from "@/lib/engine/users";
 import { detectStorageAnomaly } from "@/lib/startup/storage-diagnostic";
 import { StorageAnomalyNotice } from "@/components/setup/storage-anomaly-notice";
+import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
+import { getPublicSaasSettings } from "@/lib/saas/settings";
+import { SaasAuthLanding } from "@/components/auth/saas-auth-landing";
 
 export const metadata: Metadata = { title: "Connexion — Gedify" };
 
@@ -42,6 +45,20 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
 
   const showAuthMessage = reason === "auth_required";
 
+  // ── Mode SaaS multi-tenant : page d'accueil / authentification premium ──
+  if (isMultiTenantEnabled()) {
+    const pub = await getPublicSaasSettings().catch(() => ({ signupOpen: false }));
+    return (
+      <SaasAuthLanding
+        next={safeNext(next)}
+        signupOpen={pub.signupOpen === true}
+        oauthEnabled={false}
+        showAuthMessage={showAuthMessage}
+      />
+    );
+  }
+
+  // ── Mode mono-tenant (local / Synology) : carte de connexion classique ──
   return (
     <div
       className="flex min-h-screen items-center justify-center px-4 py-12"

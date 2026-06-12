@@ -20,6 +20,7 @@ const PUBLIC_PREFIXES = [
   "/installation",
   "/api/auth/setup",
   "/api/auth/login",
+  "/api/auth/signup",
   "/api/auth/logout",
   "/api/auth/session",
   // Liveness publique (healthcheck Docker/Synology, reverse proxy) — aucune donnée
