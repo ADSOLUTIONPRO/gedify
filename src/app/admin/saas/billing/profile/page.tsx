@@ -1,8 +1,7 @@
-import { AlertTriangle, Building2, MapPin, Receipt, CreditCard, Hash, Scale } from "lucide-react";
-import { PageHeader } from "@/components/ui/page-header";
+import { Building2, MapPin, Receipt, CreditCard, Hash, Scale } from "lucide-react";
 import { PageShell } from "@/components/ui/page-shell";
 import { getDefaultBillingProfile, billingProfileIssues } from "@/lib/saas/billing/profile-store";
-import { AdminCard, AdminAlert, AdminInput, AdminSelect, AdminTextarea, AdminButton, AdminFormSection } from "@/components/admin-ui";
+import { AdminCard, AdminAlert, AdminInput, AdminSelect, AdminTextarea, AdminButton, AdminFormSection, SuperAdminHero } from "@/components/admin-ui";
 import { saveBillingProfileAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +21,7 @@ export default async function BillingProfilePage({ searchParams }: { searchParam
 
   return (
     <PageShell>
-      <PageHeader breadcrumb={breadcrumb} title="Profil émetteur" description="Informations de l'entreprise émettrice des factures (mentions légales)." />
+      <SuperAdminHero breadcrumb={breadcrumb} eyebrow="Administration SaaS" title="Profil émetteur" subtitle="Informations de l'entreprise émettrice des factures (mentions légales)." icon={<Building2 className="h-9 w-9" strokeWidth={1.9} aria-hidden="true" />} />
 
       {updated ? <AdminAlert tone="success">Profil enregistré.</AdminAlert> : null}
       {error ? <AdminAlert tone="danger">{error}</AdminAlert> : null}

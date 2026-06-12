@@ -1,6 +1,6 @@
 import { Activity, AlertTriangle, CheckCircle2 } from "lucide-react";
-import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
+import { SuperAdminHero } from "@/components/admin-ui";
 import { SectionCard } from "@/components/ui/section-card";
 import { MetadataGrid } from "@/components/ui/metadata-grid";
 import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
@@ -23,7 +23,7 @@ export default async function SaasDiagnosticsPage() {
 
   return (
     <PageShell>
-      <PageHeader breadcrumb={breadcrumb} title="Diagnostics SaaS" description="Isolation tenant, lignes sans tenant_id, cohérence — et scripts de vérification." />
+      <SuperAdminHero breadcrumb={breadcrumb} eyebrow="Administration SaaS" title="Diagnostics SaaS" subtitle="Isolation tenant, lignes sans tenant_id, cohérence — et scripts de vérification." icon={<Activity className="h-9 w-9" strokeWidth={1.9} aria-hidden="true" />} />
 
       <SectionCard icon={Activity} title="Lignes sans tenant_id (global)">
         {!multiTenant ? (

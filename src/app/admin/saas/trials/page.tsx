@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AlertTriangle, Clock, Plus, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
+import { SuperAdminHero } from "@/components/admin-ui";
 import { SectionCard } from "@/components/ui/section-card";
 import { StatCard } from "@/components/ui/stat-card";
 import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
@@ -46,10 +47,12 @@ export default async function TrialsPage({ searchParams }: { searchParams: Promi
 
   return (
     <PageShell>
-      <PageHeader
+      <SuperAdminHero
         breadcrumb={breadcrumb}
+        eyebrow="Administration SaaS"
         title="Périodes d'essai"
-        description="Essais gratuits : suivi, relances, conversion."
+        subtitle="Essais gratuits : suivi, relances, conversion."
+        icon={<Clock className="h-9 w-9" strokeWidth={1.9} aria-hidden="true" />}
         actions={<form action={runTrialRemindersAction}><button className="h-9 rounded-xl border px-4 text-[13px] font-semibold" style={bd}>Lancer relances / expirations</button></form>}
       />
       {sp.ok ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">Essai {sp.ok}.</div> : null}

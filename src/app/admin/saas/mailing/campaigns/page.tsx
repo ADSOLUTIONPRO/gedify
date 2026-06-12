@@ -1,6 +1,7 @@
 import { Megaphone, Plus, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
+import { SuperAdminHero } from "@/components/admin-ui";
 import { SectionCard } from "@/components/ui/section-card";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { listCampaigns } from "@/lib/saas/mailing/campaigns";
@@ -30,7 +31,7 @@ export default async function CampaignsPage({ searchParams }: { searchParams: Pr
 
   return (
     <PageShell>
-      <PageHeader breadcrumb={breadcrumb} title="Campagnes d'emailing" description="Envoi groupé aux espaces clients (owner de chaque tenant)." />
+      <SuperAdminHero breadcrumb={breadcrumb} eyebrow="Administration SaaS" title="Campagnes d'emailing" subtitle="Envoi groupé aux espaces clients (owner de chaque tenant)." icon={<Megaphone className="h-9 w-9" strokeWidth={1.9} aria-hidden="true" />} />
       {sp.created ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">Campagne créée.</div> : null}
       {sp.sent ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">{sp.sent} email(s) mis en file.</div> : null}
       {sp.error ? <div className="rounded-2xl border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-900">{sp.error}</div> : null}

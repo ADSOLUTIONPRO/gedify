@@ -1,6 +1,7 @@
 import { Inbox, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
+import { SuperAdminHero } from "@/components/admin-ui";
 import { SectionCard } from "@/components/ui/section-card";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { listQueue } from "@/lib/saas/mailing/queue";
@@ -36,10 +37,12 @@ export default async function MailQueuePage({ searchParams }: { searchParams: Pr
 
   return (
     <PageShell>
-      <PageHeader
+      <SuperAdminHero
         breadcrumb={breadcrumb}
+        eyebrow="Administration SaaS"
         title="File d'attente des emails"
-        description="Derniers messages mis en file (envoi via worker)."
+        subtitle="Derniers messages mis en file (envoi via worker)."
+        icon={<Inbox className="h-9 w-9" strokeWidth={1.9} aria-hidden="true" />}
         actions={<form action={processQueueAction}><button className="h-9 rounded-xl px-4 text-[13px] font-bold text-white" style={{ background: "var(--blue-600)" }}>Traiter la file</button></form>}
       />
       {sp.disabled ? <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">Mailing désactivé : rien n&apos;a été envoyé.</div> : null}

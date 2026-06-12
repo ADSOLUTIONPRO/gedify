@@ -4,7 +4,7 @@ import { PageShell } from "@/components/ui/page-shell";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
 import { TENANT_PLANS, TENANT_STATUSES } from "@/lib/tenant/tenant-admin";
-import { AdminCard, AdminAlert, AdminInput, AdminSelect, AdminCheckbox, AdminButton, AdminFormSection } from "@/components/admin-ui";
+import { AdminCard, AdminAlert, AdminInput, AdminSelect, AdminCheckbox, AdminButton, AdminFormSection, SuperAdminHero } from "@/components/admin-ui";
 import { createTenantFormAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -37,7 +37,7 @@ export default async function CreateTenantPage({ searchParams }: { searchParams:
 
   return (
     <PageShell>
-      <PageHeader breadcrumb={breadcrumb} title="Créer un client" description="Onboarding contrôlé d'un client (superuser)." />
+      <SuperAdminHero breadcrumb={breadcrumb} eyebrow="Administration SaaS" title="Créer un client" subtitle="Onboarding contrôlé d'un client (superuser)." icon={<UserPlus className="h-9 w-9" strokeWidth={1.9} aria-hidden="true" />} />
 
       <form action={createTenantFormAction} className="space-y-4">
         {error ? <AdminAlert tone="danger">{error}</AdminAlert> : null}

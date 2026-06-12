@@ -7,7 +7,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { areEmailsEnabled } from "@/lib/config/environment";
 import { listTenants } from "@/lib/tenant/tenant-store";
 import { listAllInvitations, type TenantInvitation } from "@/lib/saas/invitations";
-import { AdminStats, AdminStatCard, AdminCard, AdminAlert, AdminBadge, AdminButton, AdminInput, AdminSelect, AdminFormSection, AdminDataTable, type AdminColumn } from "@/components/admin-ui";
+import { AdminStats, AdminStatCard, AdminCard, AdminAlert, AdminBadge, AdminButton, AdminInput, AdminSelect, AdminFormSection, AdminDataTable, type AdminColumn, SuperAdminHero } from "@/components/admin-ui";
 import { createInvitationAction, resendInvitationAction, cancelInvitationAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -57,7 +57,7 @@ export default async function InvitationsPage({ searchParams }: { searchParams: 
 
   return (
     <PageShell>
-      <PageHeader breadcrumb={breadcrumb} title="Invitations clients" description="Inviter des membres dans les espaces clients (superuser)." />
+      <SuperAdminHero breadcrumb={breadcrumb} eyebrow="Administration SaaS" title="Invitations clients" subtitle="Inviter des membres dans les espaces clients (superuser)." icon={<Send className="h-9 w-9" strokeWidth={1.9} aria-hidden="true" />} />
       {sp.ok ? <AdminAlert tone="success">Invitation {sp.ok === "created" ? "créée" : sp.ok === "resent" ? "renvoyée" : "annulée"}.</AdminAlert> : null}
       {sp.error ? <AdminAlert tone="danger">{sp.error}</AdminAlert> : null}
       {!emailsOn ? <AdminAlert tone="warning">Les emails sont désactivés (<code className="font-mono">EMAILS_ENABLED=false</code>) : l&apos;invitation sera créée mais l&apos;email ne partira qu&apos;une fois le mailing activé.</AdminAlert> : null}

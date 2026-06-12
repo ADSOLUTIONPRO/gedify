@@ -2,6 +2,7 @@ import Link from "next/link";
 import { FilePlus2, FileText, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
+import { SuperAdminHero } from "@/components/admin-ui";
 import { SectionCard } from "@/components/ui/section-card";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { listInvoices } from "@/lib/saas/billing/invoice-service";
@@ -35,10 +36,12 @@ export default async function InvoicesListPage() {
 
   return (
     <PageShell>
-      <PageHeader
+      <SuperAdminHero
         breadcrumb={breadcrumb}
+        eyebrow="Administration SaaS"
         title="Factures"
-        description="Factures et avoirs émis pour les clients."
+        subtitle="Factures et avoirs émis pour les clients."
+        icon={<FileText className="h-9 w-9" strokeWidth={1.9} aria-hidden="true" />}
         actions={<Link href="/admin/saas/billing/invoices/new" className="inline-flex h-9 items-center gap-1.5 rounded-xl px-4 text-[13px] font-bold text-white" style={{ background: "var(--blue-600)" }}><FilePlus2 className="h-4 w-4" />Nouvelle facture</Link>}
       />
 

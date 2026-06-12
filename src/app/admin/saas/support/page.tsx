@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AlertTriangle, Headset, Settings2, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
+import { SuperAdminHero } from "@/components/admin-ui";
 import { SectionCard } from "@/components/ui/section-card";
 import { MetadataGrid } from "@/components/ui/metadata-grid";
 import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
@@ -54,10 +55,12 @@ export default async function AdminSupportPage({ searchParams }: { searchParams:
 
   return (
     <PageShell>
-      <PageHeader
+      <SuperAdminHero
         breadcrumb={breadcrumb}
+        eyebrow="Administration SaaS"
         title="Support clients"
-        description="Conversations de support, par espace client (cloisonnées)."
+        subtitle="Conversations de support, par espace client (cloisonnées)."
+        icon={<Headset className="h-9 w-9" strokeWidth={1.9} aria-hidden="true" />}
         actions={<Link href="/admin/saas/support/settings" className="inline-flex h-9 items-center gap-1.5 rounded-xl border px-4 text-[13px] font-semibold" style={{ borderColor: "var(--border)" }}><Settings2 className="h-4 w-4" />Réglages</Link>}
       />
 

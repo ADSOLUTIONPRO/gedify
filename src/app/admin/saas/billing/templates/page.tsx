@@ -2,6 +2,7 @@ import Link from "next/link";
 import { LayoutTemplate, Plus, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
+import { SuperAdminHero } from "@/components/admin-ui";
 import { SectionCard } from "@/components/ui/section-card";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { listInvoiceTemplates } from "@/lib/saas/billing/invoice-template-store";
@@ -26,10 +27,12 @@ export default async function InvoiceTemplatesPage({ searchParams }: { searchPar
 
   return (
     <PageShell>
-      <PageHeader
+      <SuperAdminHero
         breadcrumb={breadcrumb}
+        eyebrow="Administration SaaS"
         title="Modèles de facture"
-        description="Gabarits de mise en page des factures PDF/HTML (couleurs, logo, en-tête, pied de page)."
+        subtitle="Gabarits de mise en page des factures PDF/HTML (couleurs, logo, en-tête, pied de page)."
+        icon={<LayoutTemplate className="h-9 w-9" strokeWidth={1.9} aria-hidden="true" />}
         actions={<Link href="/admin/saas/billing/templates/new" className="inline-flex h-9 items-center gap-1.5 rounded-xl px-4 text-[13px] font-bold text-white" style={{ background: "var(--blue-600)" }}><Plus className="h-4 w-4" />Nouveau modèle</Link>}
       />
       {sp.ok || sp.created ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">Modèles mis à jour.</div> : null}

@@ -11,7 +11,7 @@ import { getSaasSettings } from "@/lib/saas/settings";
 import { areEmailsEnabled, getAppEnv } from "@/lib/config/environment";
 import { isStripeEnabled, getStripeConfigStatus } from "@/lib/saas/stripe/config";
 import { getMasterKeyStatus } from "@/lib/saas/encryption/master-key";
-import { AdminInput, AdminSwitch, AdminButton, AdminBadge } from "@/components/admin-ui";
+import { AdminInput, AdminSwitch, AdminButton, AdminBadge, SuperAdminHero } from "@/components/admin-ui";
 import {
   saveSignupAction, saveUrlsAction, saveEmailsAction, saveLimitsAction, savePaymentAction,
   saveSecurityAction, saveSupportAction, saveBillingDefaultsAction, saveTrialsAction, saveFeaturesAction,
@@ -58,7 +58,7 @@ export default async function SaasSettingsPage({ searchParams }: { searchParams:
 
   return (
     <PageShell>
-      <PageHeader breadcrumb={breadcrumb} title="Paramètres SaaS" description="Configuration globale de la plateforme (superuser). Les secrets restent en variables d'environnement." />
+      <SuperAdminHero breadcrumb={breadcrumb} eyebrow="Administration SaaS" title="Paramètres SaaS" subtitle="Configuration globale de la plateforme (superuser). Les secrets restent en variables d'environnement." icon={<Settings2 className="h-9 w-9" strokeWidth={1.9} aria-hidden="true" />} />
       {sp.saved ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">Section « {sp.saved} » enregistrée.</div> : null}
       {sp.error ? <div className="rounded-2xl border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-900">{sp.error}</div> : null}
       {s.security.maintenanceMode ? <div className="flex items-center gap-2 rounded-2xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900"><AlertTriangle className="h-4 w-4" /> Mode maintenance ACTIF.</div> : null}

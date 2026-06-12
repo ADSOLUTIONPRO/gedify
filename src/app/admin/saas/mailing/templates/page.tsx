@@ -2,6 +2,7 @@ import Link from "next/link";
 import { LayoutTemplate, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
+import { SuperAdminHero } from "@/components/admin-ui";
 import { SectionCard } from "@/components/ui/section-card";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { listTemplates } from "@/lib/saas/mailing/template-store";
@@ -46,10 +47,12 @@ export default async function MailTemplatesPage({ searchParams }: { searchParams
 
   return (
     <PageShell>
-      <PageHeader
+      <SuperAdminHero
         breadcrumb={breadcrumb}
+        eyebrow="Administration SaaS"
         title="Modèles d'emails"
-        description={`${DEFAULT_TEMPLATES.length} modèles disponibles · ${seededCount} personnalisés en base.`}
+        subtitle={`${DEFAULT_TEMPLATES.length} modèles disponibles · ${seededCount} personnalisés en base.`}
+        icon={<LayoutTemplate className="h-9 w-9" strokeWidth={1.9} aria-hidden="true" />}
         actions={<form action={seedTemplatesAction}><button className="h-9 rounded-xl px-4 text-[13px] font-bold text-white" style={{ background: "var(--blue-600)" }}>Initialiser les modèles</button></form>}
       />
       {sp.seeded ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">{sp.seeded} modèle(s) ajouté(s) en base.</div> : null}

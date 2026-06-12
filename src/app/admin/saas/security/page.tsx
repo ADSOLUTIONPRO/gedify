@@ -6,7 +6,7 @@ import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getSecurityDashboardStats, getSecurityEvents, detectSuspiciousActivity } from "@/lib/saas/security/security-events";
 import { listTenants } from "@/lib/tenant/tenant-store";
-import { AdminStats, AdminStatCard, AdminCard, AdminAlert, AdminBadge, AdminButton, AdminDataTable, type AdminColumn } from "@/components/admin-ui";
+import { AdminStats, AdminStatCard, AdminCard, AdminAlert, AdminBadge, AdminButton, AdminDataTable, type AdminColumn, SuperAdminHero } from "@/components/admin-ui";
 import { markReviewedAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -57,7 +57,7 @@ export default async function SecurityPage({ searchParams }: { searchParams: Pro
 
   return (
     <PageShell>
-      <PageHeader breadcrumb={breadcrumb} title="Console de sécurité" description="Événements de sécurité plateforme, par tenant (cloisonné). Accès superuser." />
+      <SuperAdminHero breadcrumb={breadcrumb} eyebrow="Administration SaaS" title="Console de sécurité" subtitle="Événements de sécurité plateforme, par tenant (cloisonné). Accès superuser." icon={<ShieldCheck className="h-9 w-9" strokeWidth={1.9} aria-hidden="true" />} />
 
       <AdminStats>
         <AdminStatCard label="Connexions 24h" value={stats.loginSuccess24h} />

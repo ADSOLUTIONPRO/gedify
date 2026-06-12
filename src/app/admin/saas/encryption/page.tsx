@@ -1,6 +1,7 @@
 import { AlertTriangle, KeyRound, Lock, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
+import { SuperAdminHero } from "@/components/admin-ui";
 import { SectionCard } from "@/components/ui/section-card";
 import { MetadataGrid } from "@/components/ui/metadata-grid";
 import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
@@ -42,7 +43,7 @@ export default async function EncryptionPage({ searchParams }: { searchParams: P
 
   return (
     <PageShell>
-      <PageHeader breadcrumb={breadcrumb} title="Chiffrement au repos" description="Chiffrement des fichiers par tenant (enveloppe AES-256-GCM). La clé maître n'est jamais exposée." />
+      <SuperAdminHero breadcrumb={breadcrumb} eyebrow="Administration SaaS" title="Chiffrement au repos" subtitle="Chiffrement des fichiers par tenant (enveloppe AES-256-GCM). La clé maître n'est jamais exposée." icon={<Lock className="h-9 w-9" strokeWidth={1.9} aria-hidden="true" />} />
 
       {sp.created ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">{sp.created} clé(s) tenant générée(s).</div> : null}
       {sp.error ? <div className="rounded-2xl border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-900">{sp.error}</div> : null}
