@@ -39,6 +39,9 @@ const PUBLIC_PREFIXES = [
   // Désinscription email : lien public reçu par email (sécurisé par token opaque
   // dans la route/page elle-même). Doit rester accessible sans session.
   "/unsubscribe",
+  // Acceptation d'invitation : lien public reçu par email (token opaque, validé
+  // dans la page/action). Création de compte possible sans session préalable.
+  "/invite",
   "/_next/",
   "/favicon",
 ];

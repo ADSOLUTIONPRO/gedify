@@ -67,6 +67,10 @@ export default async function SaasDiagnosticsPage() {
           <li><code className="font-mono">npm run saas:encrypt-existing-files</code> — migre les fichiers existants vers le chiffrement (idempotent).</li>
           <li><code className="font-mono">npm run saas:check-settings</code> — cohérence des réglages globaux (sans secret).</li>
           <li><code className="font-mono">npm run saas:check-security</code> — synthèse du journal de sécurité.</li>
+          <li><code className="font-mono">npm run saas:check-admin-isolation</code> — fuites d'isolation Administration (exit 1).</li>
+          <li><code className="font-mono">npm run saas:check-memberships</code> — cohérence des adhésions (exit 1).</li>
+          <li><code className="font-mono">npm run saas:check-invitations</code> — état des invitations.</li>
+          <li><code className="font-mono">npm run saas:check-domains</code> — domaines clients (DNS/SSL).</li>
         </ul>
       </SectionCard>
     </PageShell>

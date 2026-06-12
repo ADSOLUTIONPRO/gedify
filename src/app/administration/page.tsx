@@ -67,7 +67,7 @@ export default async function AdministrationPage() {
         <div className="space-y-5">
           <Card icon={Activity} title="Actions rapides">
             <div className="grid grid-cols-1 gap-2.5 py-1 sm:grid-cols-2 lg:grid-cols-4">
-              <Quick href="/utilisateurs" icon={UserPlus} title="Membres de l'espace" sub="Voir et gérer votre équipe." />
+              <Quick href="/settings/team" icon={UserPlus} title="Mon équipe" sub="Membres et invitations de votre espace." />
               <Quick href="/documents" icon={FileUp} title="Importer un document" sub="Ajouter des fichiers à la GED." />
               <Quick href="/admin/saas/tenant" icon={Gauge} title="Voir les quotas" sub="Usage et offre de votre espace." />
               <Quick href="/support" icon={LifeBuoy} title="Support" sub="Contacter un conseiller." />

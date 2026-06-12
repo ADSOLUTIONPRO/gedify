@@ -28,9 +28,15 @@ function authorized(request: NextRequest): boolean {
 export async function GET(request: NextRequest) {
   if (!authorized(request)) return NextResponse.json({ error: "Non autorisé." }, { status: 401 });
   try {
+    // Expire les invitations échues avant le reste.
+    let expiredInvitations = 0;
+    try {
+      const { expireOldInvitations } = await import("@/lib/saas/invitations");
+      expiredInvitations = await expireOldInvitations();
+    } catch { /* best-effort */ }
     const reminders = await runPaymentReminders();
     const queue = await processMailQueue(100);
-    return NextResponse.json({ reminders, queue });
+    return NextResponse.json({ expiredInvitations, reminders, queue });
   } catch (error) {
     return jsonError("Traitement du mailing planifié échoué", error);
   }
