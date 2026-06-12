@@ -11,6 +11,7 @@ import { getSaasSettings } from "@/lib/saas/settings";
 import { areEmailsEnabled, getAppEnv } from "@/lib/config/environment";
 import { isStripeEnabled, getStripeConfigStatus } from "@/lib/saas/stripe/config";
 import { getMasterKeyStatus } from "@/lib/saas/encryption/master-key";
+import { AdminInput, AdminSwitch, AdminButton, AdminBadge } from "@/components/admin-ui";
 import {
   saveSignupAction, saveUrlsAction, saveEmailsAction, saveLimitsAction, savePaymentAction,
   saveSecurityAction, saveSupportAction, saveBillingDefaultsAction, saveTrialsAction, saveFeaturesAction,
@@ -23,33 +24,19 @@ const breadcrumb = [
   { href: "/admin/saas", label: "Gestion clients" },
   { label: "Paramètres SaaS" },
 ];
-const inp = "h-9 w-full rounded-lg border px-2 text-[13px]";
-const bd = { borderColor: "var(--border)" };
 
 function Bool({ name, def, label }: { name: string; def: boolean; label: string }) {
-  return (
-    <label className="space-y-1 text-[12px]">
-      <span className="font-semibold" style={{ color: "var(--text-main)" }}>{label}</span>
-      <select name={name} defaultValue={def ? "1" : "0"} className={inp} style={bd}><option value="1">Oui</option><option value="0">Non</option></select>
-    </label>
-  );
+  return <AdminSwitch name={name} defaultChecked={def} label={label} />;
 }
 function Txt({ name, def, label, type = "text", ph }: { name: string; def: string | number; label: string; type?: string; ph?: string }) {
-  return (
-    <label className="space-y-1 text-[12px]">
-      <span className="font-semibold" style={{ color: "var(--text-main)" }}>{label}</span>
-      <input name={name} type={type} defaultValue={def} placeholder={ph} className={inp} style={bd} />
-    </label>
-  );
+  return <AdminInput name={name} type={type} defaultValue={def} placeholder={ph} label={label} />;
 }
 function Save() {
-  return <button className="mt-3 h-9 rounded-xl px-4 text-[13px] font-bold text-white" style={{ background: "var(--blue-600)" }}>Enregistrer</button>;
+  return <div className="mt-3"><AdminButton type="submit" variant="primary">Enregistrer</AdminButton></div>;
 }
 function EnvBadge({ label, ok }: { label: string; ok: boolean }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={ok ? { background: "#DCFCE7", color: "#15803D" } : { background: "#F1F5F9", color: "#64748b" }}>
-      {label} {ok ? "✓" : "—"}
-    </span>
+    <AdminBadge tone={ok ? "success" : "neutral"}>{label} {ok ? "✓" : "—"}</AdminBadge>
   );
 }
 
@@ -197,7 +184,7 @@ export default async function SaasSettingsPage({ searchParams }: { searchParams:
             <Txt name="maxAttachmentMb" def={s.support.maxAttachmentMb} label="Max PJ (Mo)" type="number" />
             <Txt name="hours" def={s.support.hours} label="Horaires" />
           </div>
-          <label className="mt-3 block space-y-1 text-[12px]"><span className="font-semibold">Message d&apos;accueil</span><input name="welcomeMessage" defaultValue={s.support.welcomeMessage} className={inp} style={bd} /></label>
+          <div className="mt-3"><AdminInput name="welcomeMessage" label="Message d'accueil" defaultValue={s.support.welcomeMessage} /></div>
           <Save />
         </form>
       </SectionCard>
