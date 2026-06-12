@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import "./globals.css";
+import "@/components/admin-ui/admin-ui.css";
 import { AppShell } from "@/components/layout/app-shell";
 import { EnvironmentBanner } from "@/components/env/EnvironmentBanner";
 import { AuthSetupBanner } from "@/components/ui/auth-setup-banner";

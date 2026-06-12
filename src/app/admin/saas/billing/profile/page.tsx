@@ -1,8 +1,8 @@
-import { AlertTriangle, Building2 } from "lucide-react";
+import { AlertTriangle, Building2, MapPin, Receipt, CreditCard, Hash, Scale } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
-import { SectionCard } from "@/components/ui/section-card";
 import { getDefaultBillingProfile, billingProfileIssues } from "@/lib/saas/billing/profile-store";
+import { AdminCard, AdminAlert, AdminInput, AdminSelect, AdminTextarea, AdminButton, AdminFormSection } from "@/components/admin-ui";
 import { saveBillingProfileAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -10,85 +10,93 @@ export const dynamic = "force-dynamic";
 const breadcrumb = [
   { href: "/dashboard", label: "Accueil" },
   { href: "/admin/saas", label: "Gestion clients" },
+  { href: "/admin/saas/billing", label: "Facturation" },
   { label: "Profil émetteur" },
 ];
-const cls = "h-9 w-full rounded-lg border px-2 text-[13px]";
-function F({ label, name, def, type = "text", ph }: { label: string; name: string; def?: string | number | null; type?: string; ph?: string }) {
-  return (
-    <label className="space-y-1 text-[12px]">
-      <span className="font-semibold" style={{ color: "var(--text-main)" }}>{label}</span>
-      <input name={name} type={type} defaultValue={def ?? ""} placeholder={ph} className={cls} style={{ borderColor: "var(--border)" }} />
-    </label>
-  );
-}
 
 export default async function BillingProfilePage({ searchParams }: { searchParams: Promise<{ error?: string; updated?: string }> }) {
   const { error, updated } = await searchParams;
   const p = await getDefaultBillingProfile();
   const issues = billingProfileIssues(p);
+  const v = (x: string | number | null | undefined) => (x ?? "") as string | number;
 
   return (
     <PageShell>
       <PageHeader breadcrumb={breadcrumb} title="Profil émetteur" description="Informations de l'entreprise émettrice des factures (mentions légales)." />
-      {updated ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">Profil enregistré.</div> : null}
-      {error ? <div className="rounded-2xl border border-rose-300 bg-rose-50 px-3 py-2.5 text-xs font-semibold text-rose-900">{error}</div> : null}
-      {issues.length > 0 ? (
-        <div className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-900">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden="true" />
-          <span>Profil incomplet : {issues.join(" ")}</span>
-        </div>
-      ) : null}
 
-      <SectionCard icon={Building2} title="Émetteur">
-        <form action={saveBillingProfileAction} className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <F label="Nom du profil" name="profileName" def={p?.profileName ?? "Profil principal"} />
-            <F label="Société" name="companyName" def={p?.companyName} />
-            <F label="Raison sociale" name="legalName" def={p?.legalName} />
-            <F label="Forme juridique" name="legalForm" def={p?.legalForm} ph="SAS, EI…" />
-            <F label="SIREN" name="siren" def={p?.siren} />
-            <F label="SIRET" name="siret" def={p?.siret} />
-            <F label="TVA intracom." name="vatNumber" def={p?.vatNumber} />
-            <F label="RCS ville" name="rcsCity" def={p?.rcsCity} />
-            <F label="RCS numéro" name="rcsNumber" def={p?.rcsNumber} />
-            <F label="Capital social" name="shareCapital" def={p?.shareCapital} />
-          </div>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <F label="Adresse" name="addressLine1" def={p?.addressLine1} />
-            <F label="Complément" name="addressLine2" def={p?.addressLine2} />
-            <F label="Code postal" name="postalCode" def={p?.postalCode} />
-            <F label="Ville" name="city" def={p?.city} />
-            <F label="Pays" name="country" def={p?.country ?? "France"} />
-            <F label="Email" name="email" type="email" def={p?.email} />
-            <F label="Téléphone" name="phone" def={p?.phone} />
-            <F label="IBAN" name="iban" def={p?.iban} />
-            <F label="BIC" name="bic" def={p?.bic} />
-          </div>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <label className="space-y-1 text-[12px]">
-              <span className="font-semibold" style={{ color: "var(--text-main)" }}>Régime TVA</span>
-              <select name="vatRegime" defaultValue={p?.vatRegime ?? "standard"} className={cls} style={{ borderColor: "var(--border)" }}>
-                <option value="standard">standard</option>
-                <option value="franchise_base">franchise en base (293 B)</option>
-                <option value="exempt">exonéré</option>
-                <option value="reverse_charge">autoliquidation</option>
-                <option value="intra_eu">intra-UE</option>
-              </select>
-            </label>
-            <F label="Taux TVA défaut (%)" name="defaultVatRate" type="number" def={p?.defaultVatRate} ph="20" />
-            <F label="Délai paiement (j)" name="paymentTermsDays" type="number" def={p?.paymentTermsDays ?? 30} />
-            <F label="Taux pénalités retard" name="latePaymentRate" def={p?.latePaymentRate} ph="3× taux légal" />
-            <F label="Préfixe facture" name="invoicePrefix" def={p?.invoicePrefix ?? "FAC"} />
-            <F label="Préfixe avoir" name="creditNotePrefix" def={p?.creditNotePrefix ?? "AVOIR"} />
-          </div>
-          <label className="block space-y-1 text-[12px]">
-            <span className="font-semibold" style={{ color: "var(--text-main)" }}>Pied de page légal (HTML, optionnel — prime sur les mentions auto)</span>
-            <textarea name="legalFooterHtml" defaultValue={p?.legalFooterHtml ?? ""} rows={3} className="w-full rounded-lg border p-2 text-[13px]" style={{ borderColor: "var(--border)" }} />
-          </label>
-          <button type="submit" className="h-10 rounded-xl px-5 text-[13px] font-bold text-white" style={{ background: "var(--blue-600)" }}>Enregistrer</button>
-        </form>
-      </SectionCard>
-      {p ? <p className="text-[12px] text-slate-500">Numérotation : prochaine facture {p.invoicePrefix}-{new Date().getFullYear()}-{String(p.nextInvoiceNumber).padStart(6, "0")} · prochain avoir {p.creditNotePrefix}-{new Date().getFullYear()}-{String(p.nextCreditNoteNumber).padStart(6, "0")}</p> : null}
+      {updated ? <AdminAlert tone="success">Profil enregistré.</AdminAlert> : null}
+      {error ? <AdminAlert tone="danger">{error}</AdminAlert> : null}
+      {issues.length > 0 ? <AdminAlert tone="warning">Profil incomplet : {issues.join(" ")}</AdminAlert> : null}
+
+      <form action={saveBillingProfileAction} className="space-y-4">
+        <AdminCard icon={Building2} title="Identité">
+          <AdminFormSection columns={3}>
+            <AdminInput id="profileName" name="profileName" label="Nom du profil" defaultValue={v(p?.profileName ?? "Profil principal")} />
+            <AdminInput id="companyName" name="companyName" label="Société" defaultValue={v(p?.companyName)} />
+            <AdminInput id="legalName" name="legalName" label="Raison sociale" defaultValue={v(p?.legalName)} />
+            <AdminInput id="legalForm" name="legalForm" label="Forme juridique" defaultValue={v(p?.legalForm)} placeholder="SAS, EI…" />
+            <AdminInput id="shareCapital" name="shareCapital" label="Capital social" defaultValue={v(p?.shareCapital)} />
+            <AdminInput id="apeNaf" name="apeNaf" label="Code APE/NAF" defaultValue={v(p?.apeNaf)} />
+          </AdminFormSection>
+        </AdminCard>
+
+        <AdminCard icon={MapPin} title="Adresse & contact">
+          <AdminFormSection columns={3}>
+            <AdminInput id="addressLine1" name="addressLine1" label="Adresse" defaultValue={v(p?.addressLine1)} />
+            <AdminInput id="addressLine2" name="addressLine2" label="Complément" defaultValue={v(p?.addressLine2)} />
+            <AdminInput id="postalCode" name="postalCode" label="Code postal" defaultValue={v(p?.postalCode)} />
+            <AdminInput id="city" name="city" label="Ville" defaultValue={v(p?.city)} />
+            <AdminInput id="country" name="country" label="Pays" defaultValue={v(p?.country ?? "France")} />
+            <AdminInput id="email" name="email" type="email" label="Email" defaultValue={v(p?.email)} />
+            <AdminInput id="phone" name="phone" label="Téléphone" defaultValue={v(p?.phone)} />
+            <AdminInput id="website" name="website" label="Site web" defaultValue={v(p?.website)} />
+          </AdminFormSection>
+        </AdminCard>
+
+        <AdminCard icon={Scale} title="Fiscalité & immatriculation">
+          <AdminFormSection columns={3}>
+            <AdminInput id="siren" name="siren" label="SIREN" defaultValue={v(p?.siren)} />
+            <AdminInput id="siret" name="siret" label="SIRET" defaultValue={v(p?.siret)} />
+            <AdminInput id="vatNumber" name="vatNumber" label="TVA intracom." defaultValue={v(p?.vatNumber)} />
+            <AdminInput id="rcsCity" name="rcsCity" label="RCS ville" defaultValue={v(p?.rcsCity)} />
+            <AdminInput id="rcsNumber" name="rcsNumber" label="RCS numéro" defaultValue={v(p?.rcsNumber)} />
+            <AdminInput id="rmNumber" name="rmNumber" label="RM numéro" defaultValue={v(p?.rmNumber)} />
+            <AdminSelect id="vatRegime" name="vatRegime" label="Régime TVA" defaultValue={p?.vatRegime ?? "standard"}>
+              <option value="standard">standard</option>
+              <option value="franchise_base">franchise en base (293 B)</option>
+              <option value="exempt">exonéré</option>
+              <option value="reverse_charge">autoliquidation</option>
+              <option value="intra_eu">intra-UE</option>
+            </AdminSelect>
+            <AdminInput id="defaultVatRate" name="defaultVatRate" type="number" label="Taux TVA défaut (%)" defaultValue={v(p?.defaultVatRate)} placeholder="20" />
+          </AdminFormSection>
+        </AdminCard>
+
+        <AdminCard icon={CreditCard} title="Paiement">
+          <AdminFormSection columns={3}>
+            <AdminInput id="iban" name="iban" label="IBAN" defaultValue={v(p?.iban)} />
+            <AdminInput id="bic" name="bic" label="BIC" defaultValue={v(p?.bic)} />
+            <AdminInput id="paymentTermsDays" name="paymentTermsDays" type="number" label="Délai paiement (j)" defaultValue={v(p?.paymentTermsDays ?? 30)} />
+            <AdminInput id="latePaymentRate" name="latePaymentRate" label="Taux pénalités retard" defaultValue={v(p?.latePaymentRate)} placeholder="3× taux légal" />
+          </AdminFormSection>
+        </AdminCard>
+
+        <AdminCard icon={Hash} title="Numérotation">
+          <AdminFormSection columns={2}>
+            <AdminInput id="invoicePrefix" name="invoicePrefix" label="Préfixe facture" defaultValue={v(p?.invoicePrefix ?? "FAC")} />
+            <AdminInput id="creditNotePrefix" name="creditNotePrefix" label="Préfixe avoir" defaultValue={v(p?.creditNotePrefix ?? "AVOIR")} />
+          </AdminFormSection>
+          {p ? <p className="mt-3 text-[12.5px] text-slate-500">Prochaine facture {p.invoicePrefix}-{new Date().getFullYear()}-{String(p.nextInvoiceNumber).padStart(6, "0")} · prochain avoir {p.creditNotePrefix}-{new Date().getFullYear()}-{String(p.nextCreditNoteNumber).padStart(6, "0")}</p> : null}
+        </AdminCard>
+
+        <AdminCard icon={Receipt} title="Mentions légales (optionnel)">
+          <AdminTextarea id="legalFooterHtml" name="legalFooterHtml" label="Pied de page légal (HTML — prime sur les mentions auto)" defaultValue={v(p?.legalFooterHtml)} rows={3} />
+        </AdminCard>
+
+        <div className="flex justify-end">
+          <AdminButton type="submit" variant="primary">Enregistrer le profil</AdminButton>
+        </div>
+      </form>
     </PageShell>
   );
 }

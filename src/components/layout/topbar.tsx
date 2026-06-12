@@ -9,9 +9,18 @@ import { NotificationsBell } from "@/components/layout/notifications-bell";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { getPaperlessPublicUrl } from "@/lib/paperless";
 import { readSession } from "@/lib/auth/session";
+import { AdminScopeBadge } from "@/components/admin-ui";
 
 export async function Topbar({ saasAdmin = false, tenantClient = false }: { saasAdmin?: boolean; tenantClient?: boolean }) {
   const paperlessUrl = getPaperlessPublicUrl();
+  // Badge d'espace courant (Superadmin vs espace client) — clarté section/rôle.
+  let scope: { variant: "admin" | "tenant"; label: string } | null = null;
+  if (saasAdmin) {
+    scope = { variant: "admin", label: "Administration SaaS" };
+  } else if (tenantClient) {
+    const ctx = await (await import("@/lib/tenant/get-current-tenant")).getCurrentTenant().catch(() => null);
+    if (ctx) scope = { variant: "tenant", label: `${ctx.tenant.name ?? ctx.tenantId} · ${ctx.role}` };
+  }
   const session = await readSession().catch(() => null);
   const username = session?.username ?? null;
   const userInitials = username ? username[0].toUpperCase() : "N";
@@ -65,6 +74,9 @@ export async function Topbar({ saasAdmin = false, tenantClient = false }: { saas
 
         {/* Droite */}
         <div className="ml-auto flex items-center gap-1.5">
+          {/* Espace courant (Superadmin vs client) */}
+          {scope ? <span className="hidden lg:inline-flex"><AdminScopeBadge variant={scope.variant}>{scope.label}</AdminScopeBadge></span> : null}
+
           {/* Importer (popup ; masqué sur smartphone : accessible via Actions rapides) */}
           <TopbarImportButton />
 
