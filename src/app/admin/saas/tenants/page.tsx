@@ -1,120 +1,66 @@
 import Link from "next/link";
-import { AlertTriangle, Building2, ChevronRight, Plus, ShieldCheck } from "lucide-react";
+import { AlertTriangle, Plus, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
-import { SectionCard } from "@/components/ui/section-card";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isMultiTenantEnabled } from "@/lib/tenant/tenant-config";
 import { listTenants, getTenantCounts, countTenantMembers } from "@/lib/tenant/tenant-store";
+import { AdminCard, AdminBadge, AdminDataTable, type AdminColumn } from "@/components/admin-ui";
 
 export const dynamic = "force-dynamic";
 
 const breadcrumb = [
   { href: "/dashboard", label: "Accueil" },
-  { href: "/administration", label: "Administration" },
-  { label: "Tenants SaaS" },
+  { href: "/admin/saas", label: "Gestion clients" },
+  { label: "Clients / Espaces" },
 ];
+type Tone = "neutral" | "info" | "success" | "warning" | "danger";
+function statusTone(s: string | null | undefined): Tone {
+  switch (s) { case "active": return "success"; case "trial": case "trialing": return "info"; case "suspended": return "danger"; case "archived": return "neutral"; default: return "neutral"; }
+}
+type Row = { tenant: Awaited<ReturnType<typeof listTenants>>[number]; members: number; counts: Awaited<ReturnType<typeof getTenantCounts>> | null };
 
 export default async function SaasTenantsPage() {
-  // Accès STRICTEMENT superuser (un owner de tenant non-superuser est refusé).
   const me = await getCurrentUser();
   if (!me?.is_superuser) {
-    return (
-      <PageShell>
-        <PageHeader breadcrumb={breadcrumb} title="Tenants SaaS" description="Accès réservé aux superusers." />
-        <SectionCard icon={ShieldCheck} title="Accès refusé">
-          <p className="text-sm text-slate-600">Cette page globale est réservée aux superusers.</p>
-        </SectionCard>
-      </PageShell>
-    );
+    return <PageShell><PageHeader breadcrumb={breadcrumb} title="Clients / Espaces" description="Accès réservé aux superusers." /><AdminCard icon={ShieldCheck} title="Accès refusé"><p className="text-sm text-slate-600">Cette page globale est réservée aux superusers.</p></AdminCard></PageShell>;
   }
-
   if (!isMultiTenantEnabled()) {
-    return (
-      <PageShell>
-        <PageHeader breadcrumb={breadcrumb} title="Tenants SaaS" description="Vue globale des tenants." />
-        <SectionCard icon={AlertTriangle} title="Mode mono-tenant">
-          <p className="text-sm text-slate-600">
-            <code className="font-mono text-[12px]">MULTI_TENANT</code> n&apos;est pas activé : pas de
-            gestion multi-tenant sur cette instance.
-          </p>
-        </SectionCard>
-      </PageShell>
-    );
+    return <PageShell><PageHeader breadcrumb={breadcrumb} title="Clients / Espaces" /><AdminCard icon={AlertTriangle} title="Mode mono-tenant"><p className="text-sm text-slate-600"><code className="font-mono text-[12px]">MULTI_TENANT</code> n&apos;est pas activé.</p></AdminCard></PageShell>;
   }
 
   const tenants = await listTenants().catch(() => []);
-  const rows = await Promise.all(
-    tenants.map(async (t) => ({
-      tenant: t,
-      members: await countTenantMembers(t.id).catch(() => 0),
-      counts: await getTenantCounts(t.id).catch(() => null),
-    })),
-  );
+  const rows: Row[] = await Promise.all(tenants.map(async (t) => ({
+    tenant: t, members: await countTenantMembers(t.id).catch(() => 0), counts: await getTenantCounts(t.id).catch(() => null),
+  })));
+
+  const columns: AdminColumn<Row>[] = [
+    { key: "name", header: "Nom / Slug", cell: (r) => (<><div className="font-semibold" style={{ color: "var(--au-navy)" }}>{r.tenant.name ?? r.tenant.id}</div><div className="font-mono text-[11px] text-slate-500">{r.tenant.slug}</div></>) },
+    { key: "plan", header: "Plan", cell: (r) => <code className="font-mono text-[12px]">{r.tenant.plan ?? "—"}</code> },
+    { key: "status", header: "Statut", cell: (r) => <AdminBadge tone={statusTone(r.tenant.status)}>{r.tenant.status ?? "—"}</AdminBadge> },
+    { key: "users", header: "Users", align: "right", cell: (r) => r.members },
+    { key: "docs", header: "Docs", align: "right", cell: (r) => r.counts?.documents ?? "—" },
+    { key: "tags", header: "Tags", align: "right", cell: (r) => r.counts?.tags ?? "—" },
+    { key: "corr", header: "Corresp.", align: "right", cell: (r) => r.counts?.correspondents ?? "—" },
+    { key: "act", header: "", align: "right", cell: (r) => <Link href={`/admin/saas/tenants/${encodeURIComponent(r.tenant.id)}`} className="text-[12px] font-semibold" style={{ color: "var(--au-pink)" }}>Détails →</Link> },
+  ];
 
   return (
     <PageShell>
       <PageHeader
         breadcrumb={breadcrumb}
-        title="Tenants SaaS"
-        description={`Vue globale (superuser) — ${tenants.length} tenant(s).`}
-        actions={
-          <Link
-            href="/admin/saas/create-tenant"
-            className="inline-flex h-10 items-center gap-2 rounded-xl px-4 text-[13px] font-bold text-white shadow-sm"
-            style={{ background: "var(--blue-600)" }}
-          >
-            <Plus className="h-4 w-4" strokeWidth={2.25} aria-hidden="true" /> Créer un tenant
-          </Link>
-        }
+        title="Clients / Espaces"
+        description={`Vue globale (superuser) — ${tenants.length} client(s).`}
+        actions={<Link href="/admin/saas/create-tenant" className="au-btn au-btn--primary"><Plus className="h-4 w-4" strokeWidth={2.25} aria-hidden="true" /> Créer un client</Link>}
       />
-
-      <SectionCard icon={Building2} title="Tenants" bodyClassName="p-0">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-[13px]">
-            <thead>
-              <tr className="border-b text-[11px] font-semibold uppercase tracking-wide text-slate-500" style={{ borderColor: "var(--border)" }}>
-                <th className="px-4 py-2.5">Nom / Slug</th>
-                <th className="px-4 py-2.5">Plan</th>
-                <th className="px-4 py-2.5">Statut</th>
-                <th className="px-4 py-2.5 text-right">Users</th>
-                <th className="px-4 py-2.5 text-right">Docs</th>
-                <th className="px-4 py-2.5 text-right">Tags</th>
-                <th className="px-4 py-2.5 text-right">Corresp.</th>
-                <th className="px-4 py-2.5"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(({ tenant, members, counts }) => (
-                <tr key={tenant.id} className="border-b last:border-0" style={{ borderColor: "var(--border-soft)" }}>
-                  <td className="px-4 py-2.5">
-                    <div className="font-semibold text-slate-900">{tenant.name ?? tenant.id}</div>
-                    <div className="font-mono text-[11px] text-slate-500">{tenant.slug}</div>
-                  </td>
-                  <td className="px-4 py-2.5"><code className="font-mono text-[12px]">{tenant.plan ?? "—"}</code></td>
-                  <td className="px-4 py-2.5">{tenant.status ?? "—"}</td>
-                  <td className="px-4 py-2.5 text-right">{members}</td>
-                  <td className="px-4 py-2.5 text-right">{counts?.documents ?? "—"}</td>
-                  <td className="px-4 py-2.5 text-right">{counts?.tags ?? "—"}</td>
-                  <td className="px-4 py-2.5 text-right">{counts?.correspondents ?? "—"}</td>
-                  <td className="px-4 py-2.5 text-right">
-                    <Link
-                      href={`/admin/saas/tenants/${encodeURIComponent(tenant.id)}`}
-                      className="inline-flex items-center gap-1 text-[12px] font-semibold"
-                      style={{ color: "var(--accent)" }}
-                    >
-                      Détails <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} />
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-              {rows.length === 0 ? (
-                <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-500">Aucun tenant.</td></tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-      </SectionCard>
+      <AdminDataTable<Row>
+        title="Clients"
+        columns={columns}
+        rows={rows}
+        rowKey={(r) => r.tenant.id}
+        emptyTitle="Aucun client"
+        emptyHint={<Link href="/admin/saas/create-tenant" style={{ color: "var(--au-pink)" }}>Créer le premier client</Link>}
+      />
     </PageShell>
   );
 }
